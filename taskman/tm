@@ -624,31 +624,55 @@ def check_nudge(rep, root):
             rep.warn(f"{task.id} still in doing — run `tm done {task.id}` if that finished it")
 
 
-VERIFIED = "tm-verified"
+# `--no-verify` skips pre-commit and commit-msg but NOT post-commit. So the
+# trace cannot be "post-commit records success" — that would run on bypassed
+# commits too, erasing the evidence. Instead pre-commit drops a token and
+# post-commit checks whether it is there and fresh. Freshness rather than
+# sha-matching, because --amend and merges legitimately change the parent.
+TOKEN = "tm-precommit"
+BYPASSED = "tm-bypassed"
+TOKEN_TTL = 120  # seconds
+
+
+def _gitpath(root, name):
+    gitdir = (git("rev-parse", "--git-dir") or "").strip()
+    return os.path.join(root, gitdir, name) if gitdir else None
 
 
 def check_bypass(rep, root):
-    gitdir = (git("rev-parse", "--git-dir") or "").strip()
-    if not gitdir:
-        return None
-    marker = os.path.join(root, gitdir, VERIFIED)
-    head = (git("rev-parse", "HEAD") or "").strip()
-    if os.path.exists(marker):
-        with open(marker) as fh:
-            last = fh.read().strip()
-        if head and last and last != head:
-            n = len((git("rev-list", f"{last}..{head}") or "").split())
-            if n:
-                rep.warn(f"{n} commit(s) landed without these checks (--no-verify)")
-    return marker
+    """Report the standing trace, then arm the token for this commit."""
+    log = _gitpath(root, BYPASSED)
+    if log and os.path.exists(log):
+        with open(log) as fh:
+            shas = [s for s in fh.read().split() if s]
+        if shas:
+            recent = " ".join(s[:7] for s in shas[-3:])
+            rep.warn(
+                f"{len(shas)} commit(s) bypassed these checks ({recent}) — "
+                f"run `tm check`, then clear .git/{BYPASSED}"
+            )
+    token = _gitpath(root, TOKEN)
+    if token:
+        with open(token, "w") as fh:
+            fh.write((git("rev-parse", "HEAD") or "root").strip())
 
 
 def record_verified(root):
-    gitdir = (git("rev-parse", "--git-dir") or "").strip()
-    head = (git("rev-parse", "HEAD") or "").strip()
-    if gitdir and head:
-        with open(os.path.join(root, gitdir, VERIFIED), "w") as fh:
-            fh.write(head)
+    """post-commit: was this commit validated, or did it skip the gate?"""
+    import time
+
+    token, log = _gitpath(root, TOKEN), _gitpath(root, BYPASSED)
+    if not token:
+        return
+    fresh = os.path.exists(token) and os.path.getmtime(token) > time.time() - TOKEN_TTL
+    if os.path.exists(token):
+        os.remove(token)
+    if not fresh and log:
+        head = (git("rev-parse", "HEAD") or "").strip()
+        if head:
+            with open(log, "a") as fh:
+                fh.write(head + "\n")
+            print(f"  ~ this commit skipped validation — recorded in .git/{BYPASSED}")
 
 
 def cmd_check(args):
