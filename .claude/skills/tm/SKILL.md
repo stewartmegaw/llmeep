@@ -15,6 +15,7 @@ Run from the repo root:
 ```sh
 taskman/tm add [-b] [-n] <title...>   # -b business ledger, -n top of the order
 taskman/tm go [id]                    # show the current task, or start the next one
+taskman/tm park [id] [-n]             # return it to open
 taskman/tm done [id] [--force]        # complete it
 taskman/tm find <term>                # search every task ever completed
 ```
@@ -26,6 +27,7 @@ taskman/tm find <term>                # search every task ever completed
 | "what's next" / "what am I on" | `tm go` |
 | "let's start PLT-9puy" | `tm go PLT-9puy` |
 | "add a task for X" | `tm add X` — pass `-b` if the done-state is a business outcome |
+| "park that" / "I'm blocked on this" | `tm park` — returns it to `open` so `go` picks something else |
 | "commit task" / "that's done" | `tm done`, then `git commit` with `closes <id>` in the message |
 | "have we done this before" | `tm find <term>` |
 

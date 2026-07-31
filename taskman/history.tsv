@@ -12,3 +12,4 @@
 2026-07-31	PLT-us7k	platform	Put the agent-is-the-interface concept in the README
 2026-07-31	PLT-uhhk	platform	Make the notifier swappable
 2026-07-31	PLT-jcv5	platform	check --notify should not send unless asked
+2026-07-31	PLT-rc4c	platform	Add a tm command to return a task from doing to open

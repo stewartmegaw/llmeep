@@ -50,11 +50,12 @@ because every agent reads README. Point yours at this file.
 
 ## Tracking work
 
-Four commands. No install step — one Python 3 file, standard library only.
+Five commands. No install step — one Python 3 file, standard library only.
 
 ```sh
 taskman/tm add Fix flaky auth test   # create; -b for business, -n for top of the order
 taskman/tm go                        # start the next task, or show the one in progress
+taskman/tm park                      # put it back; the next `go` picks something else
 taskman/tm done                      # complete the current task
 taskman/tm find auth                 # search everything ever completed
 ```

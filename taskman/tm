@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """tm — taskman. See taskman/ontology.md for the model.
 
-Four commands: add, go, done, find. Listing is reading the board; reordering is
+Five commands: add, go, park, done, find. Listing is reading the board; reordering is
 moving a line in it. Neither is a command.
 
 The tool is deterministic and never interprets intent (principle 7). It takes
@@ -62,7 +62,10 @@ class Task:
     def render(self):
         line = f"{self.id:<9}{self.title}"
         if self.tags:
-            line = f"{line:<58}{'  '.join(self.tags)}"
+            # ljust then an explicit separator: a title long enough to fill the
+            # column gets no padding, and without this the tag is concatenated
+            # onto the title — which _parse then reads back as part of it.
+            line = line.ljust(56) + "  " + "  ".join(self.tags)
         return line.rstrip()
 
     def render_recent(self):
@@ -430,6 +433,42 @@ def show_task(board, task, started):
                 print(f"    [ ] {item}")
     show_related(task.title)
     skeleton_nudge()
+
+
+def cmd_park(args):
+    """doing → open. The one transition the tool forces you into.
+
+    Moving a line between sections breaks no invariant, so by the reordering
+    exemption this could be a hand edit. It is a command because **WIP-1 creates
+    the need**: `go` refuses while `doing` is occupied, so anyone switching
+    tasks is pushed by the tool's own guard into editing the board — exactly
+    what principle 2 exists to prevent. Nothing in `tm` blocks deleting a line,
+    which is why dropping stays a hand edit.
+
+    Returns to the *bottom* by default: a parked task is usually one you could
+    not continue, and putting it back on top means the next bare `go` restarts
+    it. `-n` for the case where it really is still next.
+    """
+    top = "-n" in args
+    rest = [a for a in args if a != "-n"]
+    tid = rest[0] if rest else None
+    for ledger in LEDGERS:
+        board = Board(ledger)
+        if tid:
+            task, bucket = board.find(tid)
+            if task and bucket is not board.doing:
+                raise Fail(f"{task.id} is not in doing")
+        else:
+            task = board.doing[0] if board.doing else None
+        if not task:
+            continue
+        board.doing.remove(task)
+        board.open.insert(0, task) if top else board.open.append(task)
+        board.save()
+        print(f"  {task.id}  {task.title}")
+        print(f"  {ledger} · returned to {'top' if top else 'bottom'} of open")
+        return
+    raise Fail(f"no task {tid} in doing" if tid else "nothing in doing")
 
 
 def cmd_done(args):
@@ -933,6 +972,7 @@ USAGE = """tm — taskman
 
   tm add [-b] [-n] <title...>   create a task (-b business, -n top of order)
   tm go [id]                    show the current task, or start the next one
+  tm park [id] [-n]             return it to open (-n puts it on top)
   tm done [id] [--force]        complete it, then commit with "closes <id>"
   tm find <term>                search every task ever completed
 
@@ -950,7 +990,8 @@ def main():
         print(USAGE)
         return 0
     commands = {
-        "add": cmd_add, "go": cmd_go, "done": cmd_done, "find": cmd_find,
+        "add": cmd_add, "go": cmd_go, "park": cmd_park,
+        "done": cmd_done, "find": cmd_find,
         "check": cmd_check, "reset": cmd_reset,
     }
     cmd = commands.get(argv[0])

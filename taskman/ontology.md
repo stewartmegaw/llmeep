@@ -13,7 +13,7 @@ the [root README](../README.md) and not repeated here.
 
 ```
 taskman/
-  tm               <- the executable; four commands
+  tm               <- the executable; five commands
   ontology.md      <- this file
   history.tsv      <- every completed task; grep-only, never loaded
   platform/
@@ -189,7 +189,7 @@ left the Window.
 
 ## Skill
 
-One of four operations. Everything else — listing, reordering — is a file read or a hand edit.
+One of five operations. Everything else — listing, reordering — is a file read or a hand edit.
 
 **A skill is an executable command**, not a vendor artifact. Every agent can run a shell
 command, and so can a person; it is the only common denominator that does not pick a winner.
@@ -200,6 +200,7 @@ step. See [`DEC-003`](../notes/decisions/DEC-003-skills-are-executables.md).
 | ------ | -------------------- | --------------------------------------------------------------- |
 | `add`  | `tm add <title…>`    | Allocates the ID, appends to `open`. **Searches History.**       |
 | `go`   | `tm go [id]`         | No id: shows what is in `doing`, or starts the top of `open` if nothing is. With an id: starts that one. **Searches History.** |
+| `park` | `tm park [id] [-n]`  | `doing` → `open`, at the bottom (`-n` for the top). |
 | `done` | `tm done [id]`       | Defaults to whatever is in `doing`. Moves to `recent`, prunes, appends to History, notifies. Run **before** committing. |
 | `find` | `tm find <term>`     | Greps History explicitly.                                        |
 
@@ -209,6 +210,7 @@ tm add -b Call three customers    # -b for the business ledger
 tm add -n Fix the build           # -n puts it on top of the order
 tm go                             # "what should I be doing?"
 tm go PLT-007                     # start that one specifically
+tm park                           # put it back; the next `go` picks something else
 tm done                           # complete the current task
 ```
 
@@ -225,6 +227,22 @@ inferred from state has to be typed.
 `go` is the one that beats a tracker: with no argument it is a **context loader**, not a state
 change. It answers "what am I doing?" and "what's next?" with the same command, and puts the
 task, its sidecar, its blockers and any linked decisions in front of the agent.
+
+### Why `park` is a command when reordering is not
+
+Moving a line between `doing` and `open` breaks no invariant, so by the
+[reordering exemption](#reordering-is-a-hand-edit) it could be a hand edit. It is a command
+because **WIP-1 creates the need**: `go` refuses while `doing` is occupied, so anyone switching
+tasks is pushed by the tool's own guard into editing the board — precisely what
+[principle 2](../ontology/principles.md) exists to prevent. A tool that forces you to break its
+own rule has to provide the way out.
+
+Nothing in `tm` blocks deleting a line, so **dropping stays a hand edit**. The test is not "is
+it a status transition?" but "does the tool leave you any other way?"
+
+`park` returns a task to the **bottom** of `open` by default. A parked task is usually one you
+could not continue; putting it back on top means the next bare `go` restarts it immediately.
+`-n` for the case where it genuinely is still next.
 
 ### The tool does not classify
 
@@ -253,7 +271,7 @@ the exact failure [principle 3](../ontology/principles.md) exists to prevent.
 
 ### Discovery
 
-An agent only uses a skill it knows exists, so the four commands are listed in the
+An agent only uses a skill it knows exists, so the five commands are listed in the
 [root README](../README.md) — the contract every agent reads. Discovery must not depend on an
 adapter, because not every agent has one.
 
