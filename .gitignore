@@ -1,0 +1,25 @@
+# Local working memory — never committed, except its contract.
+.notes/*
+!.notes/README.md
+
+# Agent tooling. Vendor adapters are committed (DEC-003); local settings never are.
+# Same carve-out pattern as .notes/ above: ignore the directory, re-include the one
+# path that belongs in the repo. Add a pair here for each agent the team uses.
+.claude/*
+!.claude/skills/
+*.local.json
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Secrets. The Telegram bot token for `done` lives in .env (PLT-005).
+# The platform/ subtree should add its own ignores rather than growing this file.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
