@@ -5,6 +5,8 @@
 
 ## open
 
+PLT-rc4c Add a tm command to return a task from doing to open  detail
+PLT-c6ab Co-locate the notes ontology and decide if notes needs tooling  detail
 
 ## recent
 
