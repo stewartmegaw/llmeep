@@ -9,3 +9,4 @@
 2026-07-31	PLT-005	platform	Notify team Telegram bot from done
 2026-07-31	PLT-2fyj	platform	Make Telegram notification-only
 2026-07-31	PLT-h49x	platform	Drop the Telegram drain in favour of BotFather description
+2026-07-31	PLT-us7k	platform	Put the agent-is-the-interface concept in the README

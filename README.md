@@ -21,6 +21,9 @@ MVP, it is pure friction:
   sometimes.
 - **Git is already a database.** Completed work does not need to sit in the working tree. Keep
   a short window of recent history and search the rest on demand.
+- **The agent is the interface.** Bots, forms and dashboards are input surfaces built for
+  humans who lack context. An agent already has the whole repository — so it takes the input,
+  and every other channel becomes notification-only.
 
 So this skeleton keeps only what stays irreducible at that size: **a shared vocabulary**, **an
 ordered list of what is next**, and **a durable record of why**. Everything else is deleted
@@ -69,18 +72,40 @@ git commit -m "Fix flaky auth test. closes PLT-007"
 The trailer makes the commit self-identifying, so `find` can recover it later and no SHA is
 stored anywhere.
 
-**Prerequisite: project git commands go through the agent.** Nothing enforces this — direct git
-use keeps working, and revert, rebase and CI must never be blocked — but the board only stays
-current if the agent is driving. In practice you speak and it translates:
-
-```
-"lets start PLT-123"   →   tm go PLT-123
-"commit task"          →   tm done PLT-123  &&  git commit -m "…. closes PLT-123"
-```
-
 Listing is reading [the board](taskman/platform/board.md); reordering is moving a line in it.
 Neither needs a command. `add` and `go` search history automatically, so work that was already
 attempted surfaces without anyone deciding to look.
+
+### The agent is the interface
+
+There is deliberately **no chat bot, no form, no dashboard** for managing work. Anything you
+would type into one, you say to the agent — including from a phone, since Claude Code runs
+there too. You speak; it translates:
+
+```
+"what am I on?"          →   tm go
+"start PLT-9puy"         →   tm go PLT-9puy
+"add a task for X"       →   tm add X
+"that's done, commit it" →   tm done  &&  git commit -m "…. closes PLT-9puy"
+```
+
+**That includes git.** Nothing enforces it — direct git use keeps working, and revert, rebase
+and CI must never be blocked — but the board only stays current if the agent is driving.
+
+**Every other channel is notification-only.** Telegram gets an announcement when `done` runs;
+messages sent *to* the bot are ignored, its BotFather description says so, and it advertises no
+commands.
+
+We built the other way first and deleted it. Inbound Telegram worked — `/add` filed tasks,
+`/list` returned the board — and it was still a worse version of something already available
+from the same phone: an agent needs no command syntax, no flags, and lands the change on the
+board directly instead of queueing it for a later pull. See
+[`DEC-006`](notes/decisions/DEC-006-telegram-is-notification-only.md) and
+[`DEC-007`](notes/decisions/DEC-007-stray-telegram-messages-are-ignored.md).
+
+The rule generalises past Telegram: **before building an input surface, check whether an agent
+with the repository already does it better.** Slack, email, a web UI — the answer is usually
+yes, and the surface you skip is one you never have to keep in sync.
 
 **Install the validation hooks** — one step, because `.git/hooks` is not committed:
 
