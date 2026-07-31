@@ -9,6 +9,7 @@ PLT-c6ab Co-locate the notes ontology and decide if notes needs tooling  detail
 
 ## recent
 
+2026-07-31  PLT-n4zk Record assignees on tasks            @stewart
 2026-07-31  PLT-rc4c Add a tm command to return a task from doing to open
 2026-07-31  PLT-jcv5 check --notify should not send unless asked
 2026-07-31  PLT-uhhk Make the notifier swappable

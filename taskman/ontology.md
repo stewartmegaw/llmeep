@@ -60,20 +60,21 @@ being worked on, and what was recently completed.
 - **Identity:** one per [Ledger](#ledger), at `taskman/<ledger>/board.md`.
 - **Contains:** [Tasks](#task) as lines. Nothing else — **no counter, no metadata.** A field
   that does not exist cannot conflict between branches (`PLT-006`).
-- **Invariants:** IDs unique across both boards and history; at most one task in `doing`; at
-  most 15 entries in `recent`; every `blocked:` and `detail` tag resolves.
+- **Invariants:** IDs unique across both boards and history; **at most one task in `doing` per
+  assignee**; at most 15 entries in `recent`; every `blocked:` and `detail` tag resolves.
 
 ```
 # platform
 
 ## doing
 
-PLT-004  Add request tracing
+PLT-004  Add request tracing              @stew
+PLT-011  Migrate config loader            @sam
 
 ## open
 
 PLT-007  Fix flaky auth test
-PLT-002  Migrate config loader            blocked:PLT-007  detail
+PLT-002  Rework the retry policy          @sam  blocked:PLT-007  detail
 PLT-009  Upgrade toolchain
 
 ## recent
@@ -85,9 +86,10 @@ PLT-009  Upgrade toolchain
 - **Priority is position.** No P0/P1/P2. The question is never "is this a P1?" — it is "is
   this above or below that?", which is answerable. Labels inflate until everything is P1;
   positions cannot.
-- **Status is section.** `doing` holds at most one task.
+- **Status is section.** `doing` holds at most one task **per assignee**.
 - **First token is the task's own ID.** Everything after the title is a labelled tag.
 - **`blocked:PLT-007`** — cannot start until that task is done.
+- **`@stew`** — who owns it. See [Assignee](#assignee).
 - **`detail`** — a [Sidecar](#sidecar) exists. Its absence means the line is the whole task,
   so nothing goes looking.
 
@@ -128,6 +130,27 @@ A unit of intended change. **One line on a [Board](#board).**
   are the quality gate.
 - **Notes:** a title is the floor and usually the ceiling. A lengthy description of work that
   takes an hour is friction with no reader.
+
+## Assignee
+
+Who owns a task. An `@name` tag on the board line — the same shape as `blocked:` and `detail`,
+so the format gains no new concept.
+
+- **Identity is derived, never configured.** In order: `TM_USER`, `git config taskman.user`, the
+  local part of `git config user.email`, then `git config user.name`. The email local part comes
+  first because it is short, stable and already unique in a team, which a display name is not.
+- **`go` claims, `park` releases, `done` records.** Starting a task assigns it to you; parking
+  puts it back unclaimed; completing writes the name to `history.tsv` and the notification.
+  `-f <name>` on `add` and `go` acts on someone else's behalf.
+- **Bare `go` skips work claimed by others.** Name it explicitly to take it over.
+- **Unclaimed tasks in `doing` are adopted** by the next `go` — otherwise a task started before
+  a claim existed is invisible to its owner's WIP check, silently permitting a second.
+- **Where git has no identity, claims are simply not made** and the behaviour degrades to a
+  single shared slot.
+
+Git already answers *who did* finished work — the commit author, via `find`. What it cannot
+answer is *who owns* open work, and that is the case that causes two people to pick up the same
+task. See [`DEC-010`](../notes/decisions/DEC-010-tasks-carry-an-assignee.md).
 
 ## Sidecar
 
@@ -198,9 +221,9 @@ step. See [`DEC-003`](../notes/decisions/DEC-003-skills-are-executables.md).
 
 | Skill  | Invocation           | Does                                                            |
 | ------ | -------------------- | --------------------------------------------------------------- |
-| `add`  | `tm add <title…>`    | Allocates the ID, appends to `open`. **Searches History.**       |
+| `add`  | `tm add <title…>`    | Allocates the ID, appends to `open`. `-f <name>` assigns. **Searches History.** |
 | `go`   | `tm go [id]`         | No id: shows what is in `doing`, or starts the top of `open` if nothing is. With an id: starts that one. **Searches History.** |
-| `park` | `tm park [id] [-n]`  | `doing` → `open`, at the bottom (`-n` for the top). |
+| `park` | `tm park [id] [-n]`  | `doing` → `open`, at the bottom (`-n` for the top). Releases the claim. |
 | `done` | `tm done [id]`       | Defaults to whatever is in `doing`. Moves to `recent`, prunes, appends to History, notifies. Run **before** committing. |
 | `find` | `tm find <term>`     | Greps History explicitly.                                        |
 

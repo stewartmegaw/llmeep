@@ -1,4 +1,4 @@
-#date	id	ledger	title
+#date	id	ledger	title	who
 2026-07-31	PLT-002	platform	Choose taskman tooling language and location
 2026-07-31	PLT-003	platform	Build tm executable: add, go, done
 2026-07-31	PLT-006	platform	Prevent next_id collisions across branches
@@ -13,3 +13,4 @@
 2026-07-31	PLT-uhhk	platform	Make the notifier swappable
 2026-07-31	PLT-jcv5	platform	check --notify should not send unless asked
 2026-07-31	PLT-rc4c	platform	Add a tm command to return a task from doing to open
+2026-07-31	PLT-n4zk	platform	Record assignees on tasks	stewart

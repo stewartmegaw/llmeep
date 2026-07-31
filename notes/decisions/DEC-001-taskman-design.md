@@ -1,15 +1,24 @@
 ---
 id: DEC-001
 title: Taskman is a board file with four skills, backed by git history
-status: accepted
+status: superseded
 decided: 2026-07-31
 deciders: [stew]
 supersedes: []
-superseded_by: []
+superseded_by: [DEC-010]
 relates_to: [PLT-001, PLT-002, PLT-003, PLT-004, PLT-005]
 ---
 
 # DEC-001 — Taskman is a board file with four skills, backed by git history
+
+> **Superseded by [`DEC-010`](DEC-010-tasks-carry-an-assignee.md) on 2026-07-31 — in two
+> details only.** The model below stands in full: one board file per ledger, priority by
+> position, status by section, optional acceptance criteria, the bounded `recent` window, and
+> git as the archive.
+>
+> What changed: **assignees are back** (this document dropped them, on a premise that assumed a
+> single developer), and **WIP-1 is now one task in `doing` per person** rather than per board.
+> The skill list has also grown past the four named here — `park` was added by `PLT-rc4c`.
 
 ## Context
 

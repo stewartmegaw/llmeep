@@ -30,7 +30,7 @@ MAX_HITS = 3
 ALPHABET = "23456789abcdefghjkmnpqrstuvwxyz"
 ID_LEN = 4
 
-TAG_RE = re.compile(r"^(detail|blocked:[A-Za-z]{3}-\S+)$")
+TAG_RE = re.compile(r"^(detail|@[a-z0-9][a-z0-9._-]*|blocked:[A-Za-z]{3}-\S+)$")
 ID_RE = re.compile(r"^(PLT|BUS)-\S+$")
 
 
@@ -59,6 +59,21 @@ class Task:
     def has_detail(self):
         return "detail" in self.tags
 
+    @property
+    def assignee(self):
+        for t in self.tags:
+            if t.startswith("@"):
+                return t[1:]
+        return None
+
+    def claim(self, who):
+        self.release()
+        if who:
+            self.tags.insert(0, f"@{who}")
+
+    def release(self):
+        self.tags = [t for t in self.tags if not t.startswith("@")]
+
     def render(self):
         line = f"{self.id:<9}{self.title}"
         if self.tags:
@@ -69,7 +84,42 @@ class Task:
         return line.rstrip()
 
     def render_recent(self):
-        return f"{self.done_on}  {self.id:<9}{self.title}".rstrip()
+        line = f"{self.done_on}  {self.id:<9}{self.title}"
+        if self.assignee:
+            line = line.ljust(56) + f"  @{self.assignee}"
+        return line.rstrip()
+
+
+def slug(text):
+    text = re.sub(r"[^a-z0-9._-]+", "-", (text or "").strip().lower())
+    return text.strip("-") or None
+
+
+def whoami():
+    """Who is claiming. Derived, never asked for — one less thing to configure.
+
+    `git config user.email`'s local part is short, stable and already unique
+    within a team, which a display name is not. Returns None when git has no
+    identity, in which case claims are simply not made.
+    """
+    for source in (
+        os.environ.get("TM_USER"),
+        git_config("taskman.user"),
+        (git_config("user.email") or "").split("@")[0],
+        git_config("user.name"),
+    ):
+        if source and slug(source):
+            return slug(source)
+    return None
+
+
+def git_config(key):
+    try:
+        out = subprocess.run(["git", "config", "--get", key],
+                             cwd=ROOT, capture_output=True, text=True, timeout=5)
+        return out.stdout.strip() if out.returncode == 0 else ""
+    except Exception:
+        return ""
 
 
 class Board:
@@ -115,8 +165,11 @@ class Board:
         tokens = line.split()
         done_on = tokens.pop(0)
         tid = tokens.pop(0)
-        tokens, _ = self._split_tags(tokens)
-        return Task(tid, " ".join(tokens), done_on=done_on)
+        tokens, tags = self._split_tags(tokens)
+        # Keep the assignee; drop `detail`/`blocked:` — a completed task has no
+        # blocker, and its sidecar is found by id, not by a tag.
+        tags = [t for t in tags if t.startswith("@")]
+        return Task(tid, " ".join(tokens), tags, done_on=done_on)
 
     def all_ids(self):
         return {t.id for t in self.doing + self.open + self.recent}
@@ -166,7 +219,9 @@ def history_rows():
                 continue
             parts = line.rstrip("\n").split("\t")
             if len(parts) >= 4:
-                rows.append(dict(zip(("date", "id", "ledger", "title"), parts)))
+                # `who` is appended last so rows written before assignees
+                # existed still parse — zip simply stops short.
+                rows.append(dict(zip(("date", "id", "ledger", "title", "who"), parts)))
     return rows
 
 
@@ -177,8 +232,11 @@ def history_append(task, ledger):
     new = not os.path.exists(HISTORY)
     with open(HISTORY, "a") as fh:
         if new:
-            fh.write("#date\tid\tledger\ttitle\n")
-        fh.write(f"{task.done_on}\t{task.id}\t{ledger}\t{task.title}\n")
+            fh.write("#date\tid\tledger\ttitle\twho\n")
+        row = [task.done_on, task.id, ledger, task.title]
+        if task.assignee:
+            row.append(task.assignee)
+        fh.write("\t".join(row) + "\n")
 
 
 def search(term, limit=MAX_HITS):
@@ -333,7 +391,8 @@ def notify(task, ledger):
     if send is None:
         print(f"  ! unknown NOTIFY={name!r}; known: {', '.join(NOTIFIERS)}")
         return False
-    text = f"✓ {task.id}  {task.title}\n{ledger} · {task.done_on}"
+    who = f"{task.assignee} · " if task.assignee else ""
+    text = f"✓ {task.id}  {task.title}\n{ledger} · {who}{task.done_on}"
     try:
         return send(text)
     except (urllib.error.URLError, OSError) as exc:
@@ -363,54 +422,88 @@ def all_known_ids():
     return ids
 
 
+def take_flag(args, flag):
+    """Pull `--flag value` out of argv, returning (value, remaining)."""
+    if flag not in args:
+        return None, args
+    i = args.index(flag)
+    value = args[i + 1] if i + 1 < len(args) else None
+    return value, args[:i] + args[i + 2:]
+
+
 def cmd_add(args):
     ledger = "business" if "-b" in args else "platform"
     top = "-n" in args
+    who, args = take_flag(args, "-f")
     title = " ".join(a for a in args if a not in ("-b", "-n")).strip()
     if not title:
-        raise Fail('usage: tm add [-b] [-n] <title...>')
+        raise Fail('usage: tm add [-b] [-n] [-f <name>] <title...>')
     board = Board(ledger)
     show_related(title)  # before allocating, so a duplicate can be abandoned
     task = Task(new_id(LEDGERS[ledger], all_known_ids()), title)
+    task.claim(slug(who))
     board.open.insert(0, task) if top else board.open.append(task)
     board.save()
     print(f"\n  {task.id}  {task.title}")
-    print(f"  {ledger} · {'top of' if top else 'bottom of'} open")
+    claimed = f" · @{task.assignee}" if task.assignee else ""
+    print(f"  {ledger} · {'top of' if top else 'bottom of'} open{claimed}")
     skeleton_nudge()
 
 
 def cmd_go(args):
-    tid = args[0] if args else None
+    """WIP-1 is per person, not per board.
+
+    A single global `doing` slot assumes a single worker. Once tasks carry an
+    assignee, two people each having one in progress is the normal case — so
+    the limit follows the claim.
+    """
+    named, rest = take_flag(args, "-f")  # -f <name>: start on someone's behalf
+    who = slug(named) if named else whoami()
+    tid = rest[0] if rest else None
+
     for ledger in LEDGERS:
         board = Board(ledger)
-        if board.doing:
-            current = board.doing[0]
+        # An unclaimed task in `doing` predates assignees, or was started with
+        # no git identity. Treat it as the caller's and claim it, rather than
+        # leaving it invisible to everyone — which would let a second task start
+        # and quietly break WIP-1.
+        mine = [t for t in board.doing if t.assignee in (who, None)]
+        if mine:
+            current = mine[0]
             if tid and current.id.lower() != tid.lower():
                 raise Fail(
-                    f"{current.id} is already in doing — finish it first (WIP-1)"
+                    f"{current.id} is already in doing — finish or park it first (WIP-1)"
                 )
+            if current.assignee is None and who:
+                current.claim(who)
+                board.save()
             return show_task(board, current, started=False)
     if tid:
         for ledger in LEDGERS:
             board = Board(ledger)
             task, bucket = board.find(tid)
             if task and bucket is board.open:
-                return start(board, task)
+                return start(board, task, who)
             if task:
                 raise Fail(f"{task.id} is not open")
         raise Fail(f"no open task {tid}")
     for ledger in LEDGERS:
         board = Board(ledger)
         for task in board.open:
+            # Someone else's claim is not yours to pick up; name it explicitly
+            # if you mean to take it over.
+            if task.assignee and task.assignee != who:
+                continue
             if not board.is_blocked(task):
-                return start(board, task)
-    raise Fail("nothing startable — every open task is blocked, or there are none")
+                return start(board, task, who)
+    raise Fail("nothing startable — every open task is blocked, claimed or absent")
 
 
-def start(board, task):
+def start(board, task, who=None):
     blocker = board.is_blocked(task)
     if blocker:
         raise Fail(f"{task.id} is blocked by {blocker} — finish that first")
+    task.claim(who)
     board.open.remove(task)
     board.doing.append(task)
     board.save()
@@ -419,7 +512,8 @@ def start(board, task):
 
 def show_task(board, task, started):
     print(f"\n  {task.id}  {task.title}")
-    print(f"  {board.ledger} · {'started' if started else 'in progress'}")
+    who = f" · @{task.assignee}" if task.assignee else ""
+    print(f"  {board.ledger}{who} · {'started' if started else 'in progress'}")
     blocker = board.is_blocked(task)
     if blocker:
         print(f"  ! blocked by {blocker}")
@@ -463,6 +557,7 @@ def cmd_park(args):
         if not task:
             continue
         board.doing.remove(task)
+        task.release()  # parked means available; claim again with `go`
         board.open.insert(0, task) if top else board.open.append(task)
         board.save()
         print(f"  {task.id}  {task.title}")
@@ -492,14 +587,20 @@ def cmd_done(args):
             sys.stdout.flush()  # so the list lands above the error, not below
             raise Fail("not done — check them off, or pass --force")
         bucket.remove(task)
-        task.tags, task.done_on = [], date.today().isoformat()
+        # A task completed straight from `open` was never claimed; the person
+        # finishing it is the honest answer, and matches the commit author.
+        finisher = task.assignee or whoami()
+        task.tags = [f"@{finisher}"] if finisher else []
+        task.done_on = date.today().isoformat()
         board.recent.insert(0, task)
         board.clear_blocker(task.id)
         board.save()
         history_append(task, ledger)
         sent = notify(task, ledger)
         print(f"  ✓ {task.id}  {task.title}")
-        print(f"  {ledger} · {task.done_on}" + (f" · {sent} sent" if sent else ""))
+        who = f" · {task.assignee}" if task.assignee else ""
+        print(f"  {ledger}{who} · {task.done_on}"
+              + (f" · {sent} sent" if sent else ""))
         print(f'\n  commit with:  closes {task.id}')
         return
     raise Fail(f"no task {tid}" if tid else "nothing in doing")
@@ -635,9 +736,13 @@ def check_boards(rep):
         except Fail as exc:
             rep.error(str(exc))
             continue
-        if len(board.doing) > 1:
-            ids = ", ".join(t.id for t in board.doing)
-            rep.error(f"{ledger}: {len(board.doing)} tasks in doing ({ids}) — WIP is 1")
+        seen_doing = {}
+        for task in board.doing:
+            owner = task.assignee or "(unclaimed)"
+            if owner in seen_doing:
+                rep.error(f"{ledger}: {owner} has {seen_doing[owner]} and {task.id} "
+                          "both in doing — WIP is 1 per person")
+            seen_doing[owner] = task.id
         if len(board.recent) > WINDOW:
             rep.error(f"{ledger}: recent holds {len(board.recent)}, max is {WINDOW}")
         dates = [t.done_on for t in board.recent]
@@ -970,8 +1075,8 @@ def cmd_check(args):
 
 USAGE = """tm — taskman
 
-  tm add [-b] [-n] <title...>   create a task (-b business, -n top of order)
-  tm go [id]                    show the current task, or start the next one
+  tm add [-b] [-n] [-f who]     create a task (-b business, -n top, -f assign)
+  tm go [id] [-f who]           show your current task, or start the next one
   tm park [id] [-n]             return it to open (-n puts it on top)
   tm done [id] [--force]        complete it, then commit with "closes <id>"
   tm find <term>                search every task ever completed
