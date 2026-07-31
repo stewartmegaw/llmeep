@@ -322,6 +322,7 @@ def cmd_add(args):
     board.save()
     print(f"\n  {task.id}  {task.title}")
     print(f"  {ledger} · {'top of' if top else 'bottom of'} open")
+    skeleton_nudge()
 
 
 def cmd_go(args):
@@ -377,6 +378,7 @@ def show_task(board, task, started):
             for item in pending:
                 print(f"    [ ] {item}")
     show_related(task.title)
+    skeleton_nudge()
 
 
 def cmd_done(args):
@@ -422,6 +424,77 @@ def cmd_find(args):
         return
     for row in hits:
         print("  " + history_line(row))
+
+
+# ---------------------------------------------------------------------- reset
+
+MARKER = ".skeleton"
+
+
+def marker_path():
+    return os.path.join(ROOT, MARKER)
+
+
+def skeleton_nudge():
+    """Present until `tm reset` runs. Without it, a new project silently
+    inherits the skeleton's task history and `find` returns someone else's
+    work as its own prior art."""
+    if os.path.exists(marker_path()):
+        print("\n  ~ still the skeleton's records — `tm reset` to start your own")
+
+
+def cmd_reset(args):
+    """Destructive, so it is a dry run unless --yes. Clears what is specific to
+    a project; keeps what explains the design."""
+    boards, sidecars = [], []
+    for ledger in LEDGERS:
+        try:
+            board = Board(ledger)
+        except Fail:
+            continue
+        n = len(board.doing) + len(board.open) + len(board.recent)
+        boards.append((board, n))
+        d = os.path.join(ROOT, ledger, "tasks")
+        if os.path.isdir(d):
+            sidecars += [
+                os.path.join(d, f) for f in sorted(os.listdir(d))
+                if f.endswith(".md") and not f.startswith("_")
+            ]
+    rows = len(history_rows())
+    decisions = []
+    dec_dir = os.path.join(os.path.dirname(ROOT), "notes", "decisions")
+    if "--all" in args and os.path.isdir(dec_dir):
+        decisions = [
+            os.path.join(dec_dir, f) for f in sorted(os.listdir(dec_dir))
+            if f.startswith("DEC-")
+        ]
+
+    print("  clears:")
+    for board, n in boards:
+        print(f"    {board.ledger} board — {n} task line(s)")
+    print(f"    history.tsv — {rows} row(s)")
+    print(f"    sidecars — {len(sidecars)} file(s)")
+    if decisions:
+        print(f"    decisions — {len(decisions)} file(s)")
+    print("\n  keeps: ontology, principles, templates, tm, hooks" +
+          ("" if decisions else ", decisions"))
+    if not decisions:
+        print("    (decisions explain why the design is what it is — `--all` to drop them too)")
+
+    if "--yes" not in args:
+        print("\n  dry run. pass --yes to apply.")
+        return
+
+    for board, _ in boards:
+        board.doing, board.open, board.recent = [], [], []
+        board.save()
+    with open(HISTORY, "w") as fh:
+        fh.write("#date\tid\tledger\ttitle\n")
+    for path in sidecars + decisions:
+        os.remove(path)
+    if os.path.exists(marker_path()):
+        os.remove(marker_path())
+    print("\n  ✓ reset. the boards are yours now.")
 
 
 # --------------------------------------------------------------------- checks
@@ -705,6 +778,7 @@ USAGE = """tm — taskman
   tm find <term>                search every task ever completed
 
   tm check [--staged]           validate records; used by hooks and CI
+  tm reset [--yes] [--all]      clear task records when adopting the skeleton
 
 Listing is reading the board; reordering is moving a line in it.
 Model: taskman/ontology.md"""
@@ -717,7 +791,7 @@ def main():
         return 0
     commands = {
         "add": cmd_add, "go": cmd_go, "done": cmd_done, "find": cmd_find,
-        "check": cmd_check,
+        "check": cmd_check, "reset": cmd_reset,
     }
     cmd = commands.get(argv[0])
     if not cmd:

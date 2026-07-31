@@ -110,7 +110,19 @@ Full model: [`taskman/ontology.md`](taskman/ontology.md).
 ```sh
 git clone <this-repo> my-project && cd my-project
 rm -rf .git && git init
+git config core.hooksPath taskman/hooks
+taskman/tm reset --yes
 ```
+
+**`tm reset` matters.** Without it you inherit *this* project's task history, and `find` will
+return the skeleton's work as your prior art — the amnesia-prevention mechanism working against
+you. It clears both boards, `history.tsv` and the task sidecars.
+
+It **keeps** the ontology, the principles, the templates and the decision records, because those
+explain why the design is what it is. `--all` drops the decisions too. Run without `--yes` first
+to see exactly what goes.
+
+Until you run it, every `tm add` and `tm go` says so.
 
 Then work through `ontology/domain/README.md`.
 
