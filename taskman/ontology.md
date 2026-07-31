@@ -274,6 +274,12 @@ anywhere.
 > message** when the acceptance criteria are met. You have the sidecar and the diff at that
 > moment — that is where the judgement belongs, and doing it in this order is what keeps the
 > board and the commit consistent.
+>
+> **And create the task before the work, not after.** When the user starts planning something
+> that is not in `doing`, run `tm add` and `tm go` first. The hook warns at commit time if
+> `platform/` changed with nothing in `doing`, but that is a backstop, not the mechanism — by
+> then the work is already done. Typos and formatting do not need a task; anything you would
+> mention in standup does.
 
 If a commit lands with a task still in `doing`, a hook prints one line:
 

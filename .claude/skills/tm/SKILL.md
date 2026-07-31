@@ -29,6 +29,22 @@ taskman/tm find <term>                # search every task ever completed
 | "commit task" / "that's done" | `tm done`, then `git commit` with `closes <id>` in the message |
 | "have we done this before" | `tm find <term>` |
 
+## Every piece of work has a task, and it exists before the work starts
+
+**When the user starts describing or planning work that does not correspond to a task in
+`doing`, create it first.** Run `tm add <title>` and `tm go` before writing code — not
+afterwards, and not at commit time.
+
+This is the one rule with no mechanical backstop worth relying on. A hook can notice at commit
+that `platform/` changed with nothing in `doing`, and it does warn — but by then the work is
+finished, and a warning after the fact does not put it on the board. **You are the enforcement.**
+
+It costs two seconds and it is what keeps the board equal to reality. Do not ask permission for
+this; just create the task and say you have.
+
+Exceptions worth not bothering about: typo fixes, formatting, a one-line config tweak. If you
+would not mention it in standup, it does not need a task.
+
 ## Rules
 
 - **You classify, the tool does not.** `add` always assumes the platform ledger. Decide from

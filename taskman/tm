@@ -424,12 +424,263 @@ def cmd_find(args):
         print("  " + history_line(row))
 
 
+# --------------------------------------------------------------------- checks
+#
+# `check` is not a fifth skill — it mutates nothing. It is the validator the
+# hooks and CI both call, so the same rules run everywhere (PLT-001).
+
+
+class Report:
+    def __init__(self):
+        self.errors, self.warnings = [], []
+
+    def error(self, msg):
+        self.errors.append(msg)
+
+    def warn(self, msg):
+        self.warnings.append(msg)
+
+    def emit(self):
+        for w in self.warnings:
+            print(f"  ~ {w}")
+        for e in self.errors:
+            print(f"  ! {e}", file=sys.stderr)
+        return 1 if self.errors else 0
+
+
+def git(*args, cwd=None):
+    try:
+        out = subprocess.run(
+            ["git", *args], cwd=cwd or os.path.dirname(ROOT),
+            capture_output=True, text=True, timeout=10,
+        )
+        return out.stdout if out.returncode == 0 else ""
+    except Exception:
+        return ""
+
+
+def check_boards(rep):
+    seen = {}
+    for row in history_rows():
+        if row["id"] in seen:
+            rep.error(f"{row['id']} appears twice in history.tsv")
+        seen[row["id"]] = "history"
+    for ledger in LEDGERS:
+        try:
+            board = Board(ledger)
+        except Fail as exc:
+            rep.error(str(exc))
+            continue
+        if len(board.doing) > 1:
+            ids = ", ".join(t.id for t in board.doing)
+            rep.error(f"{ledger}: {len(board.doing)} tasks in doing ({ids}) — WIP is 1")
+        if len(board.recent) > WINDOW:
+            rep.error(f"{ledger}: recent holds {len(board.recent)}, max is {WINDOW}")
+        dates = [t.done_on for t in board.recent]
+        if dates != sorted(dates, reverse=True):
+            rep.error(f"{ledger}: recent is not newest-first")
+        live = {t.id for t in board.doing + board.open}
+        for task in board.doing + board.open + board.recent:
+            if not ID_RE.match(task.id):
+                rep.error(f"{ledger}: malformed id {task.id!r}")
+            where = seen.get(task.id)
+            if where and not (where == "history" and task in board.recent):
+                rep.error(
+                    f"{task.id} appears twice on the {ledger} board"
+                    if where.endswith("board")
+                    else f"{task.id} is on the {ledger} board but already in {where}"
+                )
+            elif where is None:
+                seen[task.id] = f"{ledger} board"
+            b = task.blocker
+            if b and b not in live and b not in seen:
+                rep.error(f"{task.id} is blocked by {b}, which does not exist")
+            if task.has_detail and not sidecar_path(ledger, task.id):
+                rep.error(f"{task.id} is tagged detail but has no sidecar")
+
+
+def check_sidecars(rep):
+    for ledger in LEDGERS:
+        d = os.path.join(ROOT, ledger, "tasks")
+        if not os.path.isdir(d):
+            continue
+        try:
+            board = Board(ledger)
+        except Fail:
+            continue
+        tagged = {t.id for t in board.doing + board.open if t.has_detail}
+        closed = {t.id for t in board.recent} | {r["id"] for r in history_rows()}
+        for name in sorted(os.listdir(d)):
+            if not name.endswith(".md") or name.startswith("_"):
+                continue
+            tid = name.split("-")[0] + "-" + name.split("-")[1]
+            with open(os.path.join(d, name)) as fh:
+                head = fh.read(400)
+            m = re.search(r"^id:\s*(\S+)", head, re.M)
+            if m and m.group(1) != tid:
+                rep.error(f"{name}: frontmatter id {m.group(1)} does not match filename")
+            if tid not in tagged and tid not in closed:
+                rep.error(f"{name}: no board line tagged detail, and not completed")
+
+
+def frontmatter_field(text, field):
+    m = re.search(rf"^{field}:\s*(.*)$", text, re.M)
+    return m.group(1).strip() if m else ""
+
+
+def check_decisions(rep, root):
+    """A decision is superseded, never rewritten. Typo-level edits pass; the
+    threshold is deliberately generous — this catches rewrites, not tidying."""
+    import difflib
+
+    changed = git("diff", "--cached", "--name-only", "--", "notes/decisions/").split()
+    for path in changed:
+        old = git("show", f"HEAD:{path}")
+        if not old:
+            continue  # newly added
+        full = os.path.join(root, path)
+        if not os.path.exists(full):
+            continue
+        with open(full) as fh:
+            new = fh.read()
+        if frontmatter_field(old, "superseded_by") != frontmatter_field(new, "superseded_by"):
+            continue
+        if frontmatter_field(old, "status") != frontmatter_field(new, "status"):
+            continue
+        a, b = old.split(), new.split()
+        sm = difflib.SequenceMatcher(None, a, b)
+        moved = sum(
+            max(i2 - i1, j2 - j1)
+            for tag, i1, i2, j1, j2 in sm.get_opcodes() if tag != "equal"
+        )
+        if moved > 25:
+            rep.error(
+                f"{path}: {moved} words changed without superseding it. "
+                "Write a new decision that supersedes this one."
+            )
+
+
+def check_ontology_currency(rep, root):
+    """New files under platform/ suggest a new concept. Only *added* files are
+    considered — warning on every modification would be noise, and a noisy hook
+    gets bypassed, taking every other check with it. Warns, never blocks."""
+    added = git("diff", "--cached", "--name-only", "--diff-filter=A", "--", "platform/").split()
+    if not added:
+        return
+    touched = git("diff", "--cached", "--name-only", "--", "ontology/domain/").split()
+    if touched:
+        return
+    rep.warn(
+        f"{len(added)} new file(s) under platform/ but ontology/domain/ is unchanged — "
+        "add or update the concept if this introduced one"
+    )
+
+
+def check_untracked_work(rep, root):
+    """Work landing with no task is the drift that makes the board useless.
+
+    Warns rather than blocks, because commit time is already too late — the
+    work is done. The real catch is the agent creating the task when the user
+    says "let's build X". This is only the backstop."""
+    touched = git("diff", "--cached", "--name-only", "--", "platform/").split()
+    if not touched:
+        return
+    for ledger in LEDGERS:
+        try:
+            if Board(ledger).doing:
+                return
+        except Fail:
+            pass
+    rep.warn(
+        f"{len(touched)} file(s) under platform/ changed with no task in doing — "
+        "`tm add <title>` then `tm go` if this was real work"
+    )
+
+
+def check_trailer(rep, msg_path):
+    with open(msg_path) as fh:
+        msg = fh.read()
+    known = {r["id"] for r in history_rows()}
+    for ledger in LEDGERS:
+        try:
+            known |= Board(ledger).all_ids()
+        except Fail:
+            pass
+    for tid in re.findall(r"\bcloses\s+([A-Z]{3}-\S+)", msg):
+        if tid.rstrip(".,;") not in known:
+            rep.error(
+                f'commit message says "closes {tid}" but no such task exists — '
+                "the trailer is the only link between task and commit"
+            )
+
+
+def check_nudge(rep, root):
+    for ledger in LEDGERS:
+        try:
+            board = Board(ledger)
+        except Fail:
+            continue
+        for task in board.doing:
+            rep.warn(f"{task.id} still in doing — run `tm done {task.id}` if that finished it")
+
+
+VERIFIED = "tm-verified"
+
+
+def check_bypass(rep, root):
+    gitdir = (git("rev-parse", "--git-dir") or "").strip()
+    if not gitdir:
+        return None
+    marker = os.path.join(root, gitdir, VERIFIED)
+    head = (git("rev-parse", "HEAD") or "").strip()
+    if os.path.exists(marker):
+        with open(marker) as fh:
+            last = fh.read().strip()
+        if head and last and last != head:
+            n = len((git("rev-list", f"{last}..{head}") or "").split())
+            if n:
+                rep.warn(f"{n} commit(s) landed without these checks (--no-verify)")
+    return marker
+
+
+def record_verified(root):
+    gitdir = (git("rev-parse", "--git-dir") or "").strip()
+    head = (git("rev-parse", "HEAD") or "").strip()
+    if gitdir and head:
+        with open(os.path.join(root, gitdir, VERIFIED), "w") as fh:
+            fh.write(head)
+
+
+def cmd_check(args):
+    root = os.path.dirname(ROOT)
+    rep = Report()
+    if "--msg" in args:
+        check_trailer(rep, args[args.index("--msg") + 1])
+    elif "--nudge" in args:
+        check_nudge(rep, root)
+        record_verified(root)
+    else:
+        check_boards(rep)
+        check_sidecars(rep)
+        if "--staged" in args:
+            check_bypass(rep, root)
+            check_decisions(rep, root)
+            check_untracked_work(rep, root)
+            check_ontology_currency(rep, root)
+    code = rep.emit()
+    if code == 0 and not rep.warnings and "--quiet" not in args:
+        print("  ✓ records consistent")
+    sys.exit(code)
+
+
 USAGE = """tm — taskman
 
   tm add [-b] [-n] <title...>   create a task (-b business, -n top of order)
   tm go [id]                    show the current task, or start the next one
   tm done [id] [--force]        complete it, then commit with "closes <id>"
   tm find <term>                search every task ever completed
+
+  tm check [--staged]           validate records; used by hooks and CI
 
 Listing is reading the board; reordering is moving a line in it.
 Model: taskman/ontology.md"""
@@ -440,7 +691,10 @@ def main():
     if not argv or argv[0] in ("-h", "--help", "help"):
         print(USAGE)
         return 0
-    commands = {"add": cmd_add, "go": cmd_go, "done": cmd_done, "find": cmd_find}
+    commands = {
+        "add": cmd_add, "go": cmd_go, "done": cmd_done, "find": cmd_find,
+        "check": cmd_check,
+    }
     cmd = commands.get(argv[0])
     if not cmd:
         print(f"unknown command: {argv[0]}\n\n{USAGE}", file=sys.stderr)
