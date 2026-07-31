@@ -128,12 +128,29 @@ Then work through `ontology/domain/README.md`.
 
 ## Status
 
-Taskman's design is settled —
+**Taskman is built and in use** — this repo tracks its own work with it.
 [`DEC-001`](notes/decisions/DEC-001-taskman-design.md) (model),
 [`DEC-002`](notes/decisions/DEC-002-task-history-index.md) (history),
-[`DEC-003`](notes/decisions/DEC-003-skills-are-executables.md) (tooling).
+[`DEC-003`](notes/decisions/DEC-003-skills-are-executables.md) (tooling),
+[`DEC-004`](notes/decisions/DEC-004-commits-close-tasks.md) (superseded),
+[`DEC-005`](notes/decisions/DEC-005-agent-mediated-git.md) (git).
 
-`taskman/tm` is **not written yet**. The board is usable by hand in the meantime — it is a
-text file by design, and that is not a workaround. Open work is on the
-[platform board](taskman/platform/board.md); `PLT-003` builds the executable and unblocks
-everything else.
+Not yet done, and honest about it:
+
+- **Telegram** (`PLT-005`) is written and wired into `done`, but has never sent a message.
+  Needs a bot token and an `.env.example`.
+- **`notes/`** is conventions only — no tooling, and its entities still live in
+  `ontology/core.md` rather than a co-located `notes/ontology.md`.
+- **`ontology/domain/`** is correctly empty, which also means nobody has followed its six steps
+  end to end.
+
+Known limits, which are not bugs:
+
+- **Validation checks consistency, not truth.** The hooks cannot tell you a task was closed that
+  should not have been — this has already happened once here, and is recorded in the history.
+- **Boards conflict on branches.** The resolution procedure in
+  [`taskman/ontology.md`](taskman/ontology.md) exists but has never been run in anger.
+- **Telegram fires on `done`, not on push**, so on a branch the team hears about work before
+  they can pull it.
+
+Open work is on the [platform board](taskman/platform/board.md).
