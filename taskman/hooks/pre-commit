@@ -1,0 +1,4 @@
+#!/bin/sh
+# Validates records before the commit lands. Blocks on errors.
+# Logic lives in taskman/tm — hooks are thin (DEC-003).
+exec "$(git rev-parse --show-toplevel)/taskman/tm" check --staged --quiet
