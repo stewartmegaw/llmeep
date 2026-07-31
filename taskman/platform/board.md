@@ -5,10 +5,12 @@
 
 ## open
 
-PLT-005  Notify team Telegram bot from done
+PLT-ey59 something
 
 ## recent
 
+2026-07-31  PLT-005  Notify team Telegram bot from done
+2026-07-31  PLT-5pk8 Add tasks from Telegram
 2026-07-31  PLT-tf3z Reset task records when adopting the skeleton
 2026-07-31  PLT-001  Enforce record lifecycle via git hooks
 2026-07-31  PLT-004  Build find skill and history.tsv auto-search

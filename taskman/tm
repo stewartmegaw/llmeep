@@ -426,6 +426,108 @@ def cmd_find(args):
         print("  " + history_line(row))
 
 
+# ---------------------------------------------------------------------- inbox
+
+
+def telegram_get(method, **params):
+    import json
+
+    load_env()
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    if not token:
+        raise Fail("no TELEGRAM_BOT_TOKEN — see `tm check --telegram`")
+    url = f"https://api.telegram.org/bot{token}/{method}"
+    if params:
+        url += "?" + urllib.parse.urlencode(params)
+    try:
+        with urllib.request.urlopen(url, timeout=15) as fh:
+            data = json.load(fh)
+    except (urllib.error.URLError, OSError) as exc:
+        raise Fail(f"could not reach Telegram: {exc}")
+    if not data.get("ok"):
+        raise Fail(f"Telegram: {data.get('description')}")
+    return data.get("result", [])
+
+
+def telegram_reply(chat_id, text, reply_to=None):
+    load_env()
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    params = {"chat_id": chat_id, "text": text}
+    if reply_to:
+        params["reply_to_message_id"] = reply_to
+    try:
+        urllib.request.urlopen(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            urllib.parse.urlencode(params).encode(), timeout=10,
+        )
+    except (urllib.error.URLError, OSError):
+        pass  # a failed confirmation must not lose the task
+
+
+OFFSET = "tm-telegram-offset"
+
+
+def cmd_inbox(args):
+    """Drain queued /add messages into tasks.
+
+    Pull rather than push: no daemon, no webhook, no public endpoint. Telegram
+    holds the queue until this runs, so capture is instant even though landing
+    on the board is not. Run it from cron for near-real-time — same code.
+
+    Not automatic on `add`/`go`: those must never make a network call, or the
+    history search stops being free and offline use breaks.
+    """
+    root = os.path.dirname(ROOT)
+    off_path = _gitpath(root, OFFSET)
+    offset = 0
+    if off_path and os.path.exists(off_path):
+        with open(off_path) as fh:
+            offset = int(fh.read().strip() or 0)
+
+    updates = telegram_get("getUpdates", offset=offset + 1, timeout=0)
+    load_env()
+    allowed = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
+    added, last = [], offset
+
+    for upd in updates:
+        last = max(last, upd.get("update_id", 0))
+        msg = upd.get("message") or upd.get("channel_post") or {}
+        text = (msg.get("text") or "").strip()
+        chat = str((msg.get("chat") or {}).get("id", ""))
+        # Only the configured chat may file tasks — anyone can find a bot.
+        if allowed and chat != allowed:
+            continue
+        m = re.match(r"^/(?:add|task)(?:@\S+)?\s+(.+)$", text, re.S)
+        if not m:
+            continue
+        rest = m.group(1).split()
+        ledger = "business" if "-b" in rest else "platform"
+        top = "-n" in rest
+        title = " ".join(a for a in rest if a not in ("-b", "-n")).strip()
+        if not title:
+            continue
+        board = Board(ledger)
+        task = Task(new_id(LEDGERS[ledger], all_known_ids()), title)
+        board.open.insert(0, task) if top else board.open.append(task)
+        board.save()
+        added.append((task, ledger))
+        telegram_reply(chat, f"✓ {task.id}  {task.title}\n{ledger} · "
+                             f"{'top of' if top else 'bottom of'} open",
+                       msg.get("message_id"))
+
+    if off_path and last > offset:
+        with open(off_path, "w") as fh:
+            fh.write(str(last))
+
+    if not added:
+        print("  nothing queued")
+        return
+    for task, ledger in added:
+        print(f"  {task.id}  {task.title}")
+        print(f"  {ledger} · added from telegram")
+    print(f"\n  {len(added)} task(s). commit the board to share them.")
+
+
 # ---------------------------------------------------------------------- reset
 
 MARKER = ".skeleton"
@@ -440,7 +542,8 @@ def skeleton_nudge():
     inherits the skeleton's task history and `find` returns someone else's
     work as its own prior art."""
     if os.path.exists(marker_path()):
-        print("\n  ~ still the skeleton's records — `tm reset` to start your own")
+        print("\n  ~ these are the skeleton's own records — `tm reset` if you cloned"
+              "\n    this to start a project")
 
 
 def cmd_reset(args):
@@ -748,7 +851,67 @@ def record_verified(root):
             print(f"  ~ this commit skipped validation — recorded in .git/{BYPASSED}")
 
 
+def check_telegram():
+    """Setup helper. Walks the two-step configuration rather than just failing,
+    because the chat id is the part nobody can guess."""
+    import json
+
+    load_env()
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    chat = os.environ.get("TELEGRAM_CHAT_ID")
+    env = os.path.join(os.path.dirname(ROOT), ".env")
+
+    if not token:
+        print("  no TELEGRAM_BOT_TOKEN set.\n")
+        print("  1. message @BotFather in Telegram, send /newbot")
+        print("  2. pick a display name, then a username ending in 'bot'")
+        print(f"  3. put the token it gives you in {env}:\n")
+        print("       TELEGRAM_BOT_TOKEN=8123456789:AAH...")
+        return 1
+
+    try:
+        with urllib.request.urlopen(
+            f"https://api.telegram.org/bot{token}/getUpdates", timeout=10
+        ) as fh:
+            data = json.load(fh)
+    except (urllib.error.URLError, OSError) as exc:
+        print(f"  ! could not reach Telegram: {exc}")
+        return 1
+    if not data.get("ok"):
+        print(f"  ! Telegram rejected the token: {data.get('description')}")
+        return 1
+
+    chats = {}
+    for upd in data.get("result", []):
+        c = (upd.get("message") or upd.get("channel_post") or {}).get("chat")
+        if c:
+            chats[c["id"]] = c.get("title") or c.get("username") or c.get("first_name", "?")
+
+    if not chat:
+        print("  token works. no TELEGRAM_CHAT_ID set yet.\n")
+        if chats:
+            print("  chats that have messaged this bot:")
+            for cid, name in chats.items():
+                print(f"    {cid:<16} {name}")
+            print(f"\n  add the one you want to {env}:\n")
+            print(f"       TELEGRAM_CHAT_ID={list(chats)[0]}")
+        else:
+            print("  no messages seen yet. Add the bot to your group and send")
+            print("  /start@yourbotname — group privacy hides ordinary messages")
+            print("  from bots until they are addressed. Then run this again.")
+        return 1
+
+    task = Task("TEST", "taskman is wired up", done_on=date.today().isoformat())
+    if notify(task, "setup"):
+        print(f"  ✓ sent a test message to {chats.get(int(chat), chat)}")
+        return 0
+    print("  ! send failed — check TELEGRAM_CHAT_ID is right")
+    return 1
+
+
 def cmd_check(args):
+    if "--telegram" in args:
+        sys.exit(check_telegram())
     root = os.path.dirname(ROOT)
     rep = Report()
     if "--msg" in args:
@@ -777,7 +940,9 @@ USAGE = """tm — taskman
   tm done [id] [--force]        complete it, then commit with "closes <id>"
   tm find <term>                search every task ever completed
 
+  tm inbox                      pull /add messages from Telegram into tasks
   tm check [--staged]           validate records; used by hooks and CI
+  tm check --telegram           test/announce notification setup
   tm reset [--yes] [--all]      clear task records when adopting the skeleton
 
 Listing is reading the board; reordering is moving a line in it.
@@ -791,7 +956,7 @@ def main():
         return 0
     commands = {
         "add": cmd_add, "go": cmd_go, "done": cmd_done, "find": cmd_find,
-        "check": cmd_check, "reset": cmd_reset,
+        "check": cmd_check, "reset": cmd_reset, "inbox": cmd_inbox,
     }
     cmd = commands.get(argv[0])
     if not cmd:
