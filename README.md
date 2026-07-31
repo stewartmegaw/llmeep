@@ -82,6 +82,15 @@ Listing is reading [the board](taskman/platform/board.md); reordering is moving 
 Neither needs a command. `add` and `go` search history automatically, so work that was already
 attempted surfaces without anyone deciding to look.
 
+**Install the validation hooks** — one step, because `.git/hooks` is not committed:
+
+```sh
+git config core.hooksPath taskman/hooks
+```
+
+They block on inconsistent records and warn on drift. `tm check` runs the same checks
+standalone, so CI needs no separate configuration.
+
 Full model: [`taskman/ontology.md`](taskman/ontology.md).
 
 ## Start here

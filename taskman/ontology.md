@@ -301,6 +301,41 @@ Information, never a gate. No prompt, no network, no cost.
 No `tm` command touches git state. Hooks only ever **validate** — they never mutate records.
 See [`DEC-005`](../notes/decisions/DEC-005-agent-mediated-git.md).
 
+### Hooks
+
+One step, from a clean clone — `.git/hooks` is not committed, so git is pointed at the
+committed directory instead:
+
+```sh
+git config core.hooksPath taskman/hooks
+```
+
+| Hook          | Runs                | Effect                                          |
+| ------------- | ------------------- | ----------------------------------------------- |
+| `pre-commit`  | `tm check --staged` | **Blocks** on record errors                     |
+| `commit-msg`  | `tm check --msg`    | **Blocks** a `closes <id>` naming no such task   |
+| `post-commit` | `tm check --nudge`  | Warns only — never blocks                       |
+
+The hooks are three-line shell scripts calling `tm check`; the logic is in the executable, so
+CI runs the identical checks with `tm check` and any failure reproduces without committing.
+
+**Blocks** — duplicate IDs across boards and history, a reused ID, two tasks in `doing`, an
+over-long or misordered `recent`, a dangling `blocked:` or `detail` tag, a sidecar with no board
+line or a mismatched frontmatter id, a decision rewritten in substance without being superseded,
+and a `closes` trailer naming nothing.
+
+**Warns** — a task still in `doing` after a commit, `platform/` changed with nothing in `doing`,
+new files under `platform/` while `ontology/domain/` is untouched, and commits that bypassed the
+checks.
+
+Checks read **records only**, never `platform/` source — the ontology-currency warning looks at
+which files were added, not what is in them. That is what keeps hooks working regardless of the
+language `platform/` is written in ([principle 3](../ontology/principles.md)).
+
+`--no-verify` skips `pre-commit` and `commit-msg` but **not** `post-commit`, so bypassing is
+noticed and appended to `.git/tm-bypassed`. Every later commit reports the standing count until
+it is cleared. The escape hatch stays open, and it is not silent.
+
 ### Merging boards
 
 Branches conflict on `board.md` — it is one file that everyone touches, the cost `DEC-001`
