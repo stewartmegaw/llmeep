@@ -216,6 +216,12 @@ tm done                           # complete the current task
 assume the current task, since WIP-1 means there is only ever one. Nothing that can be
 inferred from state has to be typed.
 
+> **`add` appends to the bottom; `go` takes from the top.** So `tm add X` followed by bare
+> `tm go` starts whatever was already highest-priority, **not** X. That is correct — priority is
+> position, and a new task has not earned the top — but it surprises people, and scripting the
+> pair has closed the wrong task in practice. Use `tm add -n` if it really is next, or name it:
+> `tm go <id>`.
+
 `go` is the one that beats a tracker: with no argument it is a **context loader**, not a state
 change. It answers "what am I doing?" and "what's next?" with the same command, and puts the
 task, its sidecar, its blockers and any linked decisions in front of the agent.
