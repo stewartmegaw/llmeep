@@ -29,6 +29,9 @@ taskman/tm find <term>                # search every task ever completed
 | "commit task" / "that's done" | `tm done`, then `git commit` with `closes <id>` in the message |
 | "have we done this before" | `tm find <term>` |
 
+**You are the mobile interface.** Telegram sends completion notifications and takes no
+commands — task management is this conversation, wherever it happens (`DEC-006`).
+
 ## Every piece of work has a task, and it exists before the work starts
 
 **When the user starts describing or planning work that does not correspond to a task in

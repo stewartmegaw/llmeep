@@ -8,6 +8,7 @@
 
 ## recent
 
+2026-07-31  PLT-2fyj Make Telegram notification-only
 2026-07-31  PLT-005  Notify team Telegram bot from done
 2026-07-31  PLT-5pk8 Add tasks from Telegram
 2026-07-31  PLT-tf3z Reset task records when adopting the skeleton

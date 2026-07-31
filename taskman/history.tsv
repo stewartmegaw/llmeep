@@ -7,3 +7,4 @@
 2026-07-31	PLT-tf3z	platform	Reset task records when adopting the skeleton
 2026-07-31	PLT-5pk8	platform	Add tasks from Telegram
 2026-07-31	PLT-005	platform	Notify team Telegram bot from done
+2026-07-31	PLT-2fyj	platform	Make Telegram notification-only

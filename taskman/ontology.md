@@ -257,6 +257,38 @@ An agent only uses a skill it knows exists, so the four commands are listed in t
 [root README](../README.md) — the contract every agent reads. Discovery must not depend on an
 adapter, because not every agent has one.
 
+### Not skills
+
+Two more subcommands exist. Neither touches a task, so neither is a skill:
+
+| Command             | Does                                                             |
+| ------------------- | ---------------------------------------------------------------- |
+| `tm check [--staged]` | Validates records. What the hooks and CI both call.            |
+| `tm reset [--yes]`  | Clears task records when the skeleton is adopted for a new project. Dry run unless `--yes`. See the [root README](../README.md). |
+
+## Telegram — notifications only
+
+`done` announces completions to a team bot:
+
+```
+✓ PLT-9k2m  Fix the checkout redirect
+platform · 2026-07-31
+```
+
+**Nothing comes back in.** Task management is conversational, through an agent that already
+has the repository in context — *"what am I on?"*, *"start PLT-9puy"*, *"add a task for X"*.
+That works from a phone, needs no command syntax, and lands the change on the board directly.
+Inbound Telegram was built and then removed for being a worse version of it; see
+[`DEC-006`](../notes/decisions/DEC-006-telegram-is-notification-only.md).
+
+Anything sent **to** the bot gets one reply saying so and pointing at the agent — a bot that
+answers nothing reads as broken. The reply is drained inside `notify()`, so it needs no command
+and no cron: it arrives with the next completion, which is soon enough for a signpost.
+
+Setup is `tm check --telegram`, which walks both steps and finds the chat id for you. Secrets
+live in `.env` — see `.env.example`. **A failed send never fails a completion**, and neither
+does a failed drain.
+
 ## Git
 
 **Prerequisite: project git commands go through the agent.** Not enforced — direct git use keeps

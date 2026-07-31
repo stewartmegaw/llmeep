@@ -281,11 +281,15 @@ def notify(task, ledger):
         urllib.request.urlopen(
             f"https://api.telegram.org/bot{token}/sendMessage", data, timeout=5
         )
-        return True
     except (urllib.error.URLError, OSError) as exc:
         # Never fail a completion because a notification failed.
         print(f"  ! telegram not sent: {exc}")
         return False
+    replied = drain_and_reply()
+    if replied:
+        print(f"  ~ answered {replied} message(s) sent to the bot "
+              "(it is notification-only)")
+    return True
 
 
 # ------------------------------------------------------------------- commands
@@ -466,16 +470,23 @@ def telegram_reply(chat_id, text, reply_to=None):
 
 OFFSET = "tm-telegram-offset"
 
+# Telegram is outbound only. Inbound task entry was built (PLT-5pk8) and then
+# removed (DEC-006): Claude Code does the same job conversationally, from the
+# same phone, with the whole repo in context. What remains is a courtesy reply
+# so a message into the bot is answered rather than silently swallowed.
+NOTIFICATION_ONLY = (
+    "This bot sends notifications only — it does not take commands.\n\n"
+    "To manage tasks, talk to Claude Code (it works on mobile):\n"
+    '  "what am I on?"  ·  "start PLT-9puy"  ·  "add a task for X"'
+)
 
-def cmd_inbox(args):
-    """Drain queued /add messages into tasks.
 
-    Pull rather than push: no daemon, no webhook, no public endpoint. Telegram
-    holds the queue until this runs, so capture is instant even though landing
-    on the board is not. Run it from cron for near-real-time — same code.
+def drain_and_reply():
+    """Answer anything sent to the bot, then forget it.
 
-    Not automatic on `add`/`go`: those must never make a network call, or the
-    history search stops being free and offline use breaks.
+    Folded into the notify path rather than given its own command: a standalone
+    drain would need polling or cron for a message that carries no information
+    anyone is waiting on. Completions happen often enough.
     """
     root = os.path.dirname(ROOT)
     off_path = _gitpath(root, OFFSET)
@@ -483,49 +494,25 @@ def cmd_inbox(args):
     if off_path and os.path.exists(off_path):
         with open(off_path) as fh:
             offset = int(fh.read().strip() or 0)
+    try:
+        updates = telegram_get("getUpdates", offset=offset + 1, timeout=0)
+    except Fail:
+        return 0  # never let a drain failure affect a completion
 
-    updates = telegram_get("getUpdates", offset=offset + 1, timeout=0)
-    load_env()
-    allowed = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
-    added, last = [], offset
-
+    replied, last = 0, offset
     for upd in updates:
         last = max(last, upd.get("update_id", 0))
         msg = upd.get("message") or upd.get("channel_post") or {}
-        text = (msg.get("text") or "").strip()
+        if not (msg.get("text") or "").strip():
+            continue
         chat = str((msg.get("chat") or {}).get("id", ""))
-        # Only the configured chat may file tasks — anyone can find a bot.
-        if allowed and chat != allowed:
-            continue
-        m = re.match(r"^/(?:add|task)(?:@\S+)?\s+(.+)$", text, re.S)
-        if not m:
-            continue
-        rest = m.group(1).split()
-        ledger = "business" if "-b" in rest else "platform"
-        top = "-n" in rest
-        title = " ".join(a for a in rest if a not in ("-b", "-n")).strip()
-        if not title:
-            continue
-        board = Board(ledger)
-        task = Task(new_id(LEDGERS[ledger], all_known_ids()), title)
-        board.open.insert(0, task) if top else board.open.append(task)
-        board.save()
-        added.append((task, ledger))
-        telegram_reply(chat, f"✓ {task.id}  {task.title}\n{ledger} · "
-                             f"{'top of' if top else 'bottom of'} open",
-                       msg.get("message_id"))
-
+        if chat:
+            telegram_reply(chat, NOTIFICATION_ONLY, msg.get("message_id"))
+            replied += 1
     if off_path and last > offset:
         with open(off_path, "w") as fh:
             fh.write(str(last))
-
-    if not added:
-        print("  nothing queued")
-        return
-    for task, ledger in added:
-        print(f"  {task.id}  {task.title}")
-        print(f"  {ledger} · added from telegram")
-    print(f"\n  {len(added)} task(s). commit the board to share them.")
+    return replied
 
 
 # ---------------------------------------------------------------------- reset
@@ -901,6 +888,7 @@ def check_telegram():
             print("  from bots until they are addressed. Then run this again.")
         return 1
 
+    drain_and_reply()
     task = Task("TEST", "taskman is wired up", done_on=date.today().isoformat())
     if notify(task, "setup"):
         print(f"  ✓ sent a test message to {chats.get(int(chat), chat)}")
@@ -940,7 +928,6 @@ USAGE = """tm — taskman
   tm done [id] [--force]        complete it, then commit with "closes <id>"
   tm find <term>                search every task ever completed
 
-  tm inbox                      pull /add messages from Telegram into tasks
   tm check [--staged]           validate records; used by hooks and CI
   tm check --telegram           test/announce notification setup
   tm reset [--yes] [--all]      clear task records when adopting the skeleton
@@ -956,7 +943,7 @@ def main():
         return 0
     commands = {
         "add": cmd_add, "go": cmd_go, "done": cmd_done, "find": cmd_find,
-        "check": cmd_check, "reset": cmd_reset, "inbox": cmd_inbox,
+        "check": cmd_check, "reset": cmd_reset,
     }
     cmd = commands.get(argv[0])
     if not cmd:
