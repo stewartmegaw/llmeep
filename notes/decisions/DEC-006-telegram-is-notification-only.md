@@ -1,15 +1,22 @@
 ---
 id: DEC-006
 title: Telegram is notification-only; task management is conversational via an agent
-status: accepted
+status: superseded
 decided: 2026-07-31
 deciders: [stew]
 supersedes: []
-superseded_by: []
+superseded_by: [DEC-007]
 relates_to: [DEC-003, DEC-005, PLT-005, PLT-5pk8]
 ---
 
 # DEC-006 — Telegram is notification-only; task management is conversational via an agent
+
+> **Superseded by [`DEC-007`](DEC-007-stray-telegram-messages-are-ignored.md) on 2026-07-31.**
+>
+> The core decision stands: Telegram is outbound only, inbound task entry is gone, and task
+> management is conversational through an agent. What changed is one sub-decision — how stray
+> messages *to* the bot are handled. This document chose an auto-reply drained inside
+> `notify()`; `DEC-007` replaces that with a BotFather description and silence.
 
 ## Context
 

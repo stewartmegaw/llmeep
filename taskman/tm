@@ -285,10 +285,6 @@ def notify(task, ledger):
         # Never fail a completion because a notification failed.
         print(f"  ! telegram not sent: {exc}")
         return False
-    replied = drain_and_reply()
-    if replied:
-        print(f"  ~ answered {replied} message(s) sent to the bot "
-              "(it is notification-only)")
     return True
 
 
@@ -428,91 +424,6 @@ def cmd_find(args):
         return
     for row in hits:
         print("  " + history_line(row))
-
-
-# ---------------------------------------------------------------------- inbox
-
-
-def telegram_get(method, **params):
-    import json
-
-    load_env()
-    token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    if not token:
-        raise Fail("no TELEGRAM_BOT_TOKEN — see `tm check --telegram`")
-    url = f"https://api.telegram.org/bot{token}/{method}"
-    if params:
-        url += "?" + urllib.parse.urlencode(params)
-    try:
-        with urllib.request.urlopen(url, timeout=15) as fh:
-            data = json.load(fh)
-    except (urllib.error.URLError, OSError) as exc:
-        raise Fail(f"could not reach Telegram: {exc}")
-    if not data.get("ok"):
-        raise Fail(f"Telegram: {data.get('description')}")
-    return data.get("result", [])
-
-
-def telegram_reply(chat_id, text, reply_to=None):
-    load_env()
-    token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    params = {"chat_id": chat_id, "text": text}
-    if reply_to:
-        params["reply_to_message_id"] = reply_to
-    try:
-        urllib.request.urlopen(
-            f"https://api.telegram.org/bot{token}/sendMessage",
-            urllib.parse.urlencode(params).encode(), timeout=10,
-        )
-    except (urllib.error.URLError, OSError):
-        pass  # a failed confirmation must not lose the task
-
-
-OFFSET = "tm-telegram-offset"
-
-# Telegram is outbound only. Inbound task entry was built (PLT-5pk8) and then
-# removed (DEC-006): Claude Code does the same job conversationally, from the
-# same phone, with the whole repo in context. What remains is a courtesy reply
-# so a message into the bot is answered rather than silently swallowed.
-NOTIFICATION_ONLY = (
-    "This bot sends notifications only — it does not take commands.\n\n"
-    "To manage tasks, talk to Claude Code (it works on mobile):\n"
-    '  "what am I on?"  ·  "start PLT-9puy"  ·  "add a task for X"'
-)
-
-
-def drain_and_reply():
-    """Answer anything sent to the bot, then forget it.
-
-    Folded into the notify path rather than given its own command: a standalone
-    drain would need polling or cron for a message that carries no information
-    anyone is waiting on. Completions happen often enough.
-    """
-    root = os.path.dirname(ROOT)
-    off_path = _gitpath(root, OFFSET)
-    offset = 0
-    if off_path and os.path.exists(off_path):
-        with open(off_path) as fh:
-            offset = int(fh.read().strip() or 0)
-    try:
-        updates = telegram_get("getUpdates", offset=offset + 1, timeout=0)
-    except Fail:
-        return 0  # never let a drain failure affect a completion
-
-    replied, last = 0, offset
-    for upd in updates:
-        last = max(last, upd.get("update_id", 0))
-        msg = upd.get("message") or upd.get("channel_post") or {}
-        if not (msg.get("text") or "").strip():
-            continue
-        chat = str((msg.get("chat") or {}).get("id", ""))
-        if chat:
-            telegram_reply(chat, NOTIFICATION_ONLY, msg.get("message_id"))
-            replied += 1
-    if off_path and last > offset:
-        with open(off_path, "w") as fh:
-            fh.write(str(last))
-    return replied
 
 
 # ---------------------------------------------------------------------- reset
@@ -888,7 +799,6 @@ def check_telegram():
             print("  from bots until they are addressed. Then run this again.")
         return 1
 
-    drain_and_reply()
     task = Task("TEST", "taskman is wired up", done_on=date.today().isoformat())
     if notify(task, "setup"):
         print(f"  ✓ sent a test message to {chats.get(int(chat), chat)}")

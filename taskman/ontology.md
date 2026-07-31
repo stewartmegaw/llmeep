@@ -275,19 +275,24 @@ Two more subcommands exist. Neither touches a task, so neither is a skill:
 platform · 2026-07-31
 ```
 
-**Nothing comes back in.** Task management is conversational, through an agent that already
-has the repository in context — *"what am I on?"*, *"start PLT-9puy"*, *"add a task for X"*.
-That works from a phone, needs no command syntax, and lands the change on the board directly.
-Inbound Telegram was built and then removed for being a worse version of it; see
-[`DEC-006`](../notes/decisions/DEC-006-telegram-is-notification-only.md).
+**Nothing comes back in, and nothing reads the bot's inbox.** Task management is
+conversational, through an agent that already has the repository in context — *"what am I
+on?"*, *"start PLT-9puy"*, *"add a task for X"*. That works from a phone, needs no command
+syntax, and lands the change on the board directly. Inbound Telegram was built and then
+removed for being a worse version of it; see
+[`DEC-006`](../notes/decisions/DEC-006-telegram-is-notification-only.md) and [`DEC-007`](../notes/decisions/DEC-007-stray-telegram-messages-are-ignored.md).
 
-Anything sent **to** the bot gets one reply saying so and pointing at the agent — a bot that
-answers nothing reads as broken. The reply is drained inside `notify()`, so it needs no command
-and no cron: it arrives with the next completion, which is soon enough for a signpost.
+**Messages sent to the bot are ignored.** Say so in BotFather rather than in code — it costs
+nothing and it lands *before* someone types, which no reply can:
 
-Setup is `tm check --telegram`, which walks both steps and finds the chat id for you. Secrets
-live in `.env` — see `.env.example`. **A failed send never fails a completion**, and neither
-does a failed drain.
+```
+/setdescription   Notifications only. Manage tasks by talking to Claude Code.
+/setcommands      (send an empty list — the bot then advertises none)
+```
+
+Clearing the command list also removes the autocomplete that invites a message in the first
+place. Setup is `tm check --telegram`, which walks both steps and finds the chat id for you.
+Secrets live in `.env` — see `.env.example`. **A failed send never fails a completion.**
 
 ## Git
 

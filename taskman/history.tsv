@@ -8,3 +8,4 @@
 2026-07-31	PLT-5pk8	platform	Add tasks from Telegram
 2026-07-31	PLT-005	platform	Notify team Telegram bot from done
 2026-07-31	PLT-2fyj	platform	Make Telegram notification-only
+2026-07-31	PLT-h49x	platform	Drop the Telegram drain in favour of BotFather description
