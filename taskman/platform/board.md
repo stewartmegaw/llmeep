@@ -8,6 +8,7 @@
 
 ## recent
 
+2026-07-31  PLT-jcv5 check --notify should not send unless asked
 2026-07-31  PLT-uhhk Make the notifier swappable
 2026-07-31  PLT-us7k Put the agent-is-the-interface concept in the README
 2026-07-31  PLT-h49x Drop the Telegram drain in favour of BotFather description

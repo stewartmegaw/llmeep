@@ -288,8 +288,10 @@ the boundary, not a leak: swapping channels touches no record, no ontology file 
 extension point — no plugin loader, no registry, no config schema. See
 [`DEC-008`](../notes/decisions/DEC-008-notifier-is-swappable.md).
 
-`tm check --notify` tests the configured channel and walks its setup if it is missing. **A
-failed send never fails a completion.**
+`tm check --notify` verifies the configured channel and walks its setup if it is missing. It
+**does not send** — pass `--send` to post a test message. `check` never takes an action anyone
+outside the machine can observe ([`DEC-009`](../notes/decisions/DEC-009-check-has-no-outward-side-effects.md)),
+the same guard `reset` applies to destruction. **A failed send never fails a completion.**
 
 ### Nothing comes back in
 

@@ -800,8 +800,12 @@ def record_verified(root):
             print(f"  ~ this commit skipped validation — recorded in .git/{BYPASSED}")
 
 
-def check_notify():
-    """Test whichever channel is configured, and walk its setup if it is not.
+def check_notify(send=False):
+    """Verify the configured channel, and walk its setup if it is missing.
+
+    Does **not** send unless asked. A command called `check` must not put a
+    message in front of a whole team every time someone validates config —
+    same reasoning as `reset` being a dry run without `--yes`.
 
     Setup is inherently per-channel, so this dispatches; sending is not, so
     everything after configuration goes through `notify()`."""
@@ -814,11 +818,11 @@ def check_notify():
         print(f"  ! unknown NOTIFY={name!r}; known: {', '.join(NOTIFIERS)}")
         return 1
     if name != "telegram":
-        return check_generic(name)
-    return check_telegram()
+        return check_generic(name, send)
+    return check_telegram(send)
 
 
-def check_generic(name):
+def check_generic(name, send=False):
     """Non-Telegram channels need one URL and nothing else, so there is no
     wizard to run — either it is set or it is not."""
     var = {"slack": "SLACK_WEBHOOK_URL", "webhook": "NOTIFY_WEBHOOK_URL"}[name]
@@ -828,15 +832,21 @@ def check_generic(name):
         print(f"  add it to {env}:\n")
         print(f"       {var}=https://...")
         return 1
-    task = Task("TEST", "taskman is wired up", done_on=date.today().isoformat())
-    if notify(task, "setup"):
+    if not send:
+        print(f"  ✓ {name} configured. `--send` to post a test message.")
+        return 0
+    if notify(task_probe(), "setup"):
         print(f"  ✓ sent a test message via {name}")
         return 0
     print(f"  ! send failed — check {var}")
     return 1
 
 
-def check_telegram():
+def task_probe():
+    return Task("TEST", "taskman is wired up", done_on=date.today().isoformat())
+
+
+def check_telegram(send=False):
     """Setup helper. Walks the two-step configuration rather than just failing,
     because the chat id is the part nobody can guess."""
     load_env()
@@ -884,9 +894,12 @@ def check_telegram():
             print("  from bots until they are addressed. Then run this again.")
         return 1
 
-    task = Task("TEST", "taskman is wired up", done_on=date.today().isoformat())
-    if notify(task, "setup"):
-        print(f"  ✓ sent a test message to {chats.get(int(chat), chat)}")
+    where = chats.get(int(chat), chat) if str(chat).lstrip("-").isdigit() else chat
+    if not send:
+        print(f"  ✓ telegram configured — {where}. `--send` to post a test message.")
+        return 0
+    if notify(task_probe(), "setup"):
+        print(f"  ✓ sent a test message to {where}")
         return 0
     print("  ! send failed — check TELEGRAM_CHAT_ID is right")
     return 1
@@ -894,7 +907,7 @@ def check_telegram():
 
 def cmd_check(args):
     if "--notify" in args:
-        sys.exit(check_notify())
+        sys.exit(check_notify(send="--send" in args))
     root = os.path.dirname(ROOT)
     rep = Report()
     if "--msg" in args:
@@ -924,7 +937,7 @@ USAGE = """tm — taskman
   tm find <term>                search every task ever completed
 
   tm check [--staged]           validate records; used by hooks and CI
-  tm check --notify             test the configured notification channel
+  tm check --notify [--send]    verify the notification channel (--send posts)
   tm reset [--yes] [--all]      clear task records when adopting the skeleton
 
 Listing is reading the board; reordering is moving a line in it.
