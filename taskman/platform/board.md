@@ -5,7 +5,6 @@
 
 ## open
 
-PLT-ey59 something
 
 ## recent
 
