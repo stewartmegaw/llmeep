@@ -24,6 +24,8 @@ HISTORY = os.path.join(ROOT, "history.tsv")
 LEDGERS = {"platform": "PLT", "business": "BUS"}
 WINDOW = 15
 MAX_HITS = 3
+TITLE_MAX = 120   # hard cap; past this the detail belongs in a sidecar
+TITLE_SENTENCES = 2
 
 # Unambiguous alphabet: no 0/1/i/l/o. 30^4 = 810k, and allocation also checks
 # for a local collision, so a clash needs two branches to draw the same value.
@@ -88,6 +90,25 @@ class Task:
         if self.assignee:
             line = line.ljust(56) + f"  @{self.assignee}"
         return line.rstrip()
+
+
+def title_problems(title):
+    """A title is a handle, not a description.
+
+    The character cap is enforced because it is mechanical. The sentence count
+    only warns — counting terminal punctuation false-positives on "e.g." and
+    version numbers, and a heuristic that blocks legitimate work is worse than
+    one that mentions it.
+    """
+    errors, warnings = [], []
+    if len(title) > TITLE_MAX:
+        errors.append(f"title is {len(title)} characters; the cap is {TITLE_MAX}. "
+                      "Shorten it and put the detail in a sidecar.")
+    sentences = len([m for m in re.findall(r"[.!?](?:\s|$)", title)])
+    if sentences > TITLE_SENTENCES:
+        warnings.append(f"title reads as {sentences} sentences; {TITLE_SENTENCES} is the "
+                        "guide. A sidecar holds what will not fit.")
+    return errors, warnings
 
 
 def slug(text):
@@ -285,18 +306,40 @@ def show_related(term):
 
 
 def sidecar_path(ledger, tid):
+    """One file, or a folder when a task needs several — a spec plus a diagram,
+    a rubric, sample data. Same `<id>-<slug>` name either way."""
     d = os.path.join(ROOT, ledger, "tasks")
     if not os.path.isdir(d):
         return None
     for name in sorted(os.listdir(d)):
-        if name.startswith(f"{tid}-") and name.endswith(".md"):
-            return os.path.join(d, name)
+        if not name.startswith(f"{tid}-"):
+            continue
+        path = os.path.join(d, name)
+        if os.path.isdir(path) or name.endswith(".md"):
+            return path
     return None
+
+
+def sidecar_doc(path):
+    """The readable entry point. A folder's is its README.md — the same
+    convention the rest of the skeleton uses for 'start here'."""
+    if path and os.path.isdir(path):
+        readme = os.path.join(path, "README.md")
+        return readme if os.path.exists(readme) else None
+    return path
+
+
+def sidecar_extras(path):
+    """Everything in a folder sidecar besides its README, for `go` to list."""
+    if not (path and os.path.isdir(path)):
+        return []
+    return [f for f in sorted(os.listdir(path)) if f != "README.md"]
 
 
 def unchecked_acceptance(path):
     """Acceptance is optional. Where it exists, it is the gate — with no
     reviewer, it is the only quality gate there is."""
+    path = sidecar_doc(path)
     if not path:
         return []
     section, pending = False, []
@@ -438,6 +481,11 @@ def cmd_add(args):
     title = " ".join(a for a in args if a not in ("-b", "-n")).strip()
     if not title:
         raise Fail('usage: tm add [-b] [-n] [-f <name>] <title...>')
+    errors, warnings = title_problems(title)
+    for w in warnings:
+        print(f"  ~ {w}")
+    if errors:
+        raise Fail(errors[0])
     board = Board(ledger)
     show_related(title)  # before allocating, so a duplicate can be abandoned
     task = Task(new_id(LEDGERS[ledger], all_known_ids()), title)
@@ -519,7 +567,10 @@ def show_task(board, task, started):
         print(f"  ! blocked by {blocker}")
     path = sidecar_path(board.ledger, task.id)
     if path:
-        print(f"\n  detail: {os.path.relpath(path, os.path.dirname(ROOT))}")
+        rel = os.path.relpath(path, os.path.dirname(ROOT))
+        print(f"\n  detail: {rel}{'/' if os.path.isdir(path) else ''}")
+        for extra in sidecar_extras(path):
+            print(f"          {extra}")
         pending = unchecked_acceptance(path)
         if pending:
             print("  acceptance:")
@@ -780,16 +831,34 @@ def check_sidecars(rep):
         tagged = {t.id for t in board.doing + board.open if t.has_detail}
         closed = {t.id for t in board.recent} | {r["id"] for r in history_rows()}
         for name in sorted(os.listdir(d)):
-            if not name.endswith(".md") or name.startswith("_"):
+            if name.startswith("_") or name.startswith("."):
                 continue
-            tid = name.split("-")[0] + "-" + name.split("-")[1]
-            with open(os.path.join(d, name)) as fh:
-                head = fh.read(400)
-            m = re.search(r"^id:\s*(\S+)", head, re.M)
-            if m and m.group(1) != tid:
-                rep.error(f"{name}: frontmatter id {m.group(1)} does not match filename")
+            path = os.path.join(d, name)
+            if not (os.path.isdir(path) or name.endswith(".md")):
+                continue
+            parts = name.split("-")
+            if len(parts) < 2:
+                continue
+            tid = f"{parts[0]}-{parts[1]}"
+            doc = sidecar_doc(path)
+            if doc is None:
+                rep.error(f"{name}/: folder sidecar has no README.md — nothing to read, "
+                          "and acceptance criteria cannot be found")
+            else:
+                with open(doc) as fh:
+                    head = fh.read(400)
+                m = re.search(r"^id:\s*(\S+)", head, re.M)
+                if m and m.group(1) != tid:
+                    rep.error(f"{name}: frontmatter id {m.group(1)} does not match its name")
             if tid not in tagged and tid not in closed:
                 rep.error(f"{name}: no board line tagged detail, and not completed")
+
+        for task in board.doing + board.open + board.recent:
+            errors, warnings = title_problems(task.title)
+            for e in errors:
+                rep.error(f"{task.id}: {e}")
+            for w in warnings:
+                rep.warn(f"{task.id}: {w}")
 
 
 def frontmatter_field(text, field):

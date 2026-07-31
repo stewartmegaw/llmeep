@@ -9,6 +9,7 @@ PLT-c6ab Co-locate the notes ontology and decide if notes needs tooling  detail
 
 ## recent
 
+2026-07-31  PLT-pztu Cap task titles and allow folder sidecars  @stewart
 2026-07-31  PLT-n4zk Record assignees on tasks            @stewart
 2026-07-31  PLT-rc4c Add a tm command to return a task from doing to open
 2026-07-31  PLT-jcv5 check --notify should not send unless asked
@@ -23,4 +24,3 @@ PLT-c6ab Co-locate the notes ontology and decide if notes needs tooling  detail
 2026-07-31  PLT-004  Build find skill and history.tsv auto-search
 2026-07-31  PLT-006  Prevent next_id collisions across branches
 2026-07-31  PLT-003  Build tm executable: add, go, done
-2026-07-31  PLT-002  Choose taskman tooling language and location

@@ -53,6 +53,15 @@ this; just create the task and say you have.
 Exceptions worth not bothering about: typo fixes, formatting, a one-line config tweak. If you
 would not mention it in standup, it does not need a task.
 
+## Titles are handles
+
+**120 characters, two sentences.** `tm add` refuses a longer title. When the user describes work
+in a paragraph, do not put the paragraph in the title — write a short handle and put the rest in
+a sidecar.
+
+A sidecar is `tasks/<id>-<slug>.md`, or a **folder** `tasks/<id>-<slug>/` with a `README.md`
+plus whatever else the task needs.
+
 ## Rules
 
 - **You classify, the tool does not.** `add` always assumes the platform ledger. Decide from

@@ -128,8 +128,14 @@ A unit of intended change. **One line on a [Board](#board).**
 - **No review state**, deliberately. With one developer, or with AI-generated changes at
   volume, a review column tracks a step nobody performs. Where acceptance criteria exist, they
   are the quality gate.
+- **Title:** a handle, not a description. **Capped at 120 characters**, with **two sentences**
+  as the guide — the cap is enforced, the sentence count only warns, because counting terminal
+  punctuation false-positives on "e.g." and version numbers and a heuristic that blocks
+  legitimate work is worse than one that mentions it. The board is read far more often than any
+  sidecar, so the title pays for width it does not earn.
 - **Notes:** a title is the floor and usually the ceiling. A lengthy description of work that
-  takes an hour is friction with no reader.
+  takes an hour is friction with no reader. Anything that will not fit belongs in a
+  [Sidecar](#sidecar).
 
 ## Assignee
 
@@ -156,10 +162,19 @@ task. See [`DEC-010`](../notes/decisions/DEC-010-tasks-carry-an-assignee.md).
 
 Optional detail for a Task whose title was not sufficient.
 
-- **Lives in:** `taskman/<ledger>/tasks/<id>-<slug>.md`. Frontmatter: `id`, `title`, `created`.
+- **Lives in:** `taskman/<ledger>/tasks/<id>-<slug>.md` — **or a folder** at
+  `taskman/<ledger>/tasks/<id>-<slug>/` when one file is not enough. A folder's entry point is
+  its `README.md`, the same "start here" convention the rest of the skeleton uses; a folder
+  without one is an error, since there is nothing to read and no acceptance to find. Everything
+  else in the folder is supporting material, and `go` lists it.
+- **Frontmatter:** `id`, `title`, `created` — on the file, or on the folder's `README.md`.
 - **Notes:** write one when the work is subtle, the acceptance is non-obvious, or the
   reasoning is worth keeping — **not by default.** Its absence is meaningful and free to
   check, because the board line carries the `detail` tag.
+
+A folder suits a task that genuinely needs several artifacts — a spec *and* a rubric *and*
+sample data. Forcing those into one markdown file is the same mistake as forcing them into a
+title.
 
 **Sections. All four are optional; omit rather than leave empty.**
 
