@@ -111,20 +111,42 @@ Full model: [`taskman/ontology.md`](taskman/ontology.md).
 git clone <this-repo> my-project && cd my-project
 rm -rf .git && git init
 git config core.hooksPath taskman/hooks
-taskman/tm reset --yes
 ```
 
-**`tm reset` matters.** Without it you inherit *this* project's task history, and `find` will
-return the skeleton's work as your prior art — the amnesia-prevention mechanism working against
-you. It clears both boards, `history.tsv` and the task sidecars.
+The default branch is **`release`** — a clean skeleton with empty boards, ready to use. That is
+deliberately not the development branch: most people cloning want the skeleton, not the
+skeleton's own build history.
 
-It **keeps** the ontology, the principles, the templates and the decision records, because those
-explain why the design is what it is. `--all` drops the decisions too. Run without `--yes` first
-to see exactly what goes.
+Then work through [`ontology/domain/README.md`](ontology/domain/README.md).
 
-Until you run it, every `tm add` and `tm go` says so.
+### Branches
 
-Then work through `ontology/domain/README.md`.
+| Branch          | Contains                              | Clone it to…                    |
+| --------------- | ------------------------------------- | ------------------------------- |
+| `release` *(default)* | Latest clean version            | start a project                 |
+| `v1`, `v2`, …   | Pinned versions                       | pin to a specific one           |
+| `main`          | Development, with full task history   | improve the skeleton itself     |
+
+**If you cloned `main` instead**, run `taskman/tm reset --yes` — otherwise you inherit this
+project's task history and `find` returns the skeleton's work as your prior art, which is the
+amnesia-prevention mechanism working against you. Every `tm add` and `tm go` says so until you
+do. `reset` clears both boards, `history.tsv` and the sidecars; it **keeps** the ontology,
+principles, templates and decision records, because those explain why the design is what it is.
+Run it without `--yes` first to see exactly what goes.
+
+### Cutting a version
+
+Release branches are **write-once — never merged back**, which is what keeps `board.md` and
+`history.tsv` from colliding forever. Each version is a new commit on `release`, made by taking
+`main`'s tree and clearing the records:
+
+```sh
+git checkout release
+git checkout main -- .
+taskman/tm reset --yes
+git commit -am "v2: clean skeleton" && git tag v2
+git checkout main            # work continues; history intact
+```
 
 ## Status
 
