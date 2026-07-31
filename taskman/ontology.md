@@ -266,33 +266,45 @@ Two more subcommands exist. Neither touches a task, so neither is a skill:
 | `tm check [--staged]` | Validates records. What the hooks and CI both call.            |
 | `tm reset [--yes]`  | Clears task records when the skeleton is adopted for a new project. Dry run unless `--yes`. See the [root README](../README.md). |
 
-## Telegram — notifications only
+## Notifications — outbound, and swappable
 
-`done` announces completions to a team bot:
+`done` announces completions to whatever channel `NOTIFY` names:
+
+```
+NOTIFY=telegram | slack | webhook | none        (default: telegram)
+```
 
 ```
 ✓ PLT-9k2m  Fix the checkout redirect
 platform · 2026-07-31
 ```
 
-**Nothing comes back in, and nothing reads the bot's inbox.** Task management is
-conversational, through an agent that already has the repository in context — *"what am I
-on?"*, *"start PLT-9puy"*, *"add a task for X"*. That works from a phone, needs no command
-syntax, and lands the change on the board directly. Inbound Telegram was built and then
-removed for being a worse version of it; see
-[`DEC-006`](../notes/decisions/DEC-006-telegram-is-notification-only.md) and [`DEC-007`](../notes/decisions/DEC-007-stray-telegram-messages-are-ignored.md).
+**The channel is deliberately external and replaceable.** Everything about how it presents
+itself — bot name, description, which room, who can see it, how long it retains — is configured
+in the service, not in this repo. The repo's share is one line in `.env` and a secret. That is
+the boundary, not a leak: swapping channels touches no record, no ontology file and no task.
 
-**Messages sent to the bot are ignored.** Say so in BotFather rather than in code — it costs
-nothing and it lands *before* someone types, which no reply can:
+**Adding a channel is one function and one dict entry** in `taskman/tm`. That is the whole
+extension point — no plugin loader, no registry, no config schema. See
+[`DEC-008`](../notes/decisions/DEC-008-notifier-is-swappable.md).
 
-```
-/setdescription   Notifications only. Manage tasks by talking to Claude Code.
-/setcommands      (send an empty list — the bot then advertises none)
-```
+`tm check --notify` tests the configured channel and walks its setup if it is missing. **A
+failed send never fails a completion.**
 
-Clearing the command list also removes the autocomplete that invites a message in the first
-place. Setup is `tm check --telegram`, which walks both steps and finds the chat id for you.
-Secrets live in `.env` — see `.env.example`. **A failed send never fails a completion.**
+### Nothing comes back in
+
+Task management is conversational, through an agent that already has the repository in context
+— *"what am I on?"*, *"start PLT-9puy"*, *"add a task for X"*. That works from a phone, needs no
+command syntax, and lands the change on the board directly.
+
+Inbound Telegram was built and then removed for being a worse version of it
+([`DEC-006`](../notes/decisions/DEC-006-telegram-is-notification-only.md)). Messages sent to
+the bot are ignored; say so in its BotFather description and send `/setcommands` an empty list,
+which also removes the autocomplete that invites the message
+([`DEC-007`](../notes/decisions/DEC-007-stray-telegram-messages-are-ignored.md)).
+
+The rule generalises: **before building an input surface, check whether an agent with the
+repository already does it better.**
 
 ## Git
 

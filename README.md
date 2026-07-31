@@ -92,9 +92,15 @@ there too. You speak; it translates:
 **That includes git.** Nothing enforces it — direct git use keeps working, and revert, rebase
 and CI must never be blocked — but the board only stays current if the agent is driving.
 
-**Every other channel is notification-only.** Telegram gets an announcement when `done` runs;
-messages sent *to* the bot are ignored, its BotFather description says so, and it advertises no
-commands.
+**Every other channel is notification-only, and swappable.** `done` announces completions to
+whatever `NOTIFY` names — `telegram`, `slack`, `webhook` or `none`. Messages sent *back* to a
+channel are ignored; Telegram's BotFather description says so and it advertises no commands.
+
+That the channel's configuration lives in the *service* rather than the repo is the point, not
+a gap: bot name, description, which room, who can see it — all of that differs per team and
+belongs to them. The repo's share is one line and a secret, so swapping channels touches no
+record and no ontology. Adding one is a function plus a dict entry
+([`DEC-008`](notes/decisions/DEC-008-notifier-is-swappable.md)).
 
 We built the other way first and deleted it. Inbound Telegram worked — `/add` filed tasks,
 `/list` returned the board — and it was still a worse version of something already available

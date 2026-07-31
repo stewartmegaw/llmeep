@@ -8,6 +8,7 @@ The tool is deterministic and never interprets intent (principle 7). It takes
 explicit flags; the agent invoking it decides what they should be.
 """
 
+import json
 import os
 import re
 import secrets
@@ -254,7 +255,16 @@ def summarise(text, width=64):
     return text if len(text) <= width else text[: width - 1].rstrip() + "…"
 
 
-# ------------------------------------------------------------------- telegram
+# --------------------------------------------------------------------- notify
+#
+# The notification channel is deliberately external and replaceable. Everything
+# about how it presents itself — bot name, description, which room, who can see
+# it — is configured in the service, not in this repo. The repo holds one line
+# (`NOTIFY=`) and a secret, so swapping channels touches no records and no
+# ontology. Telegram is one implementation, not the design.
+#
+# Adding a channel is a function plus a dict entry. That is the whole extension
+# point: no plugin loader, no registry, no config schema.
 
 
 def load_env():
@@ -269,23 +279,64 @@ def load_env():
                 os.environ.setdefault(k.strip(), v.strip().strip("'\""))
 
 
-def notify(task, ledger):
-    load_env()
+def post(url, data, headers=None):
+    req = urllib.request.Request(url, data, headers or {})
+    urllib.request.urlopen(req, timeout=5)
+
+
+def notify_telegram(text):
+    """Returns None when unconfigured, so `done` can say so without failing."""
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     chat = os.environ.get("TELEGRAM_CHAT_ID")
     if not token or not chat:
+        return None
+    post(f"https://api.telegram.org/bot{token}/sendMessage",
+         urllib.parse.urlencode({"chat_id": chat, "text": text}).encode())
+    return "telegram"
+
+
+def notify_slack(text):
+    url = os.environ.get("SLACK_WEBHOOK_URL")
+    if not url:
+        return None
+    post(url, json.dumps({"text": text}).encode(),
+         {"Content-Type": "application/json"})
+    return "slack"
+
+
+def notify_webhook(text):
+    """Anything that accepts a JSON POST. The full task is included so a
+    receiver can render it however it likes rather than parse `text`."""
+    url = os.environ.get("NOTIFY_WEBHOOK_URL")
+    if not url:
+        return None
+    post(url, json.dumps({"text": text}).encode(),
+         {"Content-Type": "application/json"})
+    return "webhook"
+
+
+NOTIFIERS = {
+    "telegram": notify_telegram,
+    "slack": notify_slack,
+    "webhook": notify_webhook,
+    "none": lambda text: None,
+}
+
+
+def notify(task, ledger):
+    load_env()
+    name = (os.environ.get("NOTIFY") or "telegram").strip().lower()
+    send = NOTIFIERS.get(name)
+    if send is None:
+        print(f"  ! unknown NOTIFY={name!r}; known: {', '.join(NOTIFIERS)}")
         return False
     text = f"✓ {task.id}  {task.title}\n{ledger} · {task.done_on}"
-    data = urllib.parse.urlencode({"chat_id": chat, "text": text}).encode()
     try:
-        urllib.request.urlopen(
-            f"https://api.telegram.org/bot{token}/sendMessage", data, timeout=5
-        )
+        return send(text)
     except (urllib.error.URLError, OSError) as exc:
         # Never fail a completion because a notification failed.
-        print(f"  ! telegram not sent: {exc}")
+        print(f"  ! {name} not sent: {exc}")
         return False
-    return True
 
 
 # ------------------------------------------------------------------- commands
@@ -409,7 +460,7 @@ def cmd_done(args):
         history_append(task, ledger)
         sent = notify(task, ledger)
         print(f"  ✓ {task.id}  {task.title}")
-        print(f"  {ledger} · {task.done_on}" + (" · telegram sent" if sent else ""))
+        print(f"  {ledger} · {task.done_on}" + (f" · {sent} sent" if sent else ""))
         print(f'\n  commit with:  closes {task.id}')
         return
     raise Fail(f"no task {tid}" if tid else "nothing in doing")
@@ -749,11 +800,45 @@ def record_verified(root):
             print(f"  ~ this commit skipped validation — recorded in .git/{BYPASSED}")
 
 
+def check_notify():
+    """Test whichever channel is configured, and walk its setup if it is not.
+
+    Setup is inherently per-channel, so this dispatches; sending is not, so
+    everything after configuration goes through `notify()`."""
+    load_env()
+    name = (os.environ.get("NOTIFY") or "telegram").strip().lower()
+    if name == "none":
+        print("  NOTIFY=none — completions are not announced anywhere.")
+        return 0
+    if name not in NOTIFIERS:
+        print(f"  ! unknown NOTIFY={name!r}; known: {', '.join(NOTIFIERS)}")
+        return 1
+    if name != "telegram":
+        return check_generic(name)
+    return check_telegram()
+
+
+def check_generic(name):
+    """Non-Telegram channels need one URL and nothing else, so there is no
+    wizard to run — either it is set or it is not."""
+    var = {"slack": "SLACK_WEBHOOK_URL", "webhook": "NOTIFY_WEBHOOK_URL"}[name]
+    env = os.path.join(os.path.dirname(ROOT), ".env")
+    if not os.environ.get(var):
+        print(f"  NOTIFY={name} but {var} is not set.\n")
+        print(f"  add it to {env}:\n")
+        print(f"       {var}=https://...")
+        return 1
+    task = Task("TEST", "taskman is wired up", done_on=date.today().isoformat())
+    if notify(task, "setup"):
+        print(f"  ✓ sent a test message via {name}")
+        return 0
+    print(f"  ! send failed — check {var}")
+    return 1
+
+
 def check_telegram():
     """Setup helper. Walks the two-step configuration rather than just failing,
     because the chat id is the part nobody can guess."""
-    import json
-
     load_env()
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     chat = os.environ.get("TELEGRAM_CHAT_ID")
@@ -808,8 +893,8 @@ def check_telegram():
 
 
 def cmd_check(args):
-    if "--telegram" in args:
-        sys.exit(check_telegram())
+    if "--notify" in args:
+        sys.exit(check_notify())
     root = os.path.dirname(ROOT)
     rep = Report()
     if "--msg" in args:
@@ -839,7 +924,7 @@ USAGE = """tm — taskman
   tm find <term>                search every task ever completed
 
   tm check [--staged]           validate records; used by hooks and CI
-  tm check --telegram           test/announce notification setup
+  tm check --notify             test the configured notification channel
   tm reset [--yes] [--all]      clear task records when adopting the skeleton
 
 Listing is reading the board; reordering is moving a line in it.
