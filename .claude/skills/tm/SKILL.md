@@ -87,6 +87,9 @@ open
   2  PLT-2m4x  Upgrade toolchain             blocked:PLT-9puy
 ```
 
+A line with no `@name` is **unclaimed and available** — that is the normal state for anything
+nobody has started. Do not read it as missing data.
+
 Number the `open` lines — position is priority, so the number is the useful part. Omit empty
 sections rather than printing "nothing in doing". Omit `recent` unless asked. Say
 "nothing open" and stop if both boards are clear.

@@ -142,6 +142,9 @@ A unit of intended change. **One line on a [Board](#board).**
 Who owns a task. An `@name` tag on the board line — the same shape as `blocked:` and `detail`,
 so the format gains no new concept.
 
+- **No tag means available**, not missing. `add` never claims — a filed task belongs to the team
+  pool until someone starts it. Claiming on creation would make a task you filed *for* someone
+  else yours, and their bare `go` would never offer it.
 - **Identity is derived, never configured.** In order: `TM_USER`, `git config taskman.user`, the
   local part of `git config user.email`, then `git config user.name`. The email local part comes
   first because it is short, stable and already unique in a team, which a display name is not.
