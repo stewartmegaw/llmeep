@@ -1,6 +1,6 @@
 # Principles
 
-Five rules. Everything else in the skeleton is a consequence of one of them.
+Seven rules. Everything else in the skeleton is a consequence of one of them.
 
 ---
 
@@ -66,8 +66,8 @@ Hooks are expected to cover three things:
    its invariants: duplicate or renumbered IDs, frontmatter disagreeing with its folder,
    dangling references, a decision edited in substance rather than superseded.
 2. **Lifecycle honesty.** A commit that closes work should move the task; a commit
-   referencing a task ID should be committing against a task that is actually `doing`. Work
-   landing with no task, or tasks sitting in `doing` with nothing behind them, is drift the
+   referencing a task ID should be committing against a task that is actually in progress. Work
+   landing with no task, or tasks left in progress with nothing behind them, is drift the
    hook can see and a person cannot.
 3. **Ontology currency.** A change to `platform/` that introduces or renames a domain
    concept should not land while `ontology/domain/` still describes the old one. A stale
@@ -79,7 +79,7 @@ whatever language `platform/` is written in (principle 3). Where a check cannot 
 automated, it should prompt rather than pass silently. An escape hatch must exist and must
 be loud.
 
-Not yet implemented; tracked as `PLT-001`.
+Implemented as `tm check` plus three hooks (`PLT-001`).
 
 ## 3. Agnostic core
 

@@ -32,6 +32,10 @@ TITLE_SENTENCES = 2
 ALPHABET = "23456789abcdefghjkmnpqrstuvwxyz"
 ID_LEN = 4
 
+# Heading → attribute. They stopped being the same string once a section name
+# contained a space; deriving one from the other silently dropped the section.
+SECTIONS = {"in progress": "in_progress", "backlog": "backlog"}
+
 TAG_RE = re.compile(r"^(detail|@[a-z0-9][a-z0-9._-]*|blocked:[A-Za-z]{3}-\S+)$")
 ID_RE = re.compile(r"^(PLT|BUS)-\S+$")
 
@@ -149,7 +153,7 @@ class Board:
     def __init__(self, ledger):
         self.ledger = ledger
         self.path = os.path.join(ROOT, ledger, "board.md")
-        self.doing, self.backlog, self.recent = [], [], []
+        self.in_progress, self.backlog, self.recent = [], [], []
         self._load()
 
     def _load(self):
@@ -166,8 +170,8 @@ class Board:
                     continue
                 if section == "recent":
                     self.recent.append(self._parse_recent(line))
-                elif section in ("doing", "backlog"):
-                    getattr(self, section).append(self._parse(line))
+                elif section in SECTIONS:
+                    getattr(self, SECTIONS[section]).append(self._parse(line))
 
     @staticmethod
     def _split_tags(tokens):
@@ -193,32 +197,32 @@ class Board:
         return Task(tid, " ".join(tokens), tags, done_on=done_on)
 
     def all_ids(self):
-        return {t.id for t in self.doing + self.backlog + self.recent}
+        return {t.id for t in self.in_progress + self.backlog + self.recent}
 
     def find(self, tid):
-        for bucket in (self.doing, self.backlog, self.recent):
+        for bucket in (self.in_progress, self.backlog, self.recent):
             for t in bucket:
                 if t.id.lower() == tid.lower():
                     return t, bucket
         return None, None
 
     def is_blocked(self, task):
-        """A blocker resolved once it is out of the backlog and doing."""
+        """A blocker resolved once it is out of the backlog and progress."""
         b = task.blocker
         if not b:
             return None
-        live = {t.id for t in self.doing + self.backlog}
+        live = {t.id for t in self.in_progress + self.backlog}
         return b if b in live else None
 
     def clear_blocker(self, tid):
-        for t in self.doing + self.backlog:
+        for t in self.in_progress + self.backlog:
             t.tags = [g for g in t.tags if g != f"blocked:{tid}"]
 
     def save(self):
         self.recent.sort(key=lambda t: t.done_on, reverse=True)
         del self.recent[WINDOW:]  # pruned entries survive in history.tsv
-        out = [f"# {self.ledger}", "", "## doing", ""]
-        out += [t.render() for t in self.doing]
+        out = [f"# {self.ledger}", "", "## in progress", ""]
+        out += [t.render() for t in self.in_progress]
         out += ["", "## backlog", ""]
         out += [t.render() for t in self.backlog]
         out += ["", "## recent", ""]
@@ -509,7 +513,7 @@ def cmd_add(args):
 def cmd_go(args):
     """WIP-1 is per person, not per board.
 
-    A single global `doing` slot assumes a single worker. Once tasks carry an
+    A single global in-progress slot assumes a single worker. Once tasks carry an
     assignee, two people each having one in progress is the normal case — so
     the limit follows the claim.
     """
@@ -519,16 +523,16 @@ def cmd_go(args):
 
     for ledger in LEDGERS:
         board = Board(ledger)
-        # An unclaimed task in `doing` predates assignees, or was started with
+        # An unclaimed task in progress predates assignees, or was started with
         # no git identity. Treat it as the caller's and claim it, rather than
         # leaving it invisible to everyone — which would let a second task start
         # and quietly break WIP-1.
-        mine = [t for t in board.doing if t.assignee in (who, None)]
+        mine = [t for t in board.in_progress if t.assignee in (who, None)]
         if mine:
             current = mine[0]
             if tid and current.id.lower() != tid.lower():
                 raise Fail(
-                    f"{current.id} is already in doing — finish or park it first (WIP-1)"
+                    f"{current.id} is already in progress — finish or park it first (WIP-1)"
                 )
             if current.assignee is None and who:
                 current.claim(who)
@@ -561,7 +565,7 @@ def start(board, task, who=None):
         raise Fail(f"{task.id} is blocked by {blocker} — finish that first")
     task.claim(who)
     board.backlog.remove(task)
-    board.doing.append(task)
+    board.in_progress.append(task)
     board.save()
     show_task(board, task, started=True)
 
@@ -589,11 +593,11 @@ def show_task(board, task, started):
 
 
 def cmd_park(args):
-    """doing → open. The one transition the tool forces you into.
+    """in progress → backlog. The one transition the tool forces you into.
 
     Moving a line between sections breaks no invariant, so by the reordering
     exemption this could be a hand edit. It is a command because **WIP-1 creates
-    the need**: `go` refuses while `doing` is occupied, so anyone switching
+    the need**: `go` refuses while something is in progress, so anyone switching
     tasks is pushed by the tool's own guard into editing the board — exactly
     what principle 2 exists to prevent. Nothing in `tm` blocks deleting a line,
     which is why dropping stays a hand edit.
@@ -609,20 +613,20 @@ def cmd_park(args):
         board = Board(ledger)
         if tid:
             task, bucket = board.find(tid)
-            if task and bucket is not board.doing:
-                raise Fail(f"{task.id} is not in doing")
+            if task and bucket is not board.in_progress:
+                raise Fail(f"{task.id} is not in progress")
         else:
-            task = board.doing[0] if board.doing else None
+            task = board.in_progress[0] if board.in_progress else None
         if not task:
             continue
-        board.doing.remove(task)
+        board.in_progress.remove(task)
         task.release()  # parked means available; claim again with `go`
         board.backlog.insert(0, task) if top else board.backlog.append(task)
         board.save()
         print(f"  {task.id}  {task.title}")
         print(f"  {ledger} · returned to {'top' if top else 'bottom'} of the backlog")
         return
-    raise Fail(f"no task {tid} in doing" if tid else "nothing in doing")
+    raise Fail(f"no task {tid} in progress" if tid else "nothing in progress")
 
 
 def cmd_done(args):
@@ -632,8 +636,8 @@ def cmd_done(args):
     for ledger in LEDGERS:
         board = Board(ledger)
         task, bucket = (board.find(tid) if tid else (None, None))
-        if not tid and board.doing:
-            task, bucket = board.doing[0], board.doing
+        if not tid and board.in_progress:
+            task, bucket = board.in_progress[0], board.in_progress
         if not task:
             continue
         if bucket is board.recent:
@@ -662,7 +666,7 @@ def cmd_done(args):
               + (f" · {sent} sent" if sent else ""))
         print(f'\n  commit with:  closes {task.id}')
         return
-    raise Fail(f"no task {tid}" if tid else "nothing in doing")
+    raise Fail(f"no task {tid}" if tid else "nothing in progress")
 
 
 def cmd_find(args):
@@ -703,7 +707,7 @@ def cmd_reset(args):
             board = Board(ledger)
         except Fail:
             continue
-        n = len(board.doing) + len(board.backlog) + len(board.recent)
+        n = len(board.in_progress) + len(board.backlog) + len(board.recent)
         boards.append((board, n))
         d = os.path.join(ROOT, ledger, "tasks")
         if os.path.isdir(d):
@@ -737,7 +741,7 @@ def cmd_reset(args):
         return
 
     for board, _ in boards:
-        board.doing, board.backlog, board.recent = [], [], []
+        board.in_progress, board.backlog, board.recent = [], [], []
         board.save()
     with open(HISTORY, "w") as fh:
         fh.write("#date\tid\tledger\ttitle\n")
@@ -795,20 +799,20 @@ def check_boards(rep):
         except Fail as exc:
             rep.error(str(exc))
             continue
-        seen_doing = {}
-        for task in board.doing:
+        seen_active = {}
+        for task in board.in_progress:
             owner = task.assignee or "(unclaimed)"
-            if owner in seen_doing:
-                rep.error(f"{ledger}: {owner} has {seen_doing[owner]} and {task.id} "
-                          "both in doing — WIP is 1 per person")
-            seen_doing[owner] = task.id
+            if owner in seen_active:
+                rep.error(f"{ledger}: {owner} has {seen_active[owner]} and {task.id} "
+                          "both in progress — WIP is 1 per person")
+            seen_active[owner] = task.id
         if len(board.recent) > WINDOW:
             rep.error(f"{ledger}: recent holds {len(board.recent)}, max is {WINDOW}")
         dates = [t.done_on for t in board.recent]
         if dates != sorted(dates, reverse=True):
             rep.error(f"{ledger}: recent is not newest-first")
-        live = {t.id for t in board.doing + board.backlog}
-        for task in board.doing + board.backlog + board.recent:
+        live = {t.id for t in board.in_progress + board.backlog}
+        for task in board.in_progress + board.backlog + board.recent:
             if not ID_RE.match(task.id):
                 rep.error(f"{ledger}: malformed id {task.id!r}")
             where = seen.get(task.id)
@@ -836,7 +840,7 @@ def check_sidecars(rep):
             board = Board(ledger)
         except Fail:
             continue
-        tagged = {t.id for t in board.doing + board.backlog if t.has_detail}
+        tagged = {t.id for t in board.in_progress + board.backlog if t.has_detail}
         closed = {t.id for t in board.recent} | {r["id"] for r in history_rows()}
         for name in sorted(os.listdir(d)):
             if name.startswith("_") or name.startswith("."):
@@ -861,7 +865,7 @@ def check_sidecars(rep):
             if tid not in tagged and tid not in closed:
                 rep.error(f"{name}: no board line tagged detail, and not completed")
 
-        for task in board.doing + board.backlog + board.recent:
+        for task in board.in_progress + board.backlog + board.recent:
             errors, warnings = title_problems(task.title)
             for e in errors:
                 rep.error(f"{task.id}: {e}")
@@ -933,12 +937,12 @@ def check_untracked_work(rep, root):
         return
     for ledger in LEDGERS:
         try:
-            if Board(ledger).doing:
+            if Board(ledger).in_progress:
                 return
         except Fail:
             pass
     rep.warn(
-        f"{len(touched)} file(s) under platform/ changed with no task in doing — "
+        f"{len(touched)} file(s) under platform/ changed with no task in progress — "
         "`tm add <title>` then `tm go` if this was real work"
     )
 
@@ -966,8 +970,8 @@ def check_nudge(rep, root):
             board = Board(ledger)
         except Fail:
             continue
-        for task in board.doing:
-            rep.warn(f"{task.id} still in doing — run `tm done {task.id}` if that finished it")
+        for task in board.in_progress:
+            rep.warn(f"{task.id} still in progress — run `tm done {task.id}` if that finished it")
 
 
 # `--no-verify` skips pre-commit and commit-msg but NOT post-commit. So the

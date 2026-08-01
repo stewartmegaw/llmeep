@@ -60,13 +60,13 @@ being worked on, and what was recently completed.
 - **Identity:** one per [Ledger](#ledger), at `taskman/<ledger>/board.md`.
 - **Contains:** [Tasks](#task) as lines. Nothing else — **no counter, no metadata.** A field
   that does not exist cannot conflict between branches (`PLT-006`).
-- **Invariants:** IDs unique across both boards and history; **at most one task in `doing` per
+- **Invariants:** IDs unique across both boards and history; **at most one task in progress per
   assignee**; at most 15 entries in `recent`; every `blocked:` and `detail` tag resolves.
 
 ```
 # platform
 
-## doing
+## in progress
 
 PLT-004  Add request tracing              @stew
 PLT-011  Migrate config loader            @sam
@@ -86,7 +86,7 @@ PLT-009  Upgrade toolchain
 - **Priority is position.** No P0/P1/P2. The question is never "is this a P1?" — it is "is
   this above or below that?", which is answerable. Labels inflate until everything is P1;
   positions cannot.
-- **Status is section.** `doing` holds at most one task **per assignee**.
+- **Status is section.** `in progress` holds at most one task **per assignee**.
 - **First token is the task's own ID.** Everything after the title is a labelled tag.
 - **`blocked:PLT-007`** — cannot start until that task is done.
 - **`@stew`** — who owns it. See [Assignee](#assignee).
@@ -119,10 +119,10 @@ A unit of intended change. **One line on a [Board](#board).**
 - **Lifecycle:**
 
   ```
-  backlog → doing → done
+  backlog → in progress → done
   backlog → done       (small tasks; go/done pairs are friction at MVP pace)
   backlog → dropped    (delete the line; git keeps it)
-  doing → backlog      (returned; no ceremony)
+  in progress → backlog  (returned; no ceremony)
   ```
 
 - **No review state**, deliberately. With one developer, or with AI-generated changes at
@@ -152,7 +152,7 @@ so the format gains no new concept.
   puts it back unclaimed; completing writes the name to `history.tsv` and the notification.
   `-f <name>` on `add` and `go` acts on someone else's behalf.
 - **Bare `go` skips work claimed by others.** Name it explicitly to take it over.
-- **Unclaimed tasks in `doing` are adopted** by the next `go` — otherwise a task started before
+- **Unclaimed tasks in progress are adopted** by the next `go` — otherwise a task started before
   a claim existed is invisible to its owner's WIP check, silently permitting a second.
 - **Where git has no identity, claims are simply not made** and the behaviour degrades to a
   single shared slot.
@@ -240,9 +240,9 @@ step. See [`DEC-003`](../notes/decisions/DEC-003-skills-are-executables.md).
 | Skill  | Invocation           | Does                                                            |
 | ------ | -------------------- | --------------------------------------------------------------- |
 | `add`  | `tm add <title…>`    | Allocates the ID, appends to the `backlog`. `-f <name>` assigns. **Searches History.** |
-| `go`   | `tm go [id]`         | No id: shows what is in `doing`, or starts the top of `open` if nothing is. With an id: starts that one. **Searches History.** |
-| `park` | `tm park [id] [-n]`  | `doing` → `backlog`, at the bottom (`-n` for the top). Releases the claim. |
-| `done` | `tm done [id]`       | Defaults to whatever is in `doing`. Moves to `recent`, prunes, appends to History, notifies. Run **before** committing. |
+| `go`   | `tm go [id]`         | No id: shows what is in progress, or starts the top of `open` if nothing is. With an id: starts that one. **Searches History.** |
+| `park` | `tm park [id] [-n]`  | `in progress` → `backlog`, at the bottom (`-n` for the top). Releases the claim. |
+| `done` | `tm done [id]`       | Defaults to whatever is in progress. Moves to `recent`, prunes, appends to History, notifies. Run **before** committing. |
 | `find` | `tm find <term>`     | Greps History explicitly.                                        |
 
 ```sh
@@ -271,9 +271,9 @@ task, its sidecar, its blockers and any linked decisions in front of the agent.
 
 ### Why `park` is a command when reordering is not
 
-Moving a line between `doing` and `open` breaks no invariant, so by the
+Moving a line between `in progress` and `backlog` breaks no invariant, so by the
 [reordering exemption](#reordering-is-a-hand-edit) it could be a hand edit. It is a command
-because **WIP-1 creates the need**: `go` refuses while `doing` is occupied, so anyone switching
+because **WIP-1 creates the need**: `go` refuses while something is in progress, so anyone switching
 tasks is pushed by the tool's own guard into editing the board — precisely what
 [principle 2](../ontology/principles.md) exists to prevent. A tool that forces you to break its
 own rule has to provide the way out.
@@ -392,12 +392,12 @@ anywhere.
 > board and the commit consistent.
 >
 > **And create the task before the work, not after.** When the user starts planning something
-> that is not in `doing`, run `tm add` and `tm go` first. The hook warns at commit time if
-> `platform/` changed with nothing in `doing`, but that is a backstop, not the mechanism — by
+> that is not in progress, run `tm add` and `tm go` first. The hook warns at commit time if
+> `platform/` changed with nothing in progress, but that is a backstop, not the mechanism — by
 > then the work is already done. Typos and formatting do not need a task; anything you would
 > mention in standup does.
 
-If a commit lands with a task still in `doing`, a hook prints one line:
+If a commit lands with a task still in progress, a hook prints one line:
 
 ```
 PLT-007 still in doing — run `tm done PLT-007` if that commit finished it
@@ -435,12 +435,12 @@ git config core.hooksPath taskman/hooks
 The hooks are three-line shell scripts calling `tm check`; the logic is in the executable, so
 CI runs the identical checks with `tm check` and any failure reproduces without committing.
 
-**Blocks** — duplicate IDs across boards and history, a reused ID, two tasks in `doing`, an
+**Blocks** — duplicate IDs across boards and history, a reused ID, two tasks in progress, an
 over-long or misordered `recent`, a dangling `blocked:` or `detail` tag, a sidecar with no board
 line or a mismatched frontmatter id, a decision rewritten in substance without being superseded,
 and a `closes` trailer naming nothing.
 
-**Warns** — a task still in `doing` after a commit, `platform/` changed with nothing in `doing`,
+**Warns** — a task still in progress after a commit, `platform/` changed with nothing in progress,
 new files under `platform/` while `ontology/domain/` is untouched, and commits that bypassed the
 checks.
 
@@ -463,7 +463,7 @@ each time. Apply these in order:
 | -------------- | -------------------------------------------------------------------------- |
 | `backlog` lines | **Union both sides.** A task added on either branch exists.                 |
 | Ordering       | No correct answer. Keep the target branch's order; append the incoming branch's tasks below, preserving their relative order. Reprioritise afterwards if it matters. |
-| `doing`        | If both sides have one, that breaks WIP-1. Keep whichever one's work is in the merge; return the other to the top of the `backlog`. |
+| `in progress`  | If both sides have one, that breaks WIP-1. Keep whichever one's work is in the merge; return the other to the top of the `backlog`. |
 | `recent`       | Union, sort by date descending, prune to 15.                                |
 | `history.tsv`  | Append-only, so both sides appended at EOF. Keep both lines, sort by date. Never drop one. |
 
@@ -474,7 +474,7 @@ other a fresh one, recording the renumber in its log.
 
 > **If you are an agent resolving a board conflict:** apply the table above rather than
 > resolving textually. A textual merge will silently drop task lines, leave two tasks in
-> `doing`, or drop a history row — all of which look fine in the diff.
+> progress, or drop a history row — all of which look fine in the diff.
 
 ### Natural language over a deterministic core
 
@@ -537,5 +537,5 @@ mechanical covers that. If it proves to be where duplicated work starts,
 | backlog                    | Vague about ordering; the board defines a strict one.            | the `backlog` section       |
 | priority (as a label)      | P0/P1/P2 inflate until everything is P1.                         | "above/below `PLT-004`"  |
 | archive                    | There is no archive. Completed work leaves the tree.             | **history**, via `find`  |
-| WIP                        | Not a status.                                                    | `doing`                  |
+| WIP                        | Not a status.                                                    | `in progress`            |
 | in review                  | Not a state in this lifecycle, deliberately.                     | —                        |

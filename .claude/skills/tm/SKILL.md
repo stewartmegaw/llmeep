@@ -46,11 +46,11 @@ wherever it happens (`DEC-006`).
 ## Every piece of work has a task, and it exists before the work starts
 
 **When the user starts describing or planning work that does not correspond to a task in
-`doing`, create it first.** Run `tm add <title>` and `tm go` before writing code — not
+progress, create it first.** Run `tm add <title>` and `tm go` before writing code — not
 afterwards, and not at commit time.
 
 This is the one rule with no mechanical backstop worth relying on. A hook can notice at commit
-that `platform/` changed with nothing in `doing`, and it does warn — but by then the work is
+that `platform/` changed with nothing in progress, and it does warn — but by then the work is
 finished, and a warning after the fact does not put it on the board. **You are the enforcement.**
 
 It costs two seconds and it is what keeps the board equal to reality. Do not ask permission for
@@ -79,7 +79,7 @@ outstanding, no suggestions about what to file, no summary of recent work. If th
 analysis they will ask for it.
 
 ```
-doing
+in progress
   PLT-9puy  Fix flaky auth test          @stew
 
 backlog
@@ -93,7 +93,7 @@ suggests a handle you can pass to a command.
 A line with no `@name` is **unclaimed and available** — that is the normal state for anything
 nobody has started. Do not read it as missing data.
 
-Omit empty sections rather than printing "nothing in doing". Omit `recent` unless asked.
+Omit empty sections rather than printing "nothing in progress". Omit `recent` unless asked.
 Say "nothing in the backlog" and stop if both boards are clear.
 
 ## Rules
