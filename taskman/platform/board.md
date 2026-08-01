@@ -5,6 +5,7 @@
 
 ## backlog
 
+PLT-7g78 An existing repo should be able to adopt the skeleton without starting over
 
 ## recent
 
