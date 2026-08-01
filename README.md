@@ -67,13 +67,12 @@ derived from your git config, and `done` records it. With more than one develope
 answers *who is doing what next* without anyone maintaining it
 ([`DEC-010`](notes/decisions/DEC-010-tasks-carry-an-assignee.md)).
 
-### The standup is the only thing that pushes
+### The standup
 
-Everything else here is pull: you ask, the agent reads the board. `tm standup` is the
-exception, because looking back over the week is a thing nobody remembers to do — the same
-argument for automatic history search, aimed at a person instead of an agent.
+Completed tasks fall out of `recent` as the window fills, so *what did we actually get done*
+is the one question the working tree stops being able to answer. `tm standup` asks git instead.
 
-**Usually it is a person.** Whoever runs the weekly call types `tm standup` and reads it out;
+**Usually it is a person.** Whoever runs the weekly call types it and reads the output out;
 `--send` posts it if the team wants it in writing. That needs no infrastructure, and it is the
 case worth optimising for.
 
@@ -82,16 +81,12 @@ taskman/tm standup           # what closed this period, and what is still open
 taskman/tm standup --send    # ...and post it to the team channel
 ```
 
-Set `STANDUP_PERIOD` to `daily`, `workday`, `bidaily` or `weekly` and `STANDUP_AT` to `HH:MM`
-in `.env`.
+Set `STANDUP_PERIOD` to `daily`, `workday`, `bidaily` or `weekly` in `.env`.
 
 **If you want it unattended**, `taskman/blueprints/standup.sh` is a blueprint for an always-on
 machine: it fetches, then reports. Nothing here runs it — `tm standup --cron` prints the line
-that would, and you decide whether to schedule it
+that would (at `STANDUP_AT`, default `09:00`), and you decide whether to schedule it
 ([`DEC-017`](notes/decisions/DEC-017-the-standup-is-usually-a-person.md)).
-
-A commit hook was the wrong home for this: commits cluster, they fire on whichever machine
-happened to be committing, and the nudge printed where nobody reads.
 
 **Close the task, then commit** — code, board and history land together:
 
