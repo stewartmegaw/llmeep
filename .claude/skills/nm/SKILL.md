@@ -73,6 +73,24 @@ producing fifteen, you are transcribing rather than distilling.
 | "I've processed that file" | `nm drop <file>` |
 | "what have we captured lately" | `cat notes/notes.md` |
 
+## When asked for notes, summarise them
+
+Render the archive compactly, grouped by date, and **lead with the count of unprocessed
+captures** — that is the actionable part, and it is invisible in `notes.md`.
+
+```
+3 captures waiting in raw/
+
+2026-08-01
+  NTE-shmy  Acme want SSO before they will renew     → PLT-9wmv
+  NTE-enu9  Sam owns the Stripe migration
+```
+
+Mark promoted notes with their task. Drop the `src:` tags unless asked — provenance matters when
+searching, not when reading. No commentary.
+
+If captures are waiting, offer once to distil them; do not distil unasked.
+
 ## Rules
 
 - **A note is one line**, capped at 200 characters. Anything longer is a task or a decision

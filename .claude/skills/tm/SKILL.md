@@ -72,6 +72,25 @@ plus whatever else the task needs.
 remembered rather than done, that is `nm` — see its skill. A note becomes a task with
 `nm promote`, not `tm add`, so the link back to the conversation survives.
 
+## When asked for tasks, lift the tasks
+
+Read the boards and render the live state. **Nothing else** — no commentary on what is
+outstanding, no suggestions about what to file, no summary of recent work. If they wanted
+analysis they will ask for it.
+
+```
+doing
+  PLT-9puy  Fix flaky auth test              @stew
+
+open
+  1  PLT-k3f9  Migrate config loader         @sam
+  2  PLT-2m4x  Upgrade toolchain             blocked:PLT-9puy
+```
+
+Number the `open` lines — position is priority, so the number is the useful part. Omit empty
+sections rather than printing "nothing in doing". Omit `recent` unless asked. Say
+"nothing open" and stop if both boards are clear.
+
 ## Rules
 
 - **You classify, the tool does not.** `add` always assumes the platform ledger. Decide from
