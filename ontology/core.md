@@ -39,34 +39,35 @@ A unit of intended change — the thing the project actually tracks.
 
 ## Note
 
-Durable knowledge intended to survive the session that produced it, and to be relied on by
-others.
+Durable knowledge captured from a conversation, a call, or a thought — and the intake funnel
+that feeds the board.
 
-- **Identity:** file path. Decisions additionally carry a sequential ID, `DEC-###`.
-- **Lives in:** `notes/` — `decisions/`, `meetings/`, `reference/`.
-- **Relates to:** may be referenced by [Tasks](#task) and by other Notes.
-- **Notes:** committed and reviewable. A Note is a claim the project stands behind.
+- **Defined in:** [`notes/ontology.md`](../notes/ontology.md), along with Capture, Archive and
+  the distil/promote/prune lifecycle.
+- **Notes:** only the pointer lives here, because a Note is referenced from outside the
+  subsystem — a task can name the note it came from.
 
 ## Decision
 
-A Note recording a choice that was made, the alternatives rejected, and why.
+A [Note](#note)-adjacent record of a choice made, the alternatives rejected, and why. It is
+**not** part of the notes pipeline: a decision is a claim the project stands behind, written
+deliberately; a note is something someone said on a Tuesday.
 
 - **Identity:** `DEC-###`, sequential, never reused.
 - **Lives in:** `notes/decisions/DEC-###-<slug>.md`
-- **Relates to:** may supersede an earlier Decision; may be motivated by a [Task](#task).
-- **Lifecycle:** `accepted → superseded`. **A Decision is never edited to change its
-  substance and never deleted.** To change a decision, write a new one that supersedes it.
-  The record of having believed something is itself the value.
+- **Lifecycle:** `accepted → superseded`. **Never edited in substance and never deleted.** To
+  change a decision, write a new one that supersedes it — the record of having believed
+  something is itself the value.
 
 ## Scratch
 
-Local, disposable working material: session logs, intermediate reasoning, an unsorted
-inbox, anything not yet worth committing.
+Local, disposable working material: session logs, intermediate reasoning, anything not yet worth
+committing.
 
 - **Identity:** none guaranteed. Nothing may reference Scratch as a source of truth.
 - **Lives in:** `.notes/` — gitignored.
-- **Relates to:** may be **promoted** into a [Note](#note) or a [Task](#task). Promotion is
-  explicit and one-directional; see principle 4.
+- **Relates to:** may be **promoted** into a [Note](#note) or a Task. Promotion is explicit and
+  one-directional; see principle 4.
 
 ## Ontology
 

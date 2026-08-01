@@ -475,23 +475,31 @@ def take_flag(args, flag):
 
 
 def cmd_add(args):
+    """`--id` prints only the allocated id, so another tool can consume it
+    without parsing prose — `nm promote` is the caller."""
+    quiet = "--id" in args
     ledger = "business" if "-b" in args else "platform"
     top = "-n" in args
     who, args = take_flag(args, "-f")
-    title = " ".join(a for a in args if a not in ("-b", "-n")).strip()
+    title = " ".join(a for a in args if a not in ("-b", "-n", "--id")).strip()
     if not title:
         raise Fail('usage: tm add [-b] [-n] [-f <name>] <title...>')
     errors, warnings = title_problems(title)
-    for w in warnings:
-        print(f"  ~ {w}")
+    if not quiet:
+        for w in warnings:
+            print(f"  ~ {w}")
     if errors:
         raise Fail(errors[0])
     board = Board(ledger)
-    show_related(title)  # before allocating, so a duplicate can be abandoned
+    if not quiet:
+        show_related(title)  # before allocating, so a duplicate can be abandoned
     task = Task(new_id(LEDGERS[ledger], all_known_ids()), title)
     task.claim(slug(who))
     board.open.insert(0, task) if top else board.open.append(task)
     board.save()
+    if quiet:
+        print(task.id)
+        return
     print(f"\n  {task.id}  {task.title}")
     claimed = f" · @{task.assignee}" if task.assignee else ""
     print(f"  {ledger} · {'top of' if top else 'bottom of'} open{claimed}")
@@ -1145,6 +1153,7 @@ def cmd_check(args):
 USAGE = """tm — taskman
 
   tm add [-b] [-n] [-f who]     create a task (-b business, -n top, -f assign)
+         [--id]                 ...printing only the new id
   tm go [id] [-f who]           show your current task, or start the next one
   tm park [id] [-n]             return it to open (-n puts it on top)
   tm done [id] [--force]        complete it, then commit with "closes <id>"

@@ -15,3 +15,4 @@
 2026-07-31	PLT-rc4c	platform	Add a tm command to return a task from doing to open
 2026-07-31	PLT-n4zk	platform	Record assignees on tasks	stewart
 2026-07-31	PLT-pztu	platform	Cap task titles and allow folder sidecars	stewart
+2026-08-01	PLT-c6ab	platform	Co-locate the notes ontology and decide if notes needs tooling	stewart

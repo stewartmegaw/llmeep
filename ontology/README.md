@@ -35,7 +35,7 @@ A self-contained subsystem keeps its own vocabulary **next to itself**, not here
 | Subsystem  | Its ontology                                     |
 | ---------- | ------------------------------------------------ |
 | `taskman/` | [`taskman/ontology.md`](../taskman/ontology.md)  |
-| `notes/`   | still in `core.md` — moves out when notes tooling is built |
+| `notes/`   | [`notes/ontology.md`](../notes/ontology.md)      |
 
 Two reasons. The subsystem stays **liftable** — you can take `taskman/` to another project
 and its definitions travel with it. And the ontology sits where someone working on the

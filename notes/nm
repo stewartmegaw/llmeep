@@ -1,0 +1,420 @@
+#!/usr/bin/env python3
+"""nm — notes. See notes/ontology.md for the model.
+
+Five commands: add, drop, promote, prune, find.
+
+`nm` is mechanical. Reading a transcript and deciding what matters is judgement,
+which belongs to the agent (principle 7) — so there is no `process` command.
+Processing is: the agent reads a capture, calls `nm add` for what it keeps, then
+`nm drop` for the file. `nm` never parses a transcript.
+"""
+
+import os
+import re
+import secrets
+import subprocess
+import sys
+from datetime import date, timedelta
+
+ROOT = os.environ.get("NM_ROOT") or os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(ROOT)
+ARCHIVE = os.path.join(ROOT, "notes.md")
+HISTORY = os.path.join(ROOT, "history.tsv")
+RAW = os.path.join(ROOT, "raw")
+TM = os.path.join(REPO, "taskman", "tm")
+
+WINDOW = 200        # entries kept in notes.md; the rest live in history.tsv
+RAW_STALE_DAYS = 30  # a capture unprocessed this long is probably never going to be
+MAX_HITS = 3
+TEXT_MAX = 200      # a note is a line, not a paragraph
+
+ALPHABET = "23456789abcdefghjkmnpqrstuvwxyz"  # no 0/1/i/l/o
+ID_LEN = 4
+ID_RE = re.compile(r"^NTE-\S+$")
+TAG_RE = re.compile(r"^(src:\S+|task:(PLT|BUS)-\S+)$")
+
+
+class Fail(Exception):
+    pass
+
+
+# ---------------------------------------------------------------------- model
+
+
+class Note:
+    def __init__(self, nid, text, tags=None, on=None):
+        self.id = nid
+        self.text = text
+        self.tags = tags or []
+        self.on = on
+
+    @property
+    def source(self):
+        for t in self.tags:
+            if t.startswith("src:"):
+                return t[4:]
+        return None
+
+    @property
+    def task(self):
+        for t in self.tags:
+            if t.startswith("task:"):
+                return t[5:]
+        return None
+
+    def render(self):
+        line = f"{self.id:<9}{self.text}"
+        if self.tags:
+            # ljust plus an explicit separator: a long line gets no padding, and
+            # without this the tag is concatenated onto the text.
+            line = line.ljust(64) + "  " + "  ".join(self.tags)
+        return line.rstrip()
+
+
+class Archive:
+    """The window: notes grouped under date headings, newest first.
+
+    Read whole, so it stays bounded. Everything ever captured is in history.tsv,
+    which is only ever grepped — the same split taskman uses for the board.
+    """
+
+    def __init__(self):
+        self.notes = []
+        if not os.path.exists(ARCHIVE):
+            return
+        on = None
+        for raw in open(ARCHIVE):
+            line = raw.rstrip("\n")
+            m = re.match(r"^##\s+(\d{4}-\d{2}-\d{2})\s*$", line)
+            if m:
+                on = m.group(1)
+                continue
+            if not line.strip() or line.startswith("#"):
+                continue
+            tokens = line.split()
+            nid = tokens.pop(0)
+            tags = []
+            while tokens and TAG_RE.match(tokens[-1]):
+                tags.insert(0, tokens.pop())
+            self.notes.append(Note(nid, " ".join(tokens), tags, on))
+
+    def all_ids(self):
+        return {n.id for n in self.notes}
+
+    def find(self, nid):
+        for n in self.notes:
+            if n.id.lower() == nid.lower():
+                return n
+        return None
+
+    def save(self):
+        self.notes.sort(key=lambda n: n.on, reverse=True)
+        del self.notes[WINDOW:]
+        out, on = ["# notes"], None
+        for note in self.notes:
+            if note.on != on:
+                on = note.on
+                out += ["", f"## {on}", ""]
+            out.append(note.render())
+        with open(ARCHIVE, "w") as fh:
+            fh.write("\n".join(out).rstrip() + "\n")
+
+
+def history_rows():
+    if not os.path.exists(HISTORY):
+        return []
+    rows = []
+    for line in open(HISTORY):
+        if line.startswith("#") or not line.strip():
+            continue
+        parts = line.rstrip("\n").split("\t")
+        if len(parts) >= 3:
+            rows.append(dict(zip(("date", "id", "text", "src", "task"), parts)))
+    return rows
+
+
+def history_append(note):
+    """Append-only. Pruning the window loses nothing."""
+    new = not os.path.exists(HISTORY)
+    with open(HISTORY, "a") as fh:
+        if new:
+            fh.write("#date\tid\ttext\tsrc\ttask\n")
+        fh.write("\t".join([note.on, note.id, note.text,
+                            note.source or "", note.task or ""]) + "\n")
+
+
+def history_relink(nid, task):
+    """The one place history is rewritten: a promoted note gains its task id.
+
+    Append-only protects against losing a capture. A link added later is new
+    information about an existing row, not a second row — and a `find` that
+    could not show where a note went would be missing the useful half.
+    """
+    if not os.path.exists(HISTORY):
+        return
+    out = []
+    for line in open(HISTORY):
+        parts = line.rstrip("\n").split("\t")
+        if len(parts) >= 2 and parts[1] == nid:
+            parts += [""] * (5 - len(parts))
+            parts[4] = task
+            line = "\t".join(parts) + "\n"
+        out.append(line)
+    with open(HISTORY, "w") as fh:
+        fh.writelines(out)
+
+
+# ----------------------------------------------------------------- utilities
+
+
+def new_id(taken):
+    for _ in range(100):
+        nid = "NTE-" + "".join(secrets.choice(ALPHABET) for _ in range(ID_LEN))
+        if nid not in taken:
+            return nid
+    raise Fail("could not allocate a free id")
+
+
+def known_ids():
+    return Archive().all_ids() | {r["id"] for r in history_rows()}
+
+
+def slug(text):
+    text = re.sub(r"[^a-z0-9._-]+", "-", (text or "").strip().lower())
+    return text.strip("-") or None
+
+
+def take_flag(args, flag):
+    if flag not in args:
+        return None, args
+    i = args.index(flag)
+    return (args[i + 1] if i + 1 < len(args) else None), args[:i] + args[i + 2:]
+
+
+def summarise(text, width=60):
+    text = re.sub(r"[*`_]", "", text).strip()
+    return text if len(text) <= width else text[: width - 1].rstrip() + "…"
+
+
+def search(term, limit=MAX_HITS):
+    words = [w for w in re.split(r"\W+", term.lower()) if len(w) > 2]
+    if not words:
+        return []
+    scored = []
+    for row in history_rows():
+        hay = f"{row['id']} {row['text']} {row.get('src', '')}".lower()
+        hits = sum(1 for w in words if w in hay)
+        if hits:
+            scored.append((hits, row["date"], row))
+    scored.sort(key=lambda s: (-s[0], s[1]))
+    return [r for _, _, r in scored[:limit]]
+
+
+# ------------------------------------------------------------------ commands
+
+
+def cmd_add(args):
+    """Capture to the archive. Reads stdin when given no text, so distilling a
+    call is one call: several notes, one source, one command."""
+    src, args = take_flag(args, "--from")
+    text = " ".join(args).strip()
+    lines = [text] if text else [l.strip() for l in sys.stdin.read().splitlines()]
+    lines = [l for l in lines if l and not l.startswith("#")]
+    if not lines:
+        raise Fail("usage: nm add [--from <src>] <text...>   (or pipe lines on stdin)")
+
+    archive, taken, added = Archive(), known_ids(), []
+    today = date.today().isoformat()
+    for line in lines:
+        if len(line) > TEXT_MAX:
+            raise Fail(f"note is {len(line)} characters; the cap is {TEXT_MAX}. "
+                       "A note is a line — put the detail in a task or a decision.")
+        note = Note(new_id(taken), line, [f"src:{slug(src)}"] if src else [], today)
+        taken.add(note.id)
+        archive.notes.insert(0, note)
+        history_append(note)
+        added.append(note)
+    archive.save()
+    for note in added:
+        print(f"  {note.id}  {note.text}")
+    plural = "note" if len(added) == 1 else "notes"
+    print(f"\n  {len(added)} {plural}" + (f" · src:{slug(src)}" if src else ""))
+    # Exclude everything just written, or a batch reports its own siblings.
+    show_related(" ".join(n.text for n in added), exclude={n.id for n in added})
+
+
+def cmd_drop(args):
+    """Mark a capture processed by deleting it. Git keeps it."""
+    if not args:
+        raise Fail("usage: nm drop <file>")
+    name = os.path.basename(args[0])
+    path = os.path.join(RAW, name)
+    if not os.path.exists(path):
+        raise Fail(f"no capture at raw/{name}")
+    os.remove(path)
+    print(f"  dropped raw/{name} — git keeps it")
+
+
+def cmd_promote(args):
+    """A note becomes a task. The note stays: it is the record of where the
+    task came from, which is the part worth keeping."""
+    if not args:
+        raise Fail("usage: nm promote <NTE-id> [-b] [-n] [-f <who>]")
+    nid, rest = args[0], args[1:]
+    archive = Archive()
+    note = archive.find(nid)
+    if not note:
+        raise Fail(f"no note {nid} in the archive (pruned? try `nm find`)")
+    if note.task:
+        raise Fail(f"{note.id} is already {note.task}")
+    if not os.access(TM, os.X_OK):
+        raise Fail(f"cannot run {TM}")
+    out = subprocess.run([TM, "add", "--id", *rest, note.text],
+                         capture_output=True, text=True)
+    tid = out.stdout.strip().splitlines()[-1].strip() if out.stdout.strip() else ""
+    if out.returncode != 0 or not re.match(r"^(PLT|BUS)-\S+$", tid):
+        raise Fail(f"tm add failed: {(out.stderr or out.stdout).strip()}")
+    note.tags.append(f"task:{tid}")
+    archive.save()
+    history_relink(note.id, tid)
+    print(f"  {note.id}  {note.text}")
+    print(f"  → {tid}")
+
+
+def cmd_prune(args):
+    """Dry unless --yes. Pruning captures discards work nobody did; pruning the
+    archive only narrows the window, since history.tsv keeps everything."""
+    apply = "--yes" in args
+    cutoff = date.today() - timedelta(days=RAW_STALE_DAYS)
+    stale = []
+    if os.path.isdir(RAW):
+        for name in sorted(os.listdir(RAW)):
+            path = os.path.join(RAW, name)
+            if name.startswith(".") or not os.path.isfile(path):
+                continue
+            m = re.match(r"^(\d{4}-\d{2}-\d{2})", name)
+            when = m.group(1) if m else date.fromtimestamp(
+                os.path.getmtime(path)).isoformat()
+            if when < cutoff.isoformat():
+                stale.append((name, when))
+
+    archive = Archive()
+    over = max(0, len(archive.notes) - WINDOW)
+
+    if not stale and not over:
+        print(f"  nothing to prune — {len(archive.notes)} note(s), "
+              f"{len(os.listdir(RAW)) if os.path.isdir(RAW) else 0} capture(s)")
+        return
+    for name, when in stale:
+        print(f"  raw/{name}  unprocessed since {when}")
+    if over:
+        print(f"  archive is {len(archive.notes)}; {over} would leave the window "
+              "(history.tsv keeps them)")
+    if not apply:
+        print("\n  dry run. pass --yes to apply.")
+        return
+    for name, _ in stale:
+        os.remove(os.path.join(RAW, name))
+    archive.save()  # save() enforces the window
+    print(f"\n  ✓ pruned {len(stale)} capture(s)" + (f", {over} note(s)" if over else ""))
+
+
+def cmd_find(args):
+    if not args:
+        raise Fail("usage: nm find <term>")
+    hits = search(" ".join(args), limit=50)
+    if not hits:
+        print("  nothing in history")
+        return
+    for row in hits:
+        line = f"  {row['id']:<9}{summarise(row['text'], 44):<46}{row['date']}"
+        if row.get("src"):
+            line += f"  src:{row['src']}"
+        if row.get("task"):
+            line += f"  {row['task']}"
+        print(line)
+
+
+def show_related(term, exclude=()):
+    """Automatic retrieval (principle 6): capturing something already captured
+    should surface it. Silent when empty, capped at 3."""
+    hits = [h for h in search(term, limit=MAX_HITS + len(exclude))
+            if h["id"] not in exclude][:MAX_HITS]
+    if not hits:
+        return
+    print("\n  related notes")
+    for row in hits:
+        print(f"    {row['id']:<9}{summarise(row['text'], 44):<46}{row['date']}")
+
+
+def cmd_check(args):
+    errors = []
+    archive, seen = Archive(), {}
+    for row in history_rows():
+        if row["id"] in seen:
+            errors.append(f"{row['id']} appears twice in history.tsv")
+        seen[row["id"]] = True
+    dates = [n.on for n in archive.notes]
+    if dates != sorted(dates, reverse=True):
+        errors.append("notes.md is not newest-first")
+    if len(archive.notes) > WINDOW:
+        errors.append(f"notes.md holds {len(archive.notes)}, the window is {WINDOW}")
+    known_tasks = set()
+    for ledger in ("platform", "business"):
+        board = os.path.join(REPO, "taskman", ledger, "board.md")
+        if os.path.exists(board):
+            known_tasks |= set(re.findall(r"\b(?:PLT|BUS)-\S+", open(board).read()))
+    th = os.path.join(REPO, "taskman", "history.tsv")
+    if os.path.exists(th):
+        known_tasks |= set(re.findall(r"\b(?:PLT|BUS)-\S+", open(th).read()))
+    for note in archive.notes:
+        if not ID_RE.match(note.id):
+            errors.append(f"malformed note id {note.id!r}")
+        if len(note.text) > TEXT_MAX:
+            errors.append(f"{note.id}: note is {len(note.text)} characters, "
+                          f"the cap is {TEXT_MAX}")
+        if note.task and note.task not in known_tasks:
+            errors.append(f"{note.id} points at {note.task}, which does not exist")
+    for e in errors:
+        print(f"  ! {e}", file=sys.stderr)
+    if errors:
+        return 1
+    if "--quiet" not in args:
+        print("  ✓ notes consistent")
+    return 0
+
+
+USAGE = """nm — notes
+
+  nm add [--from <src>] <text...>   capture to the archive; reads stdin for batch
+  nm drop <file>                    mark a capture processed (deletes it; git keeps it)
+  nm promote <NTE-id> [-b] [-n]     turn a note into a task
+  nm prune [--yes]                  bound raw/ and the archive
+  nm find <term>                    search every note ever captured
+
+  nm check                          validate records; used by hooks and CI
+
+Reading is `cat notes/notes.md`. Distilling is the agent's job, not a command.
+Model: notes/ontology.md"""
+
+
+def main():
+    argv = sys.argv[1:]
+    if not argv or argv[0] in ("-h", "--help", "help"):
+        print(USAGE)
+        return 0
+    commands = {"add": cmd_add, "drop": cmd_drop, "promote": cmd_promote,
+                "prune": cmd_prune, "find": cmd_find, "check": cmd_check}
+    cmd = commands.get(argv[0])
+    if not cmd:
+        print(f"unknown command: {argv[0]}\n\n{USAGE}", file=sys.stderr)
+        return 2
+    try:
+        return cmd(argv[1:]) or 0
+    except Fail as exc:
+        print(f"  ! {exc}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

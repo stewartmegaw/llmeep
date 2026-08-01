@@ -44,7 +44,7 @@ because every agent reads README. Point yours at this file.
 | ----------- | --------- | ------------------------------------------------------------------ |
 | `ontology/` | yes       | The shared vocabulary. What things are called and how they relate.  |
 | `taskman/`  | yes       | Task boards. `platform/` for build work, `business/` for the rest.  |
-| `notes/`    | yes       | Durable, shared knowledge. Decisions, meetings, reference.          |
+| `notes/`    | yes       | The intake funnel for work. Captures, notes, decisions.             |
 | `.notes/`   | **no**    | Local working memory. Sessions, scratch, inbox. Gitignored.         |
 | `platform/` | yes       | **Your project goes here.** Empty in the skeleton.                  |
 
@@ -117,6 +117,44 @@ The rule generalises past Telegram: **before building an input surface, check wh
 with the repository already does it better.** Slack, email, a web UI — the answer is usually
 yes, and the surface you skip is one you never have to keep in sync.
 
+## Capturing work
+
+`notes/` is not a filing cabinet — it is the funnel that feeds the board.
+
+```
+capture              distil               promote            prune
+notes/raw/*.md  ──▶  notes/notes.md  ──▶  taskman board  ──▶  git
+   (inbox)           (archive)                                 (archive)
+                          └──▶ or stays as context, never promoted
+```
+
+The commonest path never touches the filesystem: paste an exported call transcript into the
+agent and it captures what survives.
+
+```sh
+notes/nm add --from acme-call <<'EOF'
+Acme want SSO before they will renew
+Sam owns the Stripe migration end to end
+EOF
+
+notes/nm promote NTE-shmy    # a note becomes a task, linked both ways
+```
+
+**The transcript is never stored.** An exported call is large and mostly noise, and `notes/raw/`
+is committed — saving one would put "hello how are you" into git *permanently*, because pruning
+clears the working tree but not history, and every clone carries it forever. **The note is the
+artifact; the transcript is scaffolding.**
+
+**Distilling is the agent's job, not a command.** Deciding what in a conversation mattered is
+judgement, so there is no `nm process`. The agent reads, calls `nm add` for what survives, and
+`nm drop` for the file. `nm` never parses a transcript — the same split as everywhere else in
+this project: mechanism in the tool, judgement in the agent.
+
+The test for a line earning its place: **would someone act differently for having read it?**
+A note that fails that is noise wearing a summary's clothes.
+
+Full model: [`notes/ontology.md`](notes/ontology.md).
+
 **Install the validation hooks** — one step, because `.git/hooks` is not committed:
 
 ```sh
@@ -134,11 +172,13 @@ Full model: [`taskman/ontology.md`](taskman/ontology.md).
 2. [`ontology/core.md`](ontology/core.md) — the entities that cut across subsystems. A
    self-contained subsystem keeps its vocabulary next to itself instead, like
    [`taskman/ontology.md`](taskman/ontology.md).
-3. [`taskman/ontology.md`](taskman/ontology.md) — how work is tracked. One board file, four
-   skills, priority by position.
-4. Describe your own project in [`ontology/domain/`](ontology/domain/README.md) — the
+3. [`taskman/ontology.md`](taskman/ontology.md) — how work is tracked. One board file,
+   priority by position.
+4. [`notes/ontology.md`](notes/ontology.md) — how work arrives. Capture, distil, promote,
+   prune.
+5. Describe your own project in [`ontology/domain/`](ontology/domain/README.md) — the
    extension point. You should not need to edit the core ontology.
-5. Put your codebase in [`platform/`](platform/README.md).
+6. Put your codebase in [`platform/`](platform/README.md).
 
 ## Adopting this skeleton
 
