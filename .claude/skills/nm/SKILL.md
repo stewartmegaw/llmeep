@@ -91,7 +91,7 @@ between notes. `###` heading for the date, `---` immediately under it.
     **NTE-enu9**  Sam owns the Stripe migration
 
     ---
-    *promote · find + an id*
+    *promote · find · discuss*
 
 End with the rule and hint line whenever there are notes. **Never link the ids** — relative
 markdown links to repo files render as "unsupported link" over Remote Control.

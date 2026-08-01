@@ -5,10 +5,10 @@
 
 ## backlog
 
-PLT-9wmv Consider a weekly digest of completed work
 
 ## recent
 
+2026-08-01  PLT-9wmv Add tm standup with a configurable period  @stewart
 2026-08-01  PLT-c6ab Co-locate the notes ontology and decide if notes needs tooling  @stewart
 2026-07-31  PLT-pztu Cap task titles and allow folder sidecars  @stewart
 2026-07-31  PLT-n4zk Record assignees on tasks            @stewart

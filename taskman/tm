@@ -17,7 +17,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import date
+from datetime import date, timedelta
 
 ROOT = os.environ.get("TM_ROOT") or os.path.dirname(os.path.abspath(__file__))
 HISTORY = os.path.join(ROOT, "history.tsv")
@@ -431,24 +431,147 @@ NOTIFIERS = {
 }
 
 
-def notify(task, ledger):
+def notify_text(text):
+    """Dispatch to whichever channel is configured. Split out from `notify` so
+    that anything with something to say — a completion, a standup — posts
+    through one place and no caller learns the channel's name."""
     load_env()
     name = (os.environ.get("NOTIFY") or "telegram").strip().lower()
     send = NOTIFIERS.get(name)
     if send is None:
         print(f"  ! unknown NOTIFY={name!r}; known: {', '.join(NOTIFIERS)}")
         return False
-    who = f"{task.assignee} · " if task.assignee else ""
-    text = f"✓ {task.title} ({task.id})\n{ledger} · {who}{task.done_on}"
     try:
         return send(text)
     except (urllib.error.URLError, OSError) as exc:
-        # Never fail a completion because a notification failed.
+        # Never fail the caller because a notification failed.
         print(f"  ! {name} not sent: {exc}")
         return False
 
 
+def notify(task, ledger):
+    who = f"{task.assignee} · " if task.assignee else ""
+    return notify_text(f"✓ {task.title} ({task.id})\n{ledger} · {who}{task.done_on}")
+
+
 # ------------------------------------------------------------------- commands
+
+
+# ------------------------------------------------------------------- standup
+
+# Every period is a lookback length plus a key. The key is what "already
+# reported this period" means; the lookback is what gets reported.
+STANDUP_PERIODS = ("daily", "workday", "bidaily", "weekly")
+STANDUP_MARK = os.path.join(os.path.dirname(ROOT), ".notes", "standup")
+
+
+def standup_period(override=None):
+    load_env()
+    name = (override or os.environ.get("STANDUP_PERIOD") or "weekly").strip().lower()
+    if name not in STANDUP_PERIODS:
+        raise Fail(f"unknown period {name!r}; known: {', '.join(STANDUP_PERIODS)}")
+    return name
+
+
+def standup_window(period, today=None):
+    """`(start, key)` for the period ending today. `start` is exclusive.
+
+    `(None, None)` means the period does not fire today — only `workday` does
+    that, at a weekend.
+
+    The window is a fixed lookback rather than "everything since the last
+    standup". The last one may have been sent from a colleague's machine, so a
+    since-then window would make the contents depend on who ran it. A little
+    overlap when someone reports early is the cheaper fault.
+    """
+    today = today or date.today()
+    if period == "daily":
+        return today - timedelta(days=1), today.isoformat()
+    if period == "workday":
+        if today.weekday() >= 5:
+            return None, None
+        # Monday reaches back over the weekend; nothing fires during one.
+        return today - timedelta(days=3 if today.weekday() == 0 else 1), today.isoformat()
+    if period == "bidaily":
+        # Buckets counted from the ordinal epoch, so two machines agree on
+        # where the boundary falls without sharing any state.
+        bucket = date.fromordinal((today.toordinal() // 2) * 2)
+        return today - timedelta(days=2), f"{bucket.isoformat()}+2d"
+    year, week, _ = today.isocalendar()
+    return today - timedelta(days=7), f"{year}-W{week:02d}"
+
+
+def standup_text(period, today=None):
+    """The report, or None when there is nothing worth anyone's attention."""
+    today = today or date.today()
+    start, _ = standup_window(period, today)
+    if start is None:
+        return None
+    done = [r for r in history_rows()
+            if start.isoformat() < r["date"] <= today.isoformat()]
+    live = []
+    for ledger in LEDGERS:
+        try:
+            board = Board(ledger)
+        except Fail:
+            continue
+        live.extend(board.in_progress)
+    if not done and not live:
+        return None
+
+    lines = [f"Standup · {start.isoformat()} → {today.isoformat()}"]
+    by_who = {}
+    for row in done:
+        by_who.setdefault(row.get("who") or "unassigned", []).append(row)
+    for who in sorted(by_who):
+        lines += ["", who if who == "unassigned" else f"@{who}"]
+        lines += [f"  ✓ {r['title']}" for r in by_who[who]]
+    if not done:
+        lines += ["", "Nothing completed."]
+    if live:
+        # The point of the standup is not the trophy cabinet. Work that has sat
+        # in progress across a period is the part someone should react to.
+        lines += ["", "Still in progress"]
+        lines += [f"  · {t.title} — {'@' + t.assignee if t.assignee else 'unassigned'}"
+                  for t in live]
+    return "\n".join(lines)
+
+
+def standup_seen(key=None):
+    """Last period reported on *this machine*. Deliberately local and
+    disposable (principle 4): a committed marker would be a one-line file every
+    hook rewrites, and a merge conflict every week. Local means a colleague may
+    also be nudged — which costs nothing, because the nudge does not send."""
+    if key is None:
+        try:
+            with open(STANDUP_MARK) as fh:
+                return fh.read().strip()
+        except OSError:
+            return None
+    os.makedirs(os.path.dirname(STANDUP_MARK), exist_ok=True)
+    with open(STANDUP_MARK, "w") as fh:
+        fh.write(key + "\n")
+    return key
+
+
+def cmd_standup(args):
+    override, args = take_flag(args, "--period")
+    period = standup_period(override)
+    text = standup_text(period)
+    if text is None:
+        print(f"  nothing to report this {period} period")
+        return
+    print()
+    for line in text.split("\n"):
+        print(f"  {line}".rstrip())
+    print()
+    _, key = standup_window(period)
+    if "--send" not in args:
+        print("  not sent — add --send to post it to the team")
+        return
+    channel = notify_text(text)
+    standup_seen(key)
+    print(f"  sent via {channel}" if channel else "  ! no channel configured — see .env.example")
 
 
 def new_id(prefix, taken):
@@ -974,6 +1097,22 @@ def check_nudge(rep, root):
             rep.warn(f"{task.id} still in progress — run `tm done {task.id}` if that finished it")
 
 
+def check_standup(rep):
+    """Nudges, never sends. A standup that fires itself from a hook would post
+    once per developer per machine; a nudge that does is merely ignorable."""
+    try:
+        period = standup_period()
+    except Fail:
+        return                                  # a bad period is check_notify's to report
+    _, key = standup_window(period)
+    if key is None or standup_seen() == key:
+        return
+    if standup_text(period) is None:
+        return                                  # quiet when there is nothing to say
+    standup_seen(key)                           # nudge once a period, not once a commit
+    rep.warn(f"no {period} standup for {key} — run `tm standup` to see it")
+
+
 # `--no-verify` skips pre-commit and commit-msg but NOT post-commit. So the
 # trace cannot be "post-commit records success" — that would run on bypassed
 # commits too, erasing the evidence. Instead pre-commit drops a token and
@@ -1139,6 +1278,7 @@ def cmd_check(args):
         check_trailer(rep, args[args.index("--msg") + 1])
     elif "--nudge" in args:
         check_nudge(rep, root)
+        check_standup(rep)
         record_verified(root)
     else:
         check_boards(rep)
@@ -1159,9 +1299,11 @@ USAGE = """tm — taskman
   tm add [-b] [-n] [-f who]     create a task (-b business, -n top, -f assign)
          [--id]                 ...printing only the new id
   tm go [id] [-f who]           show your current task, or start the next one
-  tm park [id] [-n]             return it to open (-n puts it on top)
+  tm park [id] [-n]             return it to the backlog (-n puts it on top)
   tm done [id] [--force]        complete it, then commit with "closes <id>"
   tm find <term>                search every task ever completed
+  tm standup [--send]           report the period's work (--send posts it)
+            [--period P]        daily | workday | bidaily | weekly
 
   tm check [--staged]           validate records; used by hooks and CI
   tm check --notify [--send]    verify the notification channel (--send posts)
@@ -1178,7 +1320,7 @@ def main():
         return 0
     commands = {
         "add": cmd_add, "go": cmd_go, "park": cmd_park,
-        "done": cmd_done, "find": cmd_find,
+        "done": cmd_done, "find": cmd_find, "standup": cmd_standup,
         "check": cmd_check, "reset": cmd_reset,
     }
     cmd = commands.get(argv[0])

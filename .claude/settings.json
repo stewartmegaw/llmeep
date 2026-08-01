@@ -7,6 +7,11 @@
       "Bash(./taskman/tm park *)",
       "Bash(./taskman/tm done *)",
       "Bash(./taskman/tm find *)",
+      "Bash(./taskman/tm standup)",
+      "Bash(./taskman/tm standup --period daily)",
+      "Bash(./taskman/tm standup --period workday)",
+      "Bash(./taskman/tm standup --period bidaily)",
+      "Bash(./taskman/tm standup --period weekly)",
       "Bash(./taskman/tm check)",
       "Bash(./taskman/tm check --quiet)",
       "Bash(./taskman/tm check --staged *)",
@@ -32,6 +37,7 @@
     "ask": [
       "Bash(./taskman/tm reset *)",
       "Bash(./taskman/tm check --notify --send)",
+      "Bash(./taskman/tm standup --send)",
       "Bash(./notes/nm prune --yes)"
     ]
   }

@@ -50,7 +50,7 @@ because every agent reads README. Point yours at this file.
 
 ## Tracking work
 
-Five commands. No install step — one Python 3 file, standard library only.
+Six commands. No install step — one Python 3 file, standard library only.
 
 ```sh
 taskman/tm add Fix flaky auth test   # create; -b for business, -n for top of the order
@@ -58,6 +58,7 @@ taskman/tm go                        # start the next task, or show the one in p
 taskman/tm park                      # put it back; unassigns it
 taskman/tm done                      # complete the current task
 taskman/tm find auth                 # search everything ever completed
+taskman/tm standup                   # what closed this period; --send posts it
 ```
 
 Defaults do the work: `add` assumes platform, `go` and `done` assume the current task. Nothing
@@ -65,6 +66,20 @@ inferable from state has to be typed — including **who you are**: `go` assigns
 derived from your git config, and `done` records it. With more than one developer, the board
 answers *who is doing what next* without anyone maintaining it
 ([`DEC-010`](notes/decisions/DEC-010-tasks-carry-an-assignee.md)).
+
+### The standup is the only thing that pushes
+
+Everything else here is pull: you ask, the agent reads the board. `tm standup` is the
+exception, because looking back over the week is a thing nobody remembers to do — the same
+argument for automatic history search, aimed at a person instead of an agent.
+
+**The commit hook nudges; it never sends.** A hook fires on whichever machine happened to
+commit, so a hook that posted would give a three-person team three standups or none. A nudge
+appearing twice costs nothing, which is what lets its marker stay local and disposable. Only
+`tm standup --send` reaches the team, and only when someone types it
+([`DEC-015`](notes/decisions/DEC-015-standup-nudges-never-sends.md)).
+
+Set `STANDUP_PERIOD` to `daily`, `workday`, `bidaily` or `weekly` in `.env`.
 
 **Close the task, then commit** — code, board and history land together:
 
