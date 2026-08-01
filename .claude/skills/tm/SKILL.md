@@ -101,7 +101,7 @@ over Remote Control — tested 2026-08-01. Plain bold ids only.
     **PLT-7t1p**  Drop legacy endpoint — *unassigned*
 
     ---
-    *start · done · park · drop · discuss + an id*
+    *start · done · park · drop + an id · discuss*
 
 Omit empty sections. Omit `recent` unless asked.
 
