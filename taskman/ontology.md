@@ -142,19 +142,19 @@ A unit of intended change. **One line on a [Board](#board).**
 Who owns a task. An `@name` tag on the board line — the same shape as `blocked:` and `detail`,
 so the format gains no new concept.
 
-- **No tag means available**, not missing. `add` never claims — a filed task belongs to the team
+- **No tag means available**, not missing. `add` never assigns — a filed task belongs to the team
   pool until someone starts it. Claiming on creation would make a task you filed *for* someone
   else yours, and their bare `go` would never offer it.
 - **Identity is derived, never configured.** In order: `TM_USER`, `git config taskman.user`, the
   local part of `git config user.email`, then `git config user.name`. The email local part comes
   first because it is short, stable and already unique in a team, which a display name is not.
-- **`go` claims, `park` releases, `done` records.** Starting a task assigns it to you; parking
-  puts it back unclaimed; completing writes the name to `history.tsv` and the notification.
+- **`go` assigns, `park` unassigns, `done` records.** Starting a task assigns it to you; parking
+  puts it back unassigned; completing writes the name to `history.tsv` and the notification.
   `-f <name>` on `add` and `go` acts on someone else's behalf.
-- **Bare `go` skips work claimed by others.** Name it explicitly to take it over.
-- **Unclaimed tasks in progress are adopted** by the next `go` — otherwise a task started before
-  a claim existed is invisible to its owner's WIP check, silently permitting a second.
-- **Where git has no identity, claims are simply not made** and the behaviour degrades to a
+- **Bare `go` skips work assigned to others.** Name it explicitly to take it over.
+- **Unassigned tasks in progress are adopted** by the next `go` — otherwise a task started before
+  assignees existed is invisible to its owner's WIP check, silently permitting a second.
+- **Where git has no identity, assignments are simply not made** and the behaviour degrades to a
   single shared slot.
 
 Git already answers *who did* finished work — the commit author, via `find`. What it cannot
@@ -241,7 +241,7 @@ step. See [`DEC-003`](../notes/decisions/DEC-003-skills-are-executables.md).
 | ------ | -------------------- | --------------------------------------------------------------- |
 | `add`  | `tm add <title…>`    | Allocates the ID, appends to the `backlog`. `-f <name>` assigns. **Searches History.** |
 | `go`   | `tm go [id]`         | No id: shows what is in progress, or starts the top of `open` if nothing is. With an id: starts that one. **Searches History.** |
-| `park` | `tm park [id] [-n]`  | `in progress` → `backlog`, at the bottom (`-n` for the top). Releases the claim. |
+| `park` | `tm park [id] [-n]`  | `in progress` → `backlog`, at the bottom (`-n` for the top). Unassigns it. |
 | `done` | `tm done [id]`       | Defaults to whatever is in progress. Moves to `recent`, prunes, appends to History, notifies. Run **before** committing. |
 | `find` | `tm find <term>`     | Greps History explicitly.                                        |
 

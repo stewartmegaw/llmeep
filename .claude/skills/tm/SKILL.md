@@ -15,7 +15,7 @@ Run from the repo root:
 ```sh
 taskman/tm add [-b] [-n] <title...>   # -b business ledger, -n top of the order
 taskman/tm go [id]                    # show the current task, or start the next one
-taskman/tm park [id] [-n]             # return it to the backlog, releasing your claim
+taskman/tm park [id] [-n]             # return it to the backlog, unassigned
 taskman/tm done [id] [--force]        # complete it
 taskman/tm find <term>                # search every task ever completed
 
@@ -31,7 +31,7 @@ taskman/tm reset [--yes]              # clear task records when adopting the ske
 | "what's next" / "what am I on" | `tm go` |
 | "let's start PLT-9puy" | `tm go PLT-9puy` |
 | "add a task for X" | `tm add X` — pass `-b` if the done-state is a business outcome |
-| "park that" / "I'm blocked on this" | `tm park` — returns it to the `backlog` and releases your claim |
+| "park that" / "I'm blocked on this" | `tm park` — returns it to the `backlog`, unassigned |
 | "what is sam working on" | `grep @sam taskman/*/board.md` |
 | "give this to sam" | `tm add -f sam <title>`, or `tm go <id> -f sam` |
 | "commit task" / "that's done" | `tm done`, then `git commit` with `closes <id>` in the message |
@@ -98,7 +98,7 @@ over Remote Control — tested 2026-08-01. Plain bold ids only.
 
     **PLT-2m4x**  Upgrade toolchain — blocked by PLT-9puy
 
-    **PLT-7t1p**  Drop legacy endpoint — *unclaimed*
+    **PLT-7t1p**  Drop legacy endpoint — *unassigned*
 
     ---
     *start · done · park · drop · discuss + an id*
@@ -112,7 +112,7 @@ design them has no way to know that.
 **Do not number the lines.** Their order already conveys priority, and a number falsely
 suggests a handle you can pass to a command.
 
-A line with no `@name` is **unclaimed and available** — that is the normal state for anything
+A line with no `@name` is **unassigned and available** — that is the normal state for anything
 nobody has started. Do not read it as missing data.
 
 Say "nothing in the backlog" and stop if both boards are clear.

@@ -72,12 +72,12 @@ class Task:
                 return t[1:]
         return None
 
-    def claim(self, who):
-        self.release()
+    def assign(self, who):
+        self.unassign()
         if who:
             self.tags.insert(0, f"@{who}")
 
-    def release(self):
+    def unassign(self):
         self.tags = [t for t in self.tags if not t.startswith("@")]
 
     def render(self):
@@ -121,11 +121,11 @@ def slug(text):
 
 
 def whoami():
-    """Who is claiming. Derived, never asked for — one less thing to configure.
+    """Who the actor is. Derived, never asked for — one less thing to configure.
 
     `git config user.email`'s local part is short, stable and already unique
     within a team, which a display name is not. Returns None when git has no
-    identity, in which case claims are simply not made.
+    identity, in which case assignments are simply not made.
     """
     for source in (
         os.environ.get("TM_USER"),
@@ -498,15 +498,15 @@ def cmd_add(args):
     if not quiet:
         show_related(title)  # before allocating, so a duplicate can be abandoned
     task = Task(new_id(LEDGERS[ledger], all_known_ids()), title)
-    task.claim(slug(who))
+    task.assign(slug(who))
     board.backlog.insert(0, task) if top else board.backlog.append(task)
     board.save()
     if quiet:
         print(task.id)
         return
     print(f"\n  {task.id}  {task.title}")
-    claimed = f" · @{task.assignee}" if task.assignee else ""
-    print(f"  {ledger} · {'top of' if top else 'bottom of'} backlog{claimed}")
+    assigned = f" · @{task.assignee}" if task.assignee else ""
+    print(f"  {ledger} · {'top of' if top else 'bottom of'} backlog{assigned}")
     skeleton_nudge()
 
 
@@ -515,7 +515,7 @@ def cmd_go(args):
 
     A single global in-progress slot assumes a single worker. Once tasks carry an
     assignee, two people each having one in progress is the normal case — so
-    the limit follows the claim.
+    the limit follows the assignee.
     """
     named, rest = take_flag(args, "-f")  # -f <name>: start on someone's behalf
     who = slug(named) if named else whoami()
@@ -523,8 +523,8 @@ def cmd_go(args):
 
     for ledger in LEDGERS:
         board = Board(ledger)
-        # An unclaimed task in progress predates assignees, or was started with
-        # no git identity. Treat it as the caller's and claim it, rather than
+        # An unassigned task in progress predates assignees, or was started with
+        # no git identity. Treat it as the caller's and assign it, rather than
         # leaving it invisible to everyone — which would let a second task start
         # and quietly break WIP-1.
         mine = [t for t in board.in_progress if t.assignee in (who, None)]
@@ -535,7 +535,7 @@ def cmd_go(args):
                     f"{current.id} is already in progress — finish or park it first (WIP-1)"
                 )
             if current.assignee is None and who:
-                current.claim(who)
+                current.assign(who)
                 board.save()
             return show_task(board, current, started=False)
     if tid:
@@ -550,20 +550,20 @@ def cmd_go(args):
     for ledger in LEDGERS:
         board = Board(ledger)
         for task in board.backlog:
-            # Someone else's claim is not yours to pick up; name it explicitly
+            # Someone else's task is not yours to pick up; name it explicitly
             # if you mean to take it over.
             if task.assignee and task.assignee != who:
                 continue
             if not board.is_blocked(task):
                 return start(board, task, who)
-    raise Fail("nothing startable — every backlog task is blocked, claimed or absent")
+    raise Fail("nothing startable — every backlog task is blocked, assigned or absent")
 
 
 def start(board, task, who=None):
     blocker = board.is_blocked(task)
     if blocker:
         raise Fail(f"{task.id} is blocked by {blocker} — finish that first")
-    task.claim(who)
+    task.assign(who)
     board.backlog.remove(task)
     board.in_progress.append(task)
     board.save()
@@ -620,7 +620,7 @@ def cmd_park(args):
         if not task:
             continue
         board.in_progress.remove(task)
-        task.release()  # parked means available; claim again with `go`
+        task.unassign()  # parked means available; assign again with `go`
         board.backlog.insert(0, task) if top else board.backlog.append(task)
         board.save()
         print(f"  {task.id}  {task.title}")
@@ -650,7 +650,7 @@ def cmd_done(args):
             sys.stdout.flush()  # so the list lands above the error, not below
             raise Fail("not done — check them off, or pass --force")
         bucket.remove(task)
-        # A task completed straight from `open` was never claimed; the person
+        # A task completed straight from `open` was never assigned; the person
         # finishing it is the honest answer, and matches the commit author.
         finisher = task.assignee or whoami()
         task.tags = [f"@{finisher}"] if finisher else []
@@ -801,7 +801,7 @@ def check_boards(rep):
             continue
         seen_active = {}
         for task in board.in_progress:
-            owner = task.assignee or "(unclaimed)"
+            owner = task.assignee or "(unassigned)"
             if owner in seen_active:
                 rep.error(f"{ledger}: {owner} has {seen_active[owner]} and {task.id} "
                           "both in progress — WIP is 1 per person")

@@ -55,13 +55,13 @@ Five commands. No install step — one Python 3 file, standard library only.
 ```sh
 taskman/tm add Fix flaky auth test   # create; -b for business, -n for top of the order
 taskman/tm go                        # start the next task, or show the one in progress
-taskman/tm park                      # put it back; releases your claim
+taskman/tm park                      # put it back; unassigns it
 taskman/tm done                      # complete the current task
 taskman/tm find auth                 # search everything ever completed
 ```
 
 Defaults do the work: `add` assumes platform, `go` and `done` assume the current task. Nothing
-inferable from state has to be typed — including **who you are**: `go` claims a task for you,
+inferable from state has to be typed — including **who you are**: `go` assigns a task to you,
 derived from your git config, and `done` records it. With more than one developer, the board
 answers *who is doing what next* without anyone maintaining it
 ([`DEC-010`](notes/decisions/DEC-010-tasks-carry-an-assignee.md)).
