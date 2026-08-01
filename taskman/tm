@@ -435,7 +435,7 @@ def notify(task, ledger):
         print(f"  ! unknown NOTIFY={name!r}; known: {', '.join(NOTIFIERS)}")
         return False
     who = f"{task.assignee} · " if task.assignee else ""
-    text = f"✓ {task.id}  {task.title}\n{ledger} · {who}{task.done_on}"
+    text = f"✓ {task.title} ({task.id})\n{ledger} · {who}{task.done_on}"
     try:
         return send(text)
     except (urllib.error.URLError, OSError) as exc:

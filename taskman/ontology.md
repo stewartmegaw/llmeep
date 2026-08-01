@@ -331,8 +331,8 @@ NOTIFY=telegram | slack | webhook | none        (default: telegram)
 ```
 
 ```
-✓ PLT-9k2m  Fix the checkout redirect
-platform · 2026-07-31
+✓ Fix the checkout redirect (PLT-9k2m)
+platform · stew · 2026-08-01
 ```
 
 **The channel is deliberately external and replaceable.** Everything about how it presents
