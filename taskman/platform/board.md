@@ -2,10 +2,10 @@
 
 ## doing
 
+PLT-c6ab Co-locate the notes ontology and decide if notes needs tooling  @stewart  detail
 
 ## open
 
-PLT-c6ab Co-locate the notes ontology and decide if notes needs tooling  detail
 
 ## recent
 
