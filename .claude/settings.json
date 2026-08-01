@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./taskman/tm)",
+      "Bash(./taskman/tm add *)",
+      "Bash(./taskman/tm go *)",
+      "Bash(./taskman/tm park *)",
+      "Bash(./taskman/tm done *)",
+      "Bash(./taskman/tm find *)",
+      "Bash(./taskman/tm check)",
+      "Bash(./taskman/tm check --quiet)",
+      "Bash(./taskman/tm check --staged *)",
+      "Bash(./taskman/tm check --notify)",
+
+      "Bash(./notes/nm)",
+      "Bash(./notes/nm add *)",
+      "Bash(./notes/nm drop *)",
+      "Bash(./notes/nm promote *)",
+      "Bash(./notes/nm find *)",
+      "Bash(./notes/nm prune)",
+      "Bash(./notes/nm check)",
+      "Bash(./notes/nm check --quiet)",
+
+      "Bash(git status *)",
+      "Bash(git log *)",
+      "Bash(git diff *)",
+      "Bash(git show *)",
+      "Bash(git branch)",
+      "Bash(git rev-parse *)",
+      "Bash(git check-ignore *)"
+    ],
+    "ask": [
+      "Bash(./taskman/tm reset *)",
+      "Bash(./taskman/tm check --notify --send)",
+      "Bash(./notes/nm prune --yes)"
+    ]
+  }
+}

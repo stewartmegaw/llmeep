@@ -167,6 +167,10 @@ Full model: [`notes/ontology.md`](notes/ontology.md).
 git config core.hooksPath taskman/hooks
 ```
 
+Agent permissions are committed in `.claude/settings.json`, so a clone stops prompting for the
+daily commands immediately. The three that change something you cannot take back — `tm reset`,
+`tm check --notify --send`, `nm prune --yes` — deliberately still ask.
+
 They block on inconsistent records and warn on drift. `tm check` runs the same checks
 standalone, so CI needs no separate configuration.
 
