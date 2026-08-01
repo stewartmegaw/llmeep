@@ -49,9 +49,55 @@ notes/raw/*.md  ──▶  notes/notes.md  ──▶  taskman board  ──▶  
 | Raw location | **Committed**, `notes/raw/` | Teammates can process; git is the archive after pruning. Accepts that transcripts enter history permanently. |
 
 **`raw/` is a capture inbox, not a transcript folder.** Anything unprocessed goes there — a
-meeting summary, a half-formed idea, something noticed mid-flow. Capturing and processing can be
+written summary, a half-formed idea, something noticed mid-flow. Capturing and processing can be
 seconds apart; the point is that the thought leaves your head immediately and gets distilled
 separately.
+
+### The primary use case: paste a call transcript, get notes
+
+The commonest path does not touch `raw/` at all. After a call, the exported transcript is pasted
+straight into the agent, which distils it in one pass:
+
+```
+paste transcript  ──▶  agent distils  ──▶  nm add --from acme-call  (×N)
+                                      └──▶  nm promote  for the actionable ones
+```
+
+**The transcript is never written to disk.** An exported call transcript is large and mostly
+noise — greetings, scheduling, restatement — and `raw/` is committed, so saving one would put
+that noise in git *permanently*. Pruning removes a file from the working tree; it does not
+remove it from history, and every clone carries it forever. The note is the artifact; the
+transcript is the scaffolding.
+
+This does not contradict committing `raw/`: that is for material genuinely worth keeping. The
+test is whether anyone would want to read it again.
+
+**Batch capture, since distillation produces several notes at once**, all sharing provenance:
+
+```sh
+nm add --from acme-call <<'EOF'
+Acme want SSO before they will renew
+Their security review lands 2026-09-15
+Sam owns the Stripe migration end to end
+EOF
+```
+
+One entry per line. `--from` records the source as a `src:` tag; the date comes from the day.
+
+### What distillation keeps
+
+Guidance for the agent, not logic for the tool — this is judgement, and belongs in
+`notes/ontology.md` and the agent skill:
+
+| Keep | Discard |
+|---|---|
+| Decisions made, and what was rejected | Greetings, small talk, scheduling |
+| Commitments — who will do what | Restatement of what everyone already knew |
+| Facts that change a plan — a customer need, a slipped dependency, a constraint | Anything already recorded in the repo |
+| Open questions raised and left unresolved | Thinking-aloud that led nowhere |
+
+The test for a line earning its place: **would someone act differently for having read it?**
+A note that fails that is noise wearing a summary's clothes.
 
 ### The split: `nm` is mechanical, the agent judges
 
@@ -95,7 +141,7 @@ NTE-2m4x  Acme want SSO before they will renew           raw:2026-07-30-acme-cal
 ### Proposed commands
 
 ```
-nm add <text>          capture straight to the archive (a formed thought)
+nm add [--from <src>] <text>   capture to the archive; reads stdin for batch
 nm drop <rawfile>      mark a raw file processed — deletes it, git keeps it
 nm promote <NTE-id>    tm add + record the link both ways
 nm prune               bound raw/ and the archive
@@ -132,3 +178,6 @@ Reading is `cat notes/notes.md`; there is no `list`, on the same grounds as the 
 - 2026-07-31 — created. Co-location pending since the taskman ontology moved.
 - 2026-08-01 — planned. Four shape questions settled; `raw/` reframed from a transcript folder
   to a general capture inbox, which makes `.notes/inbox.md` redundant.
+- 2026-08-01 — primary use case added: paste a call transcript, distil in one pass. Transcripts
+  are deliberately never written, because `raw/` is committed and git would keep the noise
+  forever.
