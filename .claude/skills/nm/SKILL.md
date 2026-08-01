@@ -80,16 +80,20 @@ captures** — that is the actionable part, and it is invisible in `notes.md`.
 
 **Render as markdown, never a code block** — a code block scrolls horizontally on a phone,
 which is where this gets read. Date, then `---` on its own line. Bold the id. Blank line
-between notes.
+between notes. `###` heading for the date, `---` immediately under it.
 
     3 captures waiting in raw/
 
-    2026-08-01
+    ### 2026-08-01
     ---
-
     **NTE-shmy**  Acme want SSO before they will renew → PLT-9wmv
 
     **NTE-enu9**  Sam owns the Stripe migration
+
+    *promote · find + an id*
+
+End with the hint line whenever there are notes. Notes have no sidecars, so ids are never
+linked.
 
 Mark promoted notes with their task. Drop the `src:` tags unless asked — provenance matters when
 searching, not when reading. No commentary.

@@ -82,24 +82,31 @@ analysis they will ask for it.
 scrolls horizontally on a phone, and this is read on a phone. Vertical length is the cheaper
 cost — scrolling down is natural, scrolling sideways is not.
 
-Section name, then `---` on its own line (a setext H2: one construct gives you the heading and
-the rule). Bold the id. Blank line between tasks. Tags become prose after an em dash.
+`###` heading, then `---` immediately under it, above the list. Bold the id. Blank line
+between tasks. Tags become prose after an em dash.
 
-    in progress
+**Link the id when the task has a sidecar** — `taskman/<ledger>/tasks/<id>-*.md` or the folder.
+Leave it plain when there is none; linking every id to the same board file is noise.
+
+    ### in progress
     ---
-
     **PLT-9puy**  Fix flaky auth test — @stew
 
-    backlog
+    ### backlog
     ---
-
-    **PLT-k3f9**  Migrate config loader — @sam
+    **[PLT-k3f9](taskman/platform/tasks/PLT-k3f9-migrate-config-loader.md)**  Migrate config loader — @sam
 
     **PLT-2m4x**  Upgrade toolchain — blocked by PLT-9puy
 
     **PLT-7t1p**  Drop legacy endpoint — *unclaimed*
 
+    *start · done · park · drop · discuss + an id*
+
 Omit empty sections. Omit `recent` unless asked.
+
+**End with the hint line** whenever the board is not empty — one italic line, no prompt, no
+blocking. The verbs already work in conversation; the hint exists because someone who did not
+design them has no way to know that.
 
 **Do not number the lines.** Their order already conveys priority, and a number falsely
 suggests a handle you can pass to a command.
