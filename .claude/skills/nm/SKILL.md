@@ -78,15 +78,18 @@ producing fifteen, you are transcribing rather than distilling.
 Render the archive compactly, grouped by date, and **lead with the count of unprocessed
 captures** — that is the actionable part, and it is invisible in `notes.md`.
 
-```
-3 captures waiting in raw/
+**Render as markdown, never a code block** — a code block scrolls horizontally on a phone,
+which is where this gets read. Date, then `---` on its own line. Bold the id. Blank line
+between notes.
 
-2026-08-01
-NTE-shmy  Acme want SSO before they will renew     → PLT-9wmv
-NTE-enu9  Sam owns the Stripe migration
-```
+    3 captures waiting in raw/
 
-**Do not indent under the date.** The blank line already separates the groups.
+    2026-08-01
+    ---
+
+    **NTE-shmy**  Acme want SSO before they will renew → PLT-9wmv
+
+    **NTE-enu9**  Sam owns the Stripe migration
 
 Mark promoted notes with their task. Drop the `src:` tags unless asked — provenance matters when
 searching, not when reading. No commentary.

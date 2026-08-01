@@ -78,16 +78,28 @@ Read the boards and render the live state. **Nothing else** — no commentary on
 outstanding, no suggestions about what to file, no summary of recent work. If they wanted
 analysis they will ask for it.
 
-```
-in progress
-PLT-9puy  Fix flaky auth test          @stew
+**Render as markdown, never a code block.** A code block preserves column alignment but
+scrolls horizontally on a phone, and this is read on a phone. Vertical length is the cheaper
+cost — scrolling down is natural, scrolling sideways is not.
 
-backlog
-PLT-k3f9  Migrate config loader        @sam
-PLT-2m4x  Upgrade toolchain            blocked:PLT-9puy
-```
+Section name, then `---` on its own line (a setext H2: one construct gives you the heading and
+the rule). Bold the id. Blank line between tasks. Tags become prose after an em dash.
 
-**Do not indent under the heading.** The blank line already separates the groups.
+    in progress
+    ---
+
+    **PLT-9puy**  Fix flaky auth test — @stew
+
+    backlog
+    ---
+
+    **PLT-k3f9**  Migrate config loader — @sam
+
+    **PLT-2m4x**  Upgrade toolchain — blocked by PLT-9puy
+
+    **PLT-7t1p**  Drop legacy endpoint — *unclaimed*
+
+Omit empty sections. Omit `recent` unless asked.
 
 **Do not number the lines.** Their order already conveys priority, and a number falsely
 suggests a handle you can pass to a command.
@@ -95,7 +107,6 @@ suggests a handle you can pass to a command.
 A line with no `@name` is **unclaimed and available** — that is the normal state for anything
 nobody has started. Do not read it as missing data.
 
-Omit empty sections rather than printing "nothing in progress". Omit `recent` unless asked.
 Say "nothing in the backlog" and stop if both boards are clear.
 
 ## Rules
