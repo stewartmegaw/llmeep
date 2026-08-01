@@ -149,7 +149,7 @@ class Board:
     def __init__(self, ledger):
         self.ledger = ledger
         self.path = os.path.join(ROOT, ledger, "board.md")
-        self.doing, self.open, self.recent = [], [], []
+        self.doing, self.backlog, self.recent = [], [], []
         self._load()
 
     def _load(self):
@@ -166,7 +166,7 @@ class Board:
                     continue
                 if section == "recent":
                     self.recent.append(self._parse_recent(line))
-                elif section in ("doing", "open"):
+                elif section in ("doing", "backlog"):
                     getattr(self, section).append(self._parse(line))
 
     @staticmethod
@@ -193,25 +193,25 @@ class Board:
         return Task(tid, " ".join(tokens), tags, done_on=done_on)
 
     def all_ids(self):
-        return {t.id for t in self.doing + self.open + self.recent}
+        return {t.id for t in self.doing + self.backlog + self.recent}
 
     def find(self, tid):
-        for bucket in (self.doing, self.open, self.recent):
+        for bucket in (self.doing, self.backlog, self.recent):
             for t in bucket:
                 if t.id.lower() == tid.lower():
                     return t, bucket
         return None, None
 
     def is_blocked(self, task):
-        """A blocker resolved once it is out of open and doing."""
+        """A blocker resolved once it is out of the backlog and doing."""
         b = task.blocker
         if not b:
             return None
-        live = {t.id for t in self.doing + self.open}
+        live = {t.id for t in self.doing + self.backlog}
         return b if b in live else None
 
     def clear_blocker(self, tid):
-        for t in self.doing + self.open:
+        for t in self.doing + self.backlog:
             t.tags = [g for g in t.tags if g != f"blocked:{tid}"]
 
     def save(self):
@@ -219,8 +219,8 @@ class Board:
         del self.recent[WINDOW:]  # pruned entries survive in history.tsv
         out = [f"# {self.ledger}", "", "## doing", ""]
         out += [t.render() for t in self.doing]
-        out += ["", "## open", ""]
-        out += [t.render() for t in self.open]
+        out += ["", "## backlog", ""]
+        out += [t.render() for t in self.backlog]
         out += ["", "## recent", ""]
         out += [t.render_recent() for t in self.recent]
         with open(self.path, "w") as fh:
@@ -495,14 +495,14 @@ def cmd_add(args):
         show_related(title)  # before allocating, so a duplicate can be abandoned
     task = Task(new_id(LEDGERS[ledger], all_known_ids()), title)
     task.claim(slug(who))
-    board.open.insert(0, task) if top else board.open.append(task)
+    board.backlog.insert(0, task) if top else board.backlog.append(task)
     board.save()
     if quiet:
         print(task.id)
         return
     print(f"\n  {task.id}  {task.title}")
     claimed = f" · @{task.assignee}" if task.assignee else ""
-    print(f"  {ledger} · {'top of' if top else 'bottom of'} open{claimed}")
+    print(f"  {ledger} · {'top of' if top else 'bottom of'} backlog{claimed}")
     skeleton_nudge()
 
 
@@ -538,21 +538,21 @@ def cmd_go(args):
         for ledger in LEDGERS:
             board = Board(ledger)
             task, bucket = board.find(tid)
-            if task and bucket is board.open:
+            if task and bucket is board.backlog:
                 return start(board, task, who)
             if task:
-                raise Fail(f"{task.id} is not open")
-        raise Fail(f"no open task {tid}")
+                raise Fail(f"{task.id} is not in the backlog")
+        raise Fail(f"no backlog task {tid}")
     for ledger in LEDGERS:
         board = Board(ledger)
-        for task in board.open:
+        for task in board.backlog:
             # Someone else's claim is not yours to pick up; name it explicitly
             # if you mean to take it over.
             if task.assignee and task.assignee != who:
                 continue
             if not board.is_blocked(task):
                 return start(board, task, who)
-    raise Fail("nothing startable — every open task is blocked, claimed or absent")
+    raise Fail("nothing startable — every backlog task is blocked, claimed or absent")
 
 
 def start(board, task, who=None):
@@ -560,7 +560,7 @@ def start(board, task, who=None):
     if blocker:
         raise Fail(f"{task.id} is blocked by {blocker} — finish that first")
     task.claim(who)
-    board.open.remove(task)
+    board.backlog.remove(task)
     board.doing.append(task)
     board.save()
     show_task(board, task, started=True)
@@ -617,10 +617,10 @@ def cmd_park(args):
             continue
         board.doing.remove(task)
         task.release()  # parked means available; claim again with `go`
-        board.open.insert(0, task) if top else board.open.append(task)
+        board.backlog.insert(0, task) if top else board.backlog.append(task)
         board.save()
         print(f"  {task.id}  {task.title}")
-        print(f"  {ledger} · returned to {'top' if top else 'bottom'} of open")
+        print(f"  {ledger} · returned to {'top' if top else 'bottom'} of the backlog")
         return
     raise Fail(f"no task {tid} in doing" if tid else "nothing in doing")
 
@@ -703,7 +703,7 @@ def cmd_reset(args):
             board = Board(ledger)
         except Fail:
             continue
-        n = len(board.doing) + len(board.open) + len(board.recent)
+        n = len(board.doing) + len(board.backlog) + len(board.recent)
         boards.append((board, n))
         d = os.path.join(ROOT, ledger, "tasks")
         if os.path.isdir(d):
@@ -737,7 +737,7 @@ def cmd_reset(args):
         return
 
     for board, _ in boards:
-        board.doing, board.open, board.recent = [], [], []
+        board.doing, board.backlog, board.recent = [], [], []
         board.save()
     with open(HISTORY, "w") as fh:
         fh.write("#date\tid\tledger\ttitle\n")
@@ -807,8 +807,8 @@ def check_boards(rep):
         dates = [t.done_on for t in board.recent]
         if dates != sorted(dates, reverse=True):
             rep.error(f"{ledger}: recent is not newest-first")
-        live = {t.id for t in board.doing + board.open}
-        for task in board.doing + board.open + board.recent:
+        live = {t.id for t in board.doing + board.backlog}
+        for task in board.doing + board.backlog + board.recent:
             if not ID_RE.match(task.id):
                 rep.error(f"{ledger}: malformed id {task.id!r}")
             where = seen.get(task.id)
@@ -836,7 +836,7 @@ def check_sidecars(rep):
             board = Board(ledger)
         except Fail:
             continue
-        tagged = {t.id for t in board.doing + board.open if t.has_detail}
+        tagged = {t.id for t in board.doing + board.backlog if t.has_detail}
         closed = {t.id for t in board.recent} | {r["id"] for r in history_rows()}
         for name in sorted(os.listdir(d)):
             if name.startswith("_") or name.startswith("."):
@@ -861,7 +861,7 @@ def check_sidecars(rep):
             if tid not in tagged and tid not in closed:
                 rep.error(f"{name}: no board line tagged detail, and not completed")
 
-        for task in board.doing + board.open + board.recent:
+        for task in board.doing + board.backlog + board.recent:
             errors, warnings = title_problems(task.title)
             for e in errors:
                 rep.error(f"{task.id}: {e}")

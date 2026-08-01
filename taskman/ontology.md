@@ -71,7 +71,7 @@ being worked on, and what was recently completed.
 PLT-004  Add request tracing              @stew
 PLT-011  Migrate config loader            @sam
 
-## open
+## backlog
 
 PLT-007  Fix flaky auth test
 PLT-002  Rework the retry policy          @sam  blocked:PLT-007  detail
@@ -119,10 +119,10 @@ A unit of intended change. **One line on a [Board](#board).**
 - **Lifecycle:**
 
   ```
-  open → doing → done
-  open → done           (small tasks; go/done pairs are friction at MVP pace)
-  open → dropped        (delete the line; git keeps it)
-  doing → open          (returned; no ceremony)
+  backlog → doing → done
+  backlog → done       (small tasks; go/done pairs are friction at MVP pace)
+  backlog → dropped    (delete the line; git keeps it)
+  doing → backlog      (returned; no ceremony)
   ```
 
 - **No review state**, deliberately. With one developer, or with AI-generated changes at
@@ -239,9 +239,9 @@ step. See [`DEC-003`](../notes/decisions/DEC-003-skills-are-executables.md).
 
 | Skill  | Invocation           | Does                                                            |
 | ------ | -------------------- | --------------------------------------------------------------- |
-| `add`  | `tm add <title…>`    | Allocates the ID, appends to `open`. `-f <name>` assigns. **Searches History.** |
+| `add`  | `tm add <title…>`    | Allocates the ID, appends to the `backlog`. `-f <name>` assigns. **Searches History.** |
 | `go`   | `tm go [id]`         | No id: shows what is in `doing`, or starts the top of `open` if nothing is. With an id: starts that one. **Searches History.** |
-| `park` | `tm park [id] [-n]`  | `doing` → `open`, at the bottom (`-n` for the top). Releases the claim. |
+| `park` | `tm park [id] [-n]`  | `doing` → `backlog`, at the bottom (`-n` for the top). Releases the claim. |
 | `done` | `tm done [id]`       | Defaults to whatever is in `doing`. Moves to `recent`, prunes, appends to History, notifies. Run **before** committing. |
 | `find` | `tm find <term>`     | Greps History explicitly.                                        |
 
@@ -281,7 +281,7 @@ own rule has to provide the way out.
 Nothing in `tm` blocks deleting a line, so **dropping stays a hand edit**. The test is not "is
 it a status transition?" but "does the tool leave you any other way?"
 
-`park` returns a task to the **bottom** of `open` by default. A parked task is usually one you
+`park` returns a task to the **bottom** of the `backlog` by default. A parked task is usually one you
 could not continue; putting it back on top means the next bare `go` restarts it immediately.
 `-n` for the case where it genuinely is still next.
 
@@ -461,9 +461,9 @@ each time. Apply these in order:
 
 | Element        | Rule                                                                       |
 | -------------- | -------------------------------------------------------------------------- |
-| `open` lines   | **Union both sides.** A task added on either branch exists.                 |
+| `backlog` lines | **Union both sides.** A task added on either branch exists.                 |
 | Ordering       | No correct answer. Keep the target branch's order; append the incoming branch's tasks below, preserving their relative order. Reprioritise afterwards if it matters. |
-| `doing`        | If both sides have one, that breaks WIP-1. Keep whichever one's work is in the merge; return the other to the top of `open`. |
+| `doing`        | If both sides have one, that breaks WIP-1. Keep whichever one's work is in the merge; return the other to the top of the `backlog`. |
 | `recent`       | Union, sort by date descending, prune to 15.                                |
 | `history.tsv`  | Append-only, so both sides appended at EOF. Keep both lines, sort by date. Never drop one. |
 
@@ -519,6 +519,7 @@ mechanical covers that. If it proves to be where duplicated work starts,
 
 | Term         | Means                                                                   |
 | ------------ | ----------------------------------------------------------------------- |
+| **backlog**  | The ordered section of tasks not yet started. Position is priority.     |
 | **board**    | The one file holding a ledger's live state.                             |
 | **ledger**   | One of the two streams: `platform` or `business`.                       |
 | **task**     | A unit of intended change. One line. Not "ticket", "issue", "story".    |
@@ -533,7 +534,7 @@ mechanical covers that. If it proves to be where duplicated work starts,
 | Avoid                      | Because                                                          | Use instead              |
 | -------------------------- | ---------------------------------------------------------------- | ------------------------ |
 | ticket, issue, story, card | Imply an external tracker's semantics we do not implement.       | **task**                 |
-| backlog                    | Vague about ordering; the board defines a strict one.            | the `open` section       |
+| backlog                    | Vague about ordering; the board defines a strict one.            | the `backlog` section       |
 | priority (as a label)      | P0/P1/P2 inflate until everything is P1.                         | "above/below `PLT-004`"  |
 | archive                    | There is no archive. Completed work leaves the tree.             | **history**, via `find`  |
 | WIP                        | Not a status.                                                    | `doing`                  |

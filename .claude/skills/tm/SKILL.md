@@ -15,7 +15,7 @@ Run from the repo root:
 ```sh
 taskman/tm add [-b] [-n] <title...>   # -b business ledger, -n top of the order
 taskman/tm go [id]                    # show the current task, or start the next one
-taskman/tm park [id] [-n]             # return it to open, releasing your claim
+taskman/tm park [id] [-n]             # return it to the backlog, releasing your claim
 taskman/tm done [id] [--force]        # complete it
 taskman/tm find <term>                # search every task ever completed
 
@@ -31,7 +31,7 @@ taskman/tm reset [--yes]              # clear task records when adopting the ske
 | "what's next" / "what am I on" | `tm go` |
 | "let's start PLT-9puy" | `tm go PLT-9puy` |
 | "add a task for X" | `tm add X` — pass `-b` if the done-state is a business outcome |
-| "park that" / "I'm blocked on this" | `tm park` — returns it to `open` and releases your claim |
+| "park that" / "I'm blocked on this" | `tm park` — returns it to the `backlog` and releases your claim |
 | "what is sam working on" | `grep @sam taskman/*/board.md` |
 | "give this to sam" | `tm add -f sam <title>`, or `tm go <id> -f sam` |
 | "commit task" / "that's done" | `tm done`, then `git commit` with `closes <id>` in the message |
@@ -80,19 +80,21 @@ analysis they will ask for it.
 
 ```
 doing
-  PLT-9puy  Fix flaky auth test              @stew
+  PLT-9puy  Fix flaky auth test          @stew
 
-open
-  1  PLT-k3f9  Migrate config loader         @sam
-  2  PLT-2m4x  Upgrade toolchain             blocked:PLT-9puy
+backlog
+  PLT-k3f9  Migrate config loader        @sam
+  PLT-2m4x  Upgrade toolchain            blocked:PLT-9puy
 ```
+
+**Do not number the lines.** Their order already conveys priority, and a number falsely
+suggests a handle you can pass to a command.
 
 A line with no `@name` is **unclaimed and available** — that is the normal state for anything
 nobody has started. Do not read it as missing data.
 
-Number the `open` lines — position is priority, so the number is the useful part. Omit empty
-sections rather than printing "nothing in doing". Omit `recent` unless asked. Say
-"nothing open" and stop if both boards are clear.
+Omit empty sections rather than printing "nothing in doing". Omit `recent` unless asked.
+Say "nothing in the backlog" and stop if both boards are clear.
 
 ## Rules
 

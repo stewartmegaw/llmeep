@@ -3,7 +3,7 @@
 ## doing
 
 
-## open
+## backlog
 
 PLT-9wmv Consider a weekly digest of completed work
 
@@ -23,4 +23,3 @@ PLT-9wmv Consider a weekly digest of completed work
 2026-07-31  PLT-tf3z Reset task records when adopting the skeleton
 2026-07-31  PLT-001  Enforce record lifecycle via git hooks
 2026-07-31  PLT-004  Build find skill and history.tsv auto-search
-2026-07-31  PLT-006  Prevent next_id collisions across branches
