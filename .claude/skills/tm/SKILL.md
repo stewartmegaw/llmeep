@@ -80,12 +80,14 @@ analysis they will ask for it.
 
 ```
 in progress
-  PLT-9puy  Fix flaky auth test          @stew
+PLT-9puy  Fix flaky auth test          @stew
 
 backlog
-  PLT-k3f9  Migrate config loader        @sam
-  PLT-2m4x  Upgrade toolchain            blocked:PLT-9puy
+PLT-k3f9  Migrate config loader        @sam
+PLT-2m4x  Upgrade toolchain            blocked:PLT-9puy
 ```
+
+**Do not indent under the heading.** The blank line already separates the groups.
 
 **Do not number the lines.** Their order already conveys priority, and a number falsely
 suggests a handle you can pass to a command.

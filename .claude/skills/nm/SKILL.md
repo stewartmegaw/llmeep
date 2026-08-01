@@ -82,9 +82,11 @@ captures** — that is the actionable part, and it is invisible in `notes.md`.
 3 captures waiting in raw/
 
 2026-08-01
-  NTE-shmy  Acme want SSO before they will renew     → PLT-9wmv
-  NTE-enu9  Sam owns the Stripe migration
+NTE-shmy  Acme want SSO before they will renew     → PLT-9wmv
+NTE-enu9  Sam owns the Stripe migration
 ```
+
+**Do not indent under the date.** The blank line already separates the groups.
 
 Mark promoted notes with their task. Drop the `src:` tags unless asked — provenance matters when
 searching, not when reading. No commentary.
