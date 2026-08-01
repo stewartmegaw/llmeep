@@ -153,6 +153,12 @@ this project: mechanism in the tool, judgement in the agent.
 The test for a line earning its place: **would someone act differently for having read it?**
 A note that fails that is noise wearing a summary's clothes.
 
+```sh
+notes/nm drop <file>     # a capture in notes/raw/ is processed; git keeps it
+notes/nm prune           # bound raw/ and the archive; dry without --yes
+notes/nm find <term>     # search every note ever captured
+```
+
 Full model: [`notes/ontology.md`](notes/ontology.md).
 
 **Install the validation hooks** — one step, because `.git/hooks` is not committed:

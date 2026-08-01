@@ -18,6 +18,10 @@ taskman/tm go [id]                    # show the current task, or start the next
 taskman/tm park [id] [-n]             # return it to open, releasing your claim
 taskman/tm done [id] [--force]        # complete it
 taskman/tm find <term>                # search every task ever completed
+
+taskman/tm check                      # validate records (hooks and CI call this)
+taskman/tm check --notify [--send]    # verify the notification channel
+taskman/tm reset [--yes]              # clear task records when adopting the skeleton
 ```
 
 ## Translating what the user says
@@ -32,6 +36,8 @@ taskman/tm find <term>                # search every task ever completed
 | "give this to sam" | `tm add -f sam <title>`, or `tm go <id> -f sam` |
 | "commit task" / "that's done" | `tm done`, then `git commit` with `closes <id>` in the message |
 | "have we done this before" | `tm find <term>` |
+| "I've just cloned this to start a project" | `tm reset` to see what goes, then `--yes` |
+| "is the Telegram bot set up" | `tm check --notify` — add `--send` only if they want a test message |
 
 **You are the mobile interface.** Telegram sends completion notifications and nothing reads
 its inbox — messages sent to the bot are ignored. Task management is this conversation,
@@ -62,6 +68,10 @@ a sidecar.
 A sidecar is `tasks/<id>-<slug>.md`, or a **folder** `tasks/<id>-<slug>/` with a `README.md`
 plus whatever else the task needs.
 
+**Notes are a separate subsystem.** If the user pastes a transcript or wants something
+remembered rather than done, that is `nm` — see its skill. A note becomes a task with
+`nm promote`, not `tm add`, so the link back to the conversation survives.
+
 ## Rules
 
 - **You classify, the tool does not.** `add` always assumes the platform ledger. Decide from
@@ -73,3 +83,5 @@ plus whatever else the task needs.
   Neither is a command; do not invent one.
 - **Resolving a board merge conflict** follows the table in `taskman/ontology.md`, not a
   textual merge.
+- **`check` never sends anything.** `--notify` reports configuration; only `--send` posts, and
+  that reaches a whole team. Do not add it casually.

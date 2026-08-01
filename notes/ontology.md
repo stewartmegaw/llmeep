@@ -131,6 +131,12 @@ board.
 
 `nm check` validates records; it is not a skill, because it touches no note.
 
+**Discovery.** An agent only uses a skill it knows exists, so these are listed in the
+[root README](../README.md) — the contract every agent reads. A vendor adapter at
+`.claude/skills/nm/` carries the distilling instructions to agents that support one, but it is
+ergonomics only: the same guidance is here, which is where an agent without an adapter will
+find it.
+
 **`nm` is mechanical; the agent judges.** There is no `process` command because processing is
 reading a transcript and deciding what matters. `nm` never parses one:
 
