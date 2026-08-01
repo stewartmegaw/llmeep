@@ -90,10 +90,11 @@ between notes. `###` heading for the date, `---` immediately under it.
 
     **NTE-enu9**  Sam owns the Stripe migration
 
+    ---
     *promote · find + an id*
 
-End with the hint line whenever there are notes. Notes have no sidecars, so ids are never
-linked.
+End with the rule and hint line whenever there are notes. **Never link the ids** — relative
+markdown links to repo files render as "unsupported link" over Remote Control.
 
 Mark promoted notes with their task. Drop the `src:` tags unless asked — provenance matters when
 searching, not when reading. No commentary.

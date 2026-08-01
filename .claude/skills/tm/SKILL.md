@@ -85,8 +85,8 @@ cost — scrolling down is natural, scrolling sideways is not.
 `###` heading, then `---` immediately under it, above the list. Bold the id. Blank line
 between tasks. Tags become prose after an em dash.
 
-**Link the id when the task has a sidecar** — `taskman/<ledger>/tasks/<id>-*.md` or the folder.
-Leave it plain when there is none; linking every id to the same board file is noise.
+**Never link the ids.** A relative markdown link to a repo file renders as "unsupported link"
+over Remote Control — tested 2026-08-01. Plain bold ids only.
 
     ### in progress
     ---
@@ -94,12 +94,13 @@ Leave it plain when there is none; linking every id to the same board file is no
 
     ### backlog
     ---
-    **[PLT-k3f9](taskman/platform/tasks/PLT-k3f9-migrate-config-loader.md)**  Migrate config loader — @sam
+    **PLT-k3f9**  Migrate config loader — @sam
 
     **PLT-2m4x**  Upgrade toolchain — blocked by PLT-9puy
 
     **PLT-7t1p**  Drop legacy endpoint — *unclaimed*
 
+    ---
     *start · done · park · drop · discuss + an id*
 
 Omit empty sections. Omit `recent` unless asked.

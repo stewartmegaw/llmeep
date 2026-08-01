@@ -2,6 +2,7 @@
 
 ## 2026-08-01
 
+NTE-67xq Relative markdown links to repo files render as unsupported over Remote Control; do not link ids  src:board-rendering
 NTE-zuhc Consider a weekly digest of completed work               task:PLT-9wmv
 NTE-29vy Board could use a per-person filter
 NTE-enu9 Sam owns the Stripe migration end to end                 src:acme-call
