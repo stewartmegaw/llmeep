@@ -1,11 +1,11 @@
 ---
 id: DEC-015
 title: The standup nudges from a hook and only ever sends by hand
-status: accepted
+status: superseded
 decided: 2026-08-01
 deciders: [stew]
 supersedes: []
-superseded_by: []
+superseded_by: [DEC-016]
 relates_to: [DEC-006, DEC-008, DEC-009]
 ---
 

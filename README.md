@@ -73,13 +73,20 @@ Everything else here is pull: you ask, the agent reads the board. `tm standup` i
 exception, because looking back over the week is a thing nobody remembers to do — the same
 argument for automatic history search, aimed at a person instead of an agent.
 
-**The commit hook nudges; it never sends.** A hook fires on whichever machine happened to
-commit, so a hook that posted would give a three-person team three standups or none. A nudge
-appearing twice costs nothing, which is what lets its marker stay local and disposable. Only
-`tm standup --send` reaches the team, and only when someone types it
-([`DEC-015`](notes/decisions/DEC-015-standup-nudges-never-sends.md)).
+**Nothing inside the repo triggers it.** Commits are the wrong clock: they cluster, they fire
+on whichever machine happened to be committing, and a report nobody scheduled arrives when
+nobody is asking. A standup is a calendar event, so a scheduler owns it
+([`DEC-016`](notes/decisions/DEC-016-cron-schedules-the-standup.md)).
 
-Set `STANDUP_PERIOD` to `daily`, `workday`, `bidaily` or `weekly` in `.env`.
+```sh
+taskman/tm standup --cron             # prints the line for your STANDUP_PERIOD
+taskman/tm standup --cron --install   # writes it to your crontab, idempotently
+```
+
+Set `STANDUP_PERIOD` to `daily`, `workday`, `bidaily` or `weekly` and `STANDUP_AT` to `HH:MM`
+in `.env`; the generated line follows both. It uses absolute paths and reads its own `.env`,
+so it needs nothing from cron's environment. A laptop that is asleep will not run it — put it
+on whatever is already always-on.
 
 **Close the task, then commit** — code, board and history land together:
 

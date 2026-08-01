@@ -12,6 +12,7 @@
       "Bash(./taskman/tm standup --period workday)",
       "Bash(./taskman/tm standup --period bidaily)",
       "Bash(./taskman/tm standup --period weekly)",
+      "Bash(./taskman/tm standup --cron)",
       "Bash(./taskman/tm check)",
       "Bash(./taskman/tm check --quiet)",
       "Bash(./taskman/tm check --staged *)",
@@ -38,6 +39,7 @@
       "Bash(./taskman/tm reset *)",
       "Bash(./taskman/tm check --notify --send)",
       "Bash(./taskman/tm standup --send)",
+      "Bash(./taskman/tm standup --cron --install)",
       "Bash(./notes/nm prune --yes)"
     ]
   }

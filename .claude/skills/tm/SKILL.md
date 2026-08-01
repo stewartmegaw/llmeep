@@ -19,7 +19,7 @@ taskman/tm park [id] [-n]             # return it to the backlog, unassigned
 taskman/tm done [id] [--force]        # complete it
 taskman/tm find <term>                # search every task ever completed
 taskman/tm standup [--send]           # the period's work; --send posts it
-           [--period P]               # daily | workday | bidaily | weekly
+taskman/tm standup --cron [--install] # the crontab line that schedules it
 
 taskman/tm check                      # validate records (hooks and CI call this)
 taskman/tm check --notify [--send]    # verify the notification channel
@@ -39,6 +39,7 @@ taskman/tm reset [--yes]              # clear task records when adopting the ske
 | "commit task" / "that's done" | `tm done`, then `git commit` with `closes <id>` in the message |
 | "have we done this before" | `tm find <term>` |
 | "what did we get done this week" / "standup" | `tm standup` — **without** `--send` unless they ask to post it |
+| "schedule the standup" / "how do I automate this" | `tm standup --cron` to show the line, `--install` only if they say so |
 | "I've just cloned this to start a project" | `tm reset` to see what goes, then `--yes` |
 | "is the Telegram bot set up" | `tm check --notify` — add `--send` only if they want a test message |
 
@@ -131,7 +132,8 @@ Say "nothing in the backlog" and stop if both boards are clear.
   Neither is a command; do not invent one.
 - **Resolving a board merge conflict** follows the table in `taskman/ontology.md`, not a
   textual merge.
-- **`tm standup` prints; `tm standup --send` broadcasts.** The hook nudges once a period
-  and never posts. Do not add `--send` because a nudge appeared — that is the user's call.
+- **`tm standup` prints; `tm standup --send` broadcasts.** Nothing in the repo triggers a
+  send — a scheduler does. Never add `--send` on your own initiative.
+- **`--cron` prints a line; `--cron --install` edits their crontab.** Show it first.
 - **`check` never sends anything.** `--notify` reports configuration; only `--send` posts, and
   that reaches a whole team. Do not add it casually.

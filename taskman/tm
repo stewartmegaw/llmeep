@@ -462,7 +462,15 @@ def notify(task, ledger):
 # Every period is a lookback length plus a key. The key is what "already
 # reported this period" means; the lookback is what gets reported.
 STANDUP_PERIODS = ("daily", "workday", "bidaily", "weekly")
-STANDUP_MARK = os.path.join(os.path.dirname(ROOT), ".notes", "standup")
+
+# Minute and hour come from STANDUP_AT; the rest is the period. Cron is the
+# only trigger, so nothing has to remember whether this period was reported —
+# the schedule *is* that memory.
+CRON_TAIL = {
+    "daily": "* * *", "workday": "* * 1-5",
+    "bidaily": "*/2 * *", "weekly": "* * 1",
+}
+CRON_TAG = "# tm-standup"
 
 
 def standup_period(override=None):
@@ -537,26 +545,57 @@ def standup_text(period, today=None):
     return "\n".join(lines)
 
 
-def standup_seen(key=None):
-    """Last period reported on *this machine*. Deliberately local and
-    disposable (principle 4): a committed marker would be a one-line file every
-    hook rewrites, and a merge conflict every week. Local means a colleague may
-    also be nudged — which costs nothing, because the nudge does not send."""
-    if key is None:
-        try:
-            with open(STANDUP_MARK) as fh:
-                return fh.read().strip()
-        except OSError:
-            return None
-    os.makedirs(os.path.dirname(STANDUP_MARK), exist_ok=True)
-    with open(STANDUP_MARK, "w") as fh:
-        fh.write(key + "\n")
-    return key
+def standup_cron(period):
+    """The crontab line for this period. Absolute paths throughout: cron runs
+    with a minimal environment and an unrelated working directory. Everything
+    else it needs — the channel, the token — `tm` reads from `.env` itself, so
+    the line stays the same on every machine that clones this."""
+    at = (os.environ.get("STANDUP_AT") or "09:00").strip()
+    try:
+        hour, minute = (int(part) for part in at.split(":"))
+        if not (0 <= hour < 24 and 0 <= minute < 60):
+            raise ValueError(at)
+    except ValueError:
+        raise Fail(f"STANDUP_AT={at!r} is not HH:MM")
+    exe = os.path.join(ROOT, "tm")
+    log = os.path.join(os.path.dirname(ROOT), ".notes", "standup.log")
+    return (f"{minute} {hour} {CRON_TAIL[period]} {exe} standup --send"
+            f" >>{log} 2>&1 {CRON_TAG}")
+
+
+def cron_install(line):
+    """Idempotent: the tag comment identifies our line, so re-running after a
+    period change replaces it rather than scheduling a second standup."""
+    listing = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
+    existing = listing.stdout.splitlines() if listing.returncode == 0 else []
+    kept = [l for l in existing if CRON_TAG not in l]
+    out = subprocess.run(["crontab", "-"], input="\n".join(kept + [line]) + "\n",
+                         capture_output=True, text=True)
+    if out.returncode != 0:
+        raise Fail(f"crontab rejected the line: {out.stderr.strip()}")
+    return len(kept) != len(existing)
+
+
+def cmd_standup_cron(period, install):
+    line = standup_cron(period)
+    if not install:
+        print(f"\n  {line}\n")
+        print(f"  {period} standup at {os.environ.get('STANDUP_AT') or '09:00'}."
+              "\n  Install it with `tm standup --cron --install`, or paste it into"
+              "\n  `crontab -e` yourself. Anything that runs a command on a schedule"
+              "\n  works — cron is just the one every machine already has.")
+        return
+    replaced = cron_install(line)
+    print(f"  {'replaced' if replaced else 'installed'} — {period} standup, "
+          f"{os.environ.get('STANDUP_AT') or '09:00'}")
+    print("  a laptop that is asleep will not run it; a server or CI is safer")
 
 
 def cmd_standup(args):
     override, args = take_flag(args, "--period")
     period = standup_period(override)
+    if "--cron" in args:
+        return cmd_standup_cron(period, install="--install" in args)
     text = standup_text(period)
     if text is None:
         print(f"  nothing to report this {period} period")
@@ -565,13 +604,12 @@ def cmd_standup(args):
     for line in text.split("\n"):
         print(f"  {line}".rstrip())
     print()
-    _, key = standup_window(period)
     if "--send" not in args:
         print("  not sent — add --send to post it to the team")
         return
     channel = notify_text(text)
-    standup_seen(key)
-    print(f"  sent via {channel}" if channel else "  ! no channel configured — see .env.example")
+    print(f"  sent via {channel}" if channel else
+          "  ! no channel configured — see .env.example")
 
 
 def new_id(prefix, taken):
@@ -1097,22 +1135,6 @@ def check_nudge(rep, root):
             rep.warn(f"{task.id} still in progress — run `tm done {task.id}` if that finished it")
 
 
-def check_standup(rep):
-    """Nudges, never sends. A standup that fires itself from a hook would post
-    once per developer per machine; a nudge that does is merely ignorable."""
-    try:
-        period = standup_period()
-    except Fail:
-        return                                  # a bad period is check_notify's to report
-    _, key = standup_window(period)
-    if key is None or standup_seen() == key:
-        return
-    if standup_text(period) is None:
-        return                                  # quiet when there is nothing to say
-    standup_seen(key)                           # nudge once a period, not once a commit
-    rep.warn(f"no {period} standup for {key} — run `tm standup` to see it")
-
-
 # `--no-verify` skips pre-commit and commit-msg but NOT post-commit. So the
 # trace cannot be "post-commit records success" — that would run on bypassed
 # commits too, erasing the evidence. Instead pre-commit drops a token and
@@ -1278,7 +1300,6 @@ def cmd_check(args):
         check_trailer(rep, args[args.index("--msg") + 1])
     elif "--nudge" in args:
         check_nudge(rep, root)
-        check_standup(rep)
         record_verified(root)
     else:
         check_boards(rep)
@@ -1303,7 +1324,7 @@ USAGE = """tm — taskman
   tm done [id] [--force]        complete it, then commit with "closes <id>"
   tm find <term>                search every task ever completed
   tm standup [--send]           report the period's work (--send posts it)
-            [--period P]        daily | workday | bidaily | weekly
+  tm standup --cron [--install] the crontab line that schedules it
 
   tm check [--staged]           validate records; used by hooks and CI
   tm check --notify [--send]    verify the notification channel (--send posts)
