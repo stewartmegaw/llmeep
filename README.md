@@ -73,20 +73,25 @@ Everything else here is pull: you ask, the agent reads the board. `tm standup` i
 exception, because looking back over the week is a thing nobody remembers to do — the same
 argument for automatic history search, aimed at a person instead of an agent.
 
-**Nothing inside the repo triggers it.** Commits are the wrong clock: they cluster, they fire
-on whichever machine happened to be committing, and a report nobody scheduled arrives when
-nobody is asking. A standup is a calendar event, so a scheduler owns it
-([`DEC-016`](notes/decisions/DEC-016-cron-schedules-the-standup.md)).
+**Usually it is a person.** Whoever runs the weekly call types `tm standup` and reads it out;
+`--send` posts it if the team wants it in writing. That needs no infrastructure, and it is the
+case worth optimising for.
 
 ```sh
-taskman/tm standup --cron             # prints the line for your STANDUP_PERIOD
-taskman/tm standup --cron --install   # writes it to your crontab, idempotently
+taskman/tm standup           # what closed this period, and what is still open
+taskman/tm standup --send    # ...and post it to the team channel
 ```
 
 Set `STANDUP_PERIOD` to `daily`, `workday`, `bidaily` or `weekly` and `STANDUP_AT` to `HH:MM`
-in `.env`; the generated line follows both. It uses absolute paths and reads its own `.env`,
-so it needs nothing from cron's environment. A laptop that is asleep will not run it — put it
-on whatever is already always-on.
+in `.env`.
+
+**If you want it unattended**, `taskman/blueprints/standup.sh` is a blueprint for an always-on
+machine: it fetches, then reports. Nothing here runs it — `tm standup --cron` prints the line
+that would, and you decide whether to schedule it
+([`DEC-017`](notes/decisions/DEC-017-the-standup-is-usually-a-person.md)).
+
+A commit hook was the wrong home for this: commits cluster, they fire on whichever machine
+happened to be committing, and the nudge printed where nobody reads.
 
 **Close the task, then commit** — code, board and history land together:
 

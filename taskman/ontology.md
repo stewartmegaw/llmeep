@@ -244,7 +244,7 @@ step. See [`DEC-003`](../notes/decisions/DEC-003-skills-are-executables.md).
 | `park` | `tm park [id] [-n]`  | `in progress` → `backlog`, at the bottom (`-n` for the top). Unassigns it. |
 | `done` | `tm done [id]`       | Defaults to whatever is in progress. Moves to `recent`, prunes, appends to History, notifies. Run **before** committing. |
 | `find` | `tm find <term>`     | Greps History explicitly.                                        |
-| `standup` | `tm standup [--send]` | Reports the period's completions and what is still in progress. Prints; `--send` posts. Scheduled by cron, never by a hook. |
+| `standup` | `tm standup [--send]` | Reports the period's completions and what is still in progress. Prints; `--send` posts. Run by a person; `blueprints/standup.sh` is there if you want it unattended. |
 
 ```sh
 tm add Fix flaky auth test        # title needs no quotes; everything after the flags is the title
@@ -255,7 +255,7 @@ tm go PLT-007                     # start that one specifically
 tm park                           # put it back; the next `go` picks something else
 tm done                           # complete the current task
 tm standup                        # what got finished this period; --send posts it
-tm standup --cron --install       # schedule it; the only thing that pushes
+tm standup --cron                 # the line to schedule, if you want it unattended
 ```
 
 **Defaults do the work.** `add` assumes `platform`, since most tasks are. `go` and `done`

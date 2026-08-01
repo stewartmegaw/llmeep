@@ -39,7 +39,6 @@
       "Bash(./taskman/tm reset *)",
       "Bash(./taskman/tm check --notify --send)",
       "Bash(./taskman/tm standup --send)",
-      "Bash(./taskman/tm standup --cron --install)",
       "Bash(./notes/nm prune --yes)"
     ]
   }

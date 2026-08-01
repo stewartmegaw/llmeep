@@ -8,6 +8,7 @@
 
 ## recent
 
+2026-08-01  PLT-9jeg Provide a standup blueprint script for an always-on machine  @stewart
 2026-08-01  PLT-8ush Schedule the standup by cron instead of nudging at commit  @stewart
 2026-08-01  PLT-9wmv Add tm standup with a configurable period  @stewart
 2026-08-01  PLT-c6ab Co-locate the notes ontology and decide if notes needs tooling  @stewart
@@ -22,4 +23,3 @@
 2026-07-31  PLT-005  Notify team Telegram bot from done
 2026-07-31  PLT-5pk8 Add tasks from Telegram
 2026-07-31  PLT-tf3z Reset task records when adopting the skeleton
-2026-07-31  PLT-001  Enforce record lifecycle via git hooks

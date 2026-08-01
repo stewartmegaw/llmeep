@@ -470,7 +470,6 @@ CRON_TAIL = {
     "daily": "* * *", "workday": "* * 1-5",
     "bidaily": "*/2 * *", "weekly": "* * 1",
 }
-CRON_TAG = "# tm-standup"
 
 
 def standup_period(override=None):
@@ -546,10 +545,10 @@ def standup_text(period, today=None):
 
 
 def standup_cron(period):
-    """The crontab line for this period. Absolute paths throughout: cron runs
-    with a minimal environment and an unrelated working directory. Everything
-    else it needs — the channel, the token — `tm` reads from `.env` itself, so
-    the line stays the same on every machine that clones this."""
+    """The crontab line for this period, pointing at the blueprint rather than
+    at `tm`. A scheduled checkout is stale by definition — it has to fetch
+    before it can report — and that fetch is the part only the operator can
+    configure, so it lives in a script they own."""
     at = (os.environ.get("STANDUP_AT") or "09:00").strip()
     try:
         hour, minute = (int(part) for part in at.split(":"))
@@ -557,45 +556,29 @@ def standup_cron(period):
             raise ValueError(at)
     except ValueError:
         raise Fail(f"STANDUP_AT={at!r} is not HH:MM")
-    exe = os.path.join(ROOT, "tm")
-    log = os.path.join(os.path.dirname(ROOT), ".notes", "standup.log")
-    return (f"{minute} {hour} {CRON_TAIL[period]} {exe} standup --send"
-            f" >>{log} 2>&1 {CRON_TAG}")
+    repo = os.path.dirname(ROOT)
+    script = os.path.join(ROOT, "blueprints", "standup.sh")
+    log = os.path.join(repo, ".notes", "standup.log")
+    return (f"{minute} {hour} {CRON_TAIL[period]} REPO={repo} {script}"
+            f" >>{log} 2>&1")
 
 
-def cron_install(line):
-    """Idempotent: the tag comment identifies our line, so re-running after a
-    period change replaces it rather than scheduling a second standup."""
-    listing = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
-    existing = listing.stdout.splitlines() if listing.returncode == 0 else []
-    kept = [l for l in existing if CRON_TAG not in l]
-    out = subprocess.run(["crontab", "-"], input="\n".join(kept + [line]) + "\n",
-                         capture_output=True, text=True)
-    if out.returncode != 0:
-        raise Fail(f"crontab rejected the line: {out.stderr.strip()}")
-    return len(kept) != len(existing)
-
-
-def cmd_standup_cron(period, install):
-    line = standup_cron(period)
-    if not install:
-        print(f"\n  {line}\n")
-        print(f"  {period} standup at {os.environ.get('STANDUP_AT') or '09:00'}."
-              "\n  Install it with `tm standup --cron --install`, or paste it into"
-              "\n  `crontab -e` yourself. Anything that runs a command on a schedule"
-              "\n  works — cron is just the one every machine already has.")
-        return
-    replaced = cron_install(line)
-    print(f"  {'replaced' if replaced else 'installed'} — {period} standup, "
-          f"{os.environ.get('STANDUP_AT') or '09:00'}")
-    print("  a laptop that is asleep will not run it; a server or CI is safer")
+def cmd_standup_cron(period):
+    at = os.environ.get("STANDUP_AT") or "09:00"
+    print(f"\n  {standup_cron(period)}\n")
+    print(f"  {period} standup at {at}, on whatever machine is already always-on."
+          "\n  It calls taskman/blueprints/standup.sh — read that first; it needs a"
+          "\n  checkout and a .env of its own, and it fetches before it reports."
+          "\n"
+          "\n  Optional. Most standups are someone running `tm standup` before the"
+          "\n  call and reading it out.")
 
 
 def cmd_standup(args):
     override, args = take_flag(args, "--period")
     period = standup_period(override)
     if "--cron" in args:
-        return cmd_standup_cron(period, install="--install" in args)
+        return cmd_standup_cron(period)
     text = standup_text(period)
     if text is None:
         print(f"  nothing to report this {period} period")
@@ -1324,7 +1307,7 @@ USAGE = """tm — taskman
   tm done [id] [--force]        complete it, then commit with "closes <id>"
   tm find <term>                search every task ever completed
   tm standup [--send]           report the period's work (--send posts it)
-  tm standup --cron [--install] the crontab line that schedules it
+  tm standup --cron             the crontab line, if you schedule it
 
   tm check [--staged]           validate records; used by hooks and CI
   tm check --notify [--send]    verify the notification channel (--send posts)

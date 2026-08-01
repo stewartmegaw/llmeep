@@ -1,11 +1,11 @@
 ---
 id: DEC-016
 title: A scheduler triggers the standup, not the repo
-status: accepted
+status: superseded
 decided: 2026-08-01
 deciders: [stew]
 supersedes: [DEC-015]
-superseded_by: []
+superseded_by: [DEC-017]
 relates_to: [DEC-006, DEC-008, DEC-009]
 ---
 

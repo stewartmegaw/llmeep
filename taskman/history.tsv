@@ -18,3 +18,4 @@
 2026-08-01	PLT-c6ab	platform	Co-locate the notes ontology and decide if notes needs tooling	stewart
 2026-08-01	PLT-9wmv	platform	Add tm standup with a configurable period	stewart
 2026-08-01	PLT-8ush	platform	Schedule the standup by cron instead of nudging at commit	stewart
+2026-08-01	PLT-9jeg	platform	Provide a standup blueprint script for an always-on machine	stewart

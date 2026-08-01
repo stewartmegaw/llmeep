@@ -19,7 +19,7 @@ taskman/tm park [id] [-n]             # return it to the backlog, unassigned
 taskman/tm done [id] [--force]        # complete it
 taskman/tm find <term>                # search every task ever completed
 taskman/tm standup [--send]           # the period's work; --send posts it
-taskman/tm standup --cron [--install] # the crontab line that schedules it
+taskman/tm standup --cron             # the crontab line, if scheduling it
 
 taskman/tm check                      # validate records (hooks and CI call this)
 taskman/tm check --notify [--send]    # verify the notification channel
@@ -39,7 +39,7 @@ taskman/tm reset [--yes]              # clear task records when adopting the ske
 | "commit task" / "that's done" | `tm done`, then `git commit` with `closes <id>` in the message |
 | "have we done this before" | `tm find <term>` |
 | "what did we get done this week" / "standup" | `tm standup` — **without** `--send` unless they ask to post it |
-| "schedule the standup" / "how do I automate this" | `tm standup --cron` to show the line, `--install` only if they say so |
+| "schedule the standup" / "how do I automate this" | `tm standup --cron`, and point at `taskman/blueprints/standup.sh` |
 | "I've just cloned this to start a project" | `tm reset` to see what goes, then `--yes` |
 | "is the Telegram bot set up" | `tm check --notify` — add `--send` only if they want a test message |
 
@@ -134,6 +134,7 @@ Say "nothing in the backlog" and stop if both boards are clear.
   textual merge.
 - **`tm standup` prints; `tm standup --send` broadcasts.** Nothing in the repo triggers a
   send — a scheduler does. Never add `--send` on your own initiative.
-- **`--cron` prints a line; `--cron --install` edits their crontab.** Show it first.
+- **The standup is usually read aloud, not automated.** `--cron` prints a line for an
+  always-on machine; scheduling it is the user's call, and nothing here does it for them.
 - **`check` never sends anything.** `--notify` reports configuration; only `--send` posts, and
   that reaches a whole team. Do not add it casually.
