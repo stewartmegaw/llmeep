@@ -13,7 +13,7 @@ Run from the repo root:
 
 ```sh
 notes/_tooling/nm add [--from <src>] <text...>   # capture; reads stdin for batch
-notes/_tooling/nm drop <file>                    # capture processed — deletes it, git keeps it
+notes/_tooling/nm drop <NTE-id | file>           # remove a note, or a processed capture
 notes/_tooling/nm promote <NTE-id> [-b] [-n]     # note becomes a task, linked both ways
 notes/_tooling/nm prune [--yes]                  # bound raw/, drop shipped notes; dry without --yes
 notes/_tooling/nm find <term>                    # search every note ever captured
@@ -76,6 +76,7 @@ producing fifteen, you are transcribing rather than distilling.
 | "did we discuss X" / "what did they say about Y" | `nm find <term>` |
 | "what's in the inbox" | `ls notes/raw/` |
 | "I've processed that file" | `nm drop <file>` |
+| "drop that note" / "that one's wrong" | `nm drop <NTE-id>` — removes it from the archive *and* history |
 | "I've just cloned this to start a project" | `nm reset` to see what goes, then `--yes` — and `tm reset` too |
 | "what have we captured lately" | `cat notes/notes.md` |
 
@@ -109,7 +110,7 @@ into the line below and prints a literal `---NTE-shmy` — tested 2026-08-02.
 
     ---
 
-    *promote · find · discuss*
+    *promote · drop · find · discuss*
 
 End with the rule and hint line whenever there are notes. **Never link the ids** — relative
 markdown links to repo files render as "unsupported link" over Remote Control.

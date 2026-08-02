@@ -249,10 +249,37 @@ def cmd_add(args):
 
 
 def cmd_drop(args):
-    """Mark a capture processed by deleting it. Git keeps it."""
+    """Remove a note or a capture. One verb, because `drop` already means
+    *get rid of this* on the task board and a second word for the same
+    intention is a second thing to remember.
+
+    Which one is not a guess — an `NTE-` id and a filename cannot be mistaken
+    for each other, so this is dispatch on shape, not inference of intent
+    (principle 7). Anything ambiguous would need two commands.
+
+    Takes the history row with it. A note that should not exist should not
+    exist anywhere, and the parallel is exact: dropping a task line leaves
+    nothing in taskman's ledger either, because only `done` writes there. Git
+    keeps both."""
     if not args:
-        raise Fail("usage: nm drop <file>")
-    name = os.path.basename(args[0])
+        raise Fail("usage: nm drop <NTE-id | file>")
+    target = args[0]
+
+    if re.match(r"^NTE-", target, re.I):
+        archive = Archive()
+        note = archive.find(target)
+        if not note:
+            raise Fail(f"no note {target} in the archive — `nm find` if it was already dropped")
+        if note.task:
+            print(f"  ~ {note.id} points at {note.task}; the task is unaffected")
+        archive.notes = [n for n in archive.notes if n is not note]
+        archive.save()
+        history_drop({note.id})
+        print(f"  dropped {note.id}  {note.text}")
+        print(f"  git keeps it — `git log -S {note.id}`")
+        return
+
+    name = os.path.basename(target)
     path = os.path.join(RAW, name)
     if not os.path.exists(path):
         raise Fail(f"no capture at raw/{name}")
@@ -261,8 +288,9 @@ def cmd_drop(args):
 
 
 def cmd_promote(args):
-    """A note becomes a task. The note stays: it is the record of where the
-    task came from, which is the part worth keeping."""
+    """A note becomes a task. The note stays until that task ships — a task can
+    be parked or dropped, and until it lands the note is the only record the
+    idea existed. `prune` removes it afterwards (DEC-023)."""
     if not args:
         raise Fail("usage: nm promote <NTE-id> [-b] [-n] [-f <who>]")
     nid, rest = args[0], args[1:]
@@ -474,7 +502,7 @@ def cmd_check(args):
 USAGE = """nm — notes
 
   nm add [--from <src>] <text...>   capture to the archive; reads stdin for batch
-  nm drop <file>                    mark a capture processed (deletes it; git keeps it)
+  nm drop <NTE-id | file>           remove a note, or a processed capture
   nm promote <NTE-id> [-b] [-n]     turn a note into a task
   nm prune [--yes]                  bound raw/ and the archive
   nm find <term>                    search every note ever captured

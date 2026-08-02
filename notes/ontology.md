@@ -130,7 +130,7 @@ board.
 | Skill     | Invocation                        | Does                                                     |
 | --------- | --------------------------------- | -------------------------------------------------------- |
 | `add`     | `nm add [--from <src>] <text…>`   | Capture. Reads stdin for batch — one note per line.       |
-| `drop`    | `nm drop <file>`                  | Mark a capture processed by deleting it. Git keeps it.    |
+| `drop`    | `nm drop <NTE-id \| file>`         | Remove a note (archive **and** history row), or a processed capture. Git keeps both. |
 | `promote` | `nm promote <NTE-id> [-b] [-n]`   | `tm add`, then link both ways.                            |
 | `prune`   | `nm prune [--yes]`                | Bound `raw/` and the window. Dry unless `--yes`.          |
 | `find`    | `nm find <term>`                  | Search every note ever captured.                          |
