@@ -38,7 +38,7 @@ notes/raw/*.md  ──▶  notes.md        ──▶  taskman board  ──▶  
 this: a machine-readable id back, rather than parsing prose.
 
 **`nm` is mechanical; the agent judges. There is no `process` command.** Reading a transcript and
-deciding what matters is judgement, which [principle 7](../../ontology/principles.md) puts in the
+deciding what matters is judgement, which [principle 7](../ontology/principles.md) puts in the
 agent. Processing is: the agent reads a capture, calls `nm add` for what survives, then
 `nm drop`. `nm` never parses a transcript.
 
@@ -67,7 +67,7 @@ a particular day — the part worth keeping, and the part git cannot reconstruct
 - **No executable at all — conventions plus the agent.** Genuinely viable, since distilling is
   judgement and promoting is nearly `tm add`. Rejected because id allocation, the archive/history
   split, linking and pruning are all mechanical, and an agent doing them by hand is the
-  hand-editing [principle 2](../../ontology/principles.md) exists to prevent.
+  hand-editing [principle 2](../ontology/principles.md) exists to prevent.
 - **Store the transcript in `raw/` and mark it processed.** The original sketch. Rejected once
   the size and signal-to-noise of a real exported transcript were considered: a processed marker
   is state to keep true, and committing the file is a permanent decision made casually.

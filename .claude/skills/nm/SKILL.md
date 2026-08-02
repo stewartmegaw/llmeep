@@ -120,5 +120,5 @@ If captures are waiting, offer once to distil them; do not distil unasked.
   idea to process later. The test is whether anyone would open it twice. Presence means pending;
   there is no processed marker.
 - **Reading is `cat notes/notes.md`.** There is no `list`, on the same grounds as the board.
-- **Decisions are not notes.** `notes/decisions/` holds `DEC-###` records — claims the project
-  stands behind, never edited in substance. Do not put one through this pipeline.
+- **Decisions are not notes**, and live at `decisions/`, outside this subsystem — claims the
+  project stands behind, never edited in substance. Do not put one through this pipeline.

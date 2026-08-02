@@ -13,8 +13,8 @@ Work that was already attempted surfaces on its own, without anyone deciding to 
 
 ## Context
 
-[`DEC-002`](../../../notes/decisions/DEC-002-task-history-index.md). The board is bounded at
-15 recent tasks ([`DEC-001`](../../../notes/decisions/DEC-001-taskman-design.md)), so
+[`DEC-002`](../../../decisions/DEC-002-task-history-index.md). The board is bounded at
+15 recent tasks ([`DEC-001`](../../../decisions/DEC-001-taskman-design.md)), so
 completed work leaves the working tree. An instruction to search history would lose that coin
 flip indefinitely, so retrieval is a side effect of `add` and `go` rather than a step —
 [principle 6](../../../ontology/principles.md).

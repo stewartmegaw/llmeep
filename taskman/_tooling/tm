@@ -870,7 +870,7 @@ def cmd_reset(args):
             ]
     rows = len(history_rows())
     decisions = []
-    dec_dir = os.path.join(REPO, "notes", "decisions")
+    dec_dir = os.path.join(REPO, "decisions")
     if "--all" in args and os.path.isdir(dec_dir):
         decisions = [
             os.path.join(dec_dir, f) for f in sorted(os.listdir(dec_dir))
@@ -1036,7 +1036,7 @@ def check_decisions(rep, root):
     threshold is deliberately generous — this catches rewrites, not tidying."""
     import difflib
 
-    changed = git("diff", "--cached", "--name-only", "--", "notes/decisions/").split()
+    changed = git("diff", "--cached", "--name-only", "--", "decisions/").split()
     for path in changed:
         old = git("show", f"HEAD:{path}")
         if not old:
@@ -1061,6 +1061,57 @@ def check_decisions(rep, root):
                 f"{path}: {moved} words changed without superseding it. "
                 "Write a new decision that supersedes this one."
             )
+
+
+def _dec_list(text, field):
+    raw = frontmatter_field(text, field).strip("[] ")
+    return [x.strip() for x in raw.split(",") if x.strip()]
+
+
+def check_decision_graph(rep, root):
+    """Supersession is a two-sided claim, and nothing until now checked the
+    second side. A human cannot hold twenty cross-references in their head, so
+    a hand-edit that half-supersedes something is silent and permanent — the
+    record still reads as current from one direction.
+
+    Runs over the whole folder, not the staged diff: the file that goes stale
+    is the *other* one, which by definition is not in this commit."""
+    d = os.path.join(root, "decisions")
+    if not os.path.isdir(d):
+        return
+    docs = {}
+    for name in sorted(os.listdir(d)):
+        if not name.startswith("DEC-") or not name.endswith(".md"):
+            continue
+        text = open(os.path.join(d, name)).read()
+        did = frontmatter_field(text, "id")
+        if not did:
+            rep.error(f"{name}: no id in frontmatter")
+            continue
+        if not name.startswith(did + "-"):
+            rep.error(f"{name}: filename does not match id {did}")
+        if did in docs:
+            rep.error(f"{did} is used by two files — ids are never reused")
+        docs[did] = text
+
+    for did, text in docs.items():
+        status = frontmatter_field(text, "status")
+        by = _dec_list(text, "superseded_by")
+        for other in _dec_list(text, "supersedes"):
+            if other not in docs:
+                rep.error(f"{did} supersedes {other}, which does not exist")
+            elif did not in _dec_list(docs[other], "superseded_by"):
+                rep.error(f"{did} supersedes {other}, but {other} does not say so — "
+                          "supersession is recorded on both sides")
+        for other in by:
+            if other not in docs:
+                rep.error(f"{did} is superseded by {other}, which does not exist")
+            elif did not in _dec_list(docs[other], "supersedes"):
+                rep.error(f"{did} says {other} supersedes it, but {other} does not say so")
+        if by and status != "superseded":
+            rep.error(f"{did} is superseded by {', '.join(by)} but status is {status!r}")
+        if not by and status == "superseded":
+            rep.error(f"{did} is marked superseded with nothing superseding it")
 
 
 def check_ontology_currency(rep, root):
@@ -1313,6 +1364,7 @@ def cmd_check(args):
         if "--staged" in args:
             check_bypass(rep, root)
             check_decisions(rep, root)
+            check_decision_graph(rep, root)
             check_untracked_work(rep, root)
             check_ontology_currency(rep, root)
     code = rep.emit()

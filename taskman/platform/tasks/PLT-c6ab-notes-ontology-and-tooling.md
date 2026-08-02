@@ -159,7 +159,7 @@ Reading is `cat notes/notes.md`; there is no `list`, on the same grounds as the 
 - **`.notes/inbox.md`** — redundant. It existed to capture things noticed mid-flow, which is
   what `raw/` now does, and does better: committed rather than local, with a lifecycle rather
   than a file that fills up.
-- **`notes/decisions/`** — untouched. `DEC-###` records are a different thing and are not part
+- **`decisions/`** — untouched. `DEC-###` records are a different thing and are not part
   of this flow.
 
 ## Open

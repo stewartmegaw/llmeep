@@ -17,7 +17,7 @@ Everything in this system is **pull**. You ask, the agent reads the board. `DEC-
 notification channel outbound-only precisely because input belongs in the conversation.
 
 A periodic report of completed work is the one genuinely **push** artifact, and the argument
-for it is [principle 6](../../ontology/principles.md#6-context-is-tiered-and-the-working-tree-is-bounded)
+for it is [principle 6](../ontology/principles.md#6-context-is-tiered-and-the-working-tree-is-bounded)
 pointed at a person rather than an agent: retrieval that has to be *decided on* loses that
 coin flip indefinitely. Nobody spontaneously thinks to look back over the week. Completed
 tasks also fall out of `recent` as the window fills, so the raw material actively leaves view.
@@ -47,7 +47,7 @@ A **nudge** dissolves the problem instead of solving it. Appearing twice costs n
 broadcasting twice is unrecallable and embarrassing. So the marker can be local.
 
 **The marker lives in `.notes/standup`.** Gitignored, disposable, one machine's memory —
-exactly what [principle 4](../../ontology/principles.md#4-committed-knowledge-and-local-memory-are-different-things)
+exactly what [principle 4](../ontology/principles.md#4-committed-knowledge-and-local-memory-are-different-things)
 describes. It records the last period *seen*, not the last one *sent*, so the nudge appears
 once a period rather than once a commit.
 
@@ -67,7 +67,7 @@ without sharing anything.
 ## Alternatives considered
 
 - **Cron.** Needs a machine that is always on, which a small team does not have, and
-  scheduling infrastructure is a vendor in the skeleton — [principle 3](../../ontology/principles.md#3-agnostic-core)
+  scheduling infrastructure is a vendor in the skeleton — [principle 3](../ontology/principles.md#3-agnostic-core)
   failing at exactly the point it is meant to hold.
 - **A committed marker, hook sends.** The only way to get one standup per team automatically.
   Rejected on the conflict cost above, and because an irreversible broadcast triggered by a

@@ -372,7 +372,7 @@ def cmd_reset(args):
     print(f"    notes.md — {len(archive.notes)} note(s)")
     print(f"    history.tsv — {rows} row(s)")
     print(f"    raw/ — {len(captures)} capture(s)")
-    print("\n  keeps: ontology, nm, decisions")
+    print("\n  keeps: ontology and nm (decisions live outside notes/)")
     print("    (`tm reset` clears tasks; this one does not touch them)")
 
     if "--yes" not in args:

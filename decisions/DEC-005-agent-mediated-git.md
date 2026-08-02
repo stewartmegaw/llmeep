@@ -55,9 +55,9 @@ user:   "commit task"              →   agent runs: tm done PLT-123, then git c
 ```
 
 Allocating IDs, pruning `recent` to exactly 15 and appending TSV rows are **pure mechanism**,
-and [principle 7](../../ontology/principles.md) puts mechanism in the tool. An agent editing the
+and [principle 7](../ontology/principles.md) puts mechanism in the tool. An agent editing the
 board by hand is still a hand edit, which is what
-[principle 2](../../ontology/principles.md) exists to prevent — and an off-by-one in a prune
+[principle 2](../ontology/principles.md) exists to prevent — and an off-by-one in a prune
 fails silently, surfacing only much later.
 
 ### Carried forward from DEC-004

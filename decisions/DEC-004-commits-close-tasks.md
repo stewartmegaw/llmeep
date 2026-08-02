@@ -97,7 +97,7 @@ acted on at the moment the message is written.
 - **Hook calls an LLM to judge completion when the trailer is missing, then asks the user to
   confirm.** Solves a real problem — a forgotten trailer strands a task in `doing` indefinitely
   — but rejected on four counts. It hard-codes a vendor into the commit path (API key, network
-  dependency and per-commit cost), which is [principle 3](../../ontology/principles.md) failing
+  dependency and per-commit cost), which is [principle 3](../ontology/principles.md) failing
   at the most load-bearing point in the system; a clone by someone using another provider gets a
   broken hook. Every commit would wait on a network round-trip, and offline commits would break.
   The confirmation step needs a TTY that agents and CI do not have. And it is judgement in a

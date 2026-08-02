@@ -61,7 +61,7 @@ prevention.** Renumbering breaks the never-renumbered rule, and any commit trail
 naming the old ID silently points at the wrong task and cannot be fixed without rewriting
 history. The damage is done at allocation time; the merge only discovers it.
 
-Agent-mediated git ([`DEC-005`](../../../notes/decisions/DEC-005-agent-mediated-git.md)) shrinks
+Agent-mediated git ([`DEC-005`](../../../decisions/DEC-005-agent-mediated-git.md)) shrinks
 the exposure but does not remove it: two people with two agents on two machines collide exactly
 the same way. **An ID scheme that cannot collide is the only fix independent of how the team
 works** — which is the argument for option 2 over option 1.

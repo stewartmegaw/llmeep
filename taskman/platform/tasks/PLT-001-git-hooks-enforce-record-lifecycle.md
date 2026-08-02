@@ -41,7 +41,7 @@ Blocked on `PLT-003`: hooks enforce whatever the skills do, so they cannot be wr
 - [x] Hooks **validate only** — they never mutate records. Mutation is `tm`'s job (`DEC-005`).
 - [x] **Sidecar integrity.** Every `tasks/*.md` corresponds to a live board line tagged
       `detail`, and its frontmatter `id` matches its filename.
-- [x] **Decision immutability.** Commit rejected when a `notes/decisions/` file's substance
+- [x] **Decision immutability.** Commit rejected when a `decisions/` file's substance
       changed without a `superseded_by` — typo-level diffs pass.
 - [x] **Ontology currency.** Commit touching `platform/` warns when `ontology/domain/` has not
       been updated and the diff suggests a domain concept was added or renamed. Heuristic is

@@ -25,7 +25,7 @@ If something here matters, **promote** it:
 | It is…                            | Promote to                     |
 | --------------------------------- | ------------------------------ |
 | work that needs doing             | a task in `taskman/`           |
-| a choice that was made            | a decision in `notes/decisions/` |
+| a choice that was made            | a decision in `decisions/` |
 | knowledge someone else will need  | a note — `notes/nm add`        |
 | nothing of the above              | delete it                      |
 

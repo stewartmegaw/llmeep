@@ -65,7 +65,7 @@ the entry rather than scheduling a second standup.
   the other trigger, which `README.md` does better and once.
 - **Ship a CI workflow file.** The realistic always-on host for a team, and genuinely less setup
   than cron. Rejected from the skeleton because a workflow file names a vendor, which is
-  [principle 3](../../ontology/principles.md#3-agnostic-core) failing in the committed core. A
+  [principle 3](../ontology/principles.md#3-agnostic-core) failing in the committed core. A
   crontab line is POSIX and works anywhere, including inside CI if that is what someone has.
 - **`--install` writes the crontab without showing it.** Rejected on the pattern already set by
   `tm reset`, `nm prune` and `check --notify`: anything that changes something outside this repo

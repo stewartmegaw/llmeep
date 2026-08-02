@@ -6,14 +6,13 @@ It lives here rather than in `ontology/core.md` because it describes one subsyst
 [`ontology/README.md`](../ontology/README.md) explains the convention.
 
 **Rationale and rejected alternatives:**
-[`DEC-012`](decisions/DEC-012-notes-is-a-pipeline.md).
+[`DEC-012`](../decisions/DEC-012-notes-is-a-pipeline.md).
 
 ```
 notes/
   ontology.md    <- this file
   notes.md       <- the archive: the window you read
   raw/           <- captures waiting to be processed
-  decisions/     <- DEC records; a different thing, see below
   UNADOPTED.md   <- present until `nm reset`; says whose notes these are
   _tooling/      <- nothing here is hand-edited
     nm           <- the executable; five commands
@@ -166,13 +165,15 @@ reading a transcript and deciding what matters. `nm` never parses one:
 The two are not equivalent, and the command says so: pruning a capture discards work nobody did;
 pruning the window only changes what you see by default.
 
-## Decisions are a different thing
+## Decisions are not notes, and no longer live here
 
-`notes/decisions/` holds `DEC-###` records and is **not part of this pipeline**. A decision is a
-claim the project stands behind, written deliberately, never edited in substance, superseded
-rather than changed. A note is something someone said on a Tuesday.
+`decisions/` at the repo root holds `DEC-###` records. A decision is a claim the project stands
+behind, written deliberately, never edited in substance, superseded rather than changed. A note
+is something someone said on a Tuesday.
 
-They share a folder because both are durable knowledge. They share nothing else.
+They used to share this folder on the grounds that both are durable knowledge. That was the only
+thing they shared, and it cost five separate places saying *decisions are the exception*
+([`DEC-021`](../decisions/DEC-021-decisions-are-top-level-and-machine-checked.md)).
 
 ---
 

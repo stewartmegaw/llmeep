@@ -49,15 +49,19 @@ that feeds the board.
 
 ## Decision
 
-A [Note](#note)-adjacent record of a choice made, the alternatives rejected, and why. It is
-**not** part of the notes pipeline: a decision is a claim the project stands behind, written
-deliberately; a note is something someone said on a Tuesday.
+A record of a choice made, the alternatives rejected, and why — a claim the project stands
+behind, written deliberately. It belongs to the project rather than to any subsystem, which is
+why it sits at the top level (`DEC-021`). A [Note](#note) is something someone said on a
+Tuesday; the two are unrelated.
 
 - **Identity:** `DEC-###`, sequential, never reused.
-- **Lives in:** `notes/decisions/DEC-###-<slug>.md`
+- **Lives in:** `decisions/DEC-###-<slug>.md`
 - **Lifecycle:** `accepted → superseded`. **Never edited in substance and never deleted.** To
   change a decision, write a new one that supersedes it — the record of having believed
   something is itself the value.
+- **Enforced, not trusted:** `tm check` rejects a rewrite, a one-sided supersession, a status
+  that disagrees with `superseded_by`, a dangling reference and a duplicate id. Nobody can hold
+  that graph in their head, so nobody is asked to.
 
 ## Scratch
 

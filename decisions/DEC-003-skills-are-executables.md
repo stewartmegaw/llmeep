@@ -18,7 +18,7 @@ deliberately deferred how they are implemented and invoked until their functions
 They now are, and they are modest: parse a board, allocate an ID, move lines between sections,
 prune to 15, append and grep a TSV, read a git SHA, and POST to Telegram.
 
-The constraint that shapes this is [principle 3](../../ontology/principles.md). Every agent
+The constraint that shapes this is [principle 3](../ontology/principles.md). Every agent
 vendor has its own skill format, and adopting one would mean a project cloned by someone using
 a different agent silently has no taskman at all. Whatever a skill *is* here, it has to work
 for every agent and for a human at a terminal.

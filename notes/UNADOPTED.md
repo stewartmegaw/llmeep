@@ -21,8 +21,8 @@ notes/_tooling/nm reset        # shows what would go
 notes/_tooling/nm reset --yes  # does it, and deletes this file
 ```
 
-`reset` clears `notes.md`, `history.tsv` and any captures in `raw/`. It **keeps** `ontology.md`,
-`nm` itself and `decisions/`.
+`reset` clears `notes.md`, `history.tsv` and any captures in `raw/`. It **keeps** `ontology.md`
+and `nm` itself. Decision records live at `decisions/`, outside this subsystem entirely.
 
 ## This is separate from `tm reset`
 
