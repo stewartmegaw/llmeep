@@ -26,6 +26,7 @@
       "Bash(./notes/_tooling/nm prune)",
       "Bash(./notes/_tooling/nm check)",
       "Bash(./notes/_tooling/nm check --quiet)",
+      "Bash(./notes/_tooling/nm reset)",
 
       "Bash(git status *)",
       "Bash(git log *)",
@@ -39,7 +40,8 @@
       "Bash(./taskman/_tooling/tm reset *)",
       "Bash(./taskman/_tooling/tm check --notify --send)",
       "Bash(./taskman/_tooling/tm standup --send)",
-      "Bash(./notes/_tooling/nm prune --yes)"
+      "Bash(./notes/_tooling/nm prune --yes)",
+      "Bash(./notes/_tooling/nm reset --yes)"
     ]
   }
 }

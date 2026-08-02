@@ -17,6 +17,7 @@ notes/_tooling/nm drop <file>                    # capture processed — deletes
 notes/_tooling/nm promote <NTE-id> [-b] [-n]     # note becomes a task, linked both ways
 notes/_tooling/nm prune [--yes]                  # bound raw/ and the archive; dry without --yes
 notes/_tooling/nm find <term>                    # search every note ever captured
+notes/_tooling/nm reset [--yes]                  # clear notes when adopting the skeleton
 ```
 
 ## Distilling is your job, not a command
@@ -71,6 +72,7 @@ producing fifteen, you are transcribing rather than distilling.
 | "did we discuss X" / "what did they say about Y" | `nm find <term>` |
 | "what's in the inbox" | `ls notes/raw/` |
 | "I've processed that file" | `nm drop <file>` |
+| "I've just cloned this to start a project" | `nm reset` to see what goes, then `--yes` — and `tm reset` too |
 | "what have we captured lately" | `cat notes/notes.md` |
 
 ## When asked for notes, summarise them

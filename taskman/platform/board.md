@@ -10,6 +10,7 @@ PLT-ms4z Move DEC records out of notes into a top-level decisions folder
 
 ## recent
 
+2026-08-02  PLT-xw2q Give notes its own reset and adoption marker  @stewart
 2026-08-02  PLT-5m5t Mirror the tooling split across taskman and notes  @stewart
 2026-08-02  PLT-7xjv Make the skeleton adoption marker legible instead of an empty dotfile  @stewart
 2026-08-02  PLT-kkqk Move taskman machinery out of the records tree  @stewart
@@ -24,4 +25,3 @@ PLT-ms4z Move DEC records out of notes into a top-level decisions folder
 2026-07-31  PLT-uhhk Make the notifier swappable
 2026-07-31  PLT-us7k Put the agent-is-the-interface concept in the README
 2026-07-31  PLT-h49x Drop the Telegram drain in favour of BotFather description
-2026-07-31  PLT-2fyj Make Telegram notification-only

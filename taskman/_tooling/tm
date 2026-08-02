@@ -897,7 +897,7 @@ def cmd_reset(args):
         board.in_progress, board.backlog, board.recent = [], [], []
         board.save()
     with open(HISTORY, "w") as fh:
-        fh.write("#date\tid\tledger\ttitle\n")
+        fh.write("#date\tid\tledger\ttitle\twho\n")
     for path in sidecars + decisions:
         os.remove(path)
     if os.path.exists(marker_path()):

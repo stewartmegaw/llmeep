@@ -14,6 +14,7 @@ notes/
   notes.md       <- the archive: the window you read
   raw/           <- captures waiting to be processed
   decisions/     <- DEC records; a different thing, see below
+  UNADOPTED.md   <- present until `nm reset`; says whose notes these are
   _tooling/      <- nothing here is hand-edited
     nm           <- the executable; five commands
     history.tsv  <- every note ever; grep-only, never loaded
@@ -132,6 +133,7 @@ board.
 | `promote` | `nm promote <NTE-id> [-b] [-n]`   | `tm add`, then link both ways.                            |
 | `prune`   | `nm prune [--yes]`                | Bound `raw/` and the window. Dry unless `--yes`.          |
 | `find`    | `nm find <term>`                  | Search every note ever captured.                          |
+| `reset`   | `nm reset [--yes]`                | Clear the skeleton's notes on adoption. Dry unless `--yes`. |
 
 `nm check` validates records; it is not a skill, because it touches no note.
 
