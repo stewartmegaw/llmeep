@@ -19,7 +19,12 @@ import urllib.parse
 import urllib.request
 from datetime import date, timedelta
 
-ROOT = os.environ.get("TM_ROOT") or os.path.dirname(os.path.abspath(__file__))
+# Three distinct places, and they stopped being the same one when the machinery
+# moved out of the records tree. HERE is where this script and its hooks live;
+# ROOT is the ledgers it operates on; REPO is the working tree around both.
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.environ.get("TM_ROOT") or os.path.dirname(HERE)
+REPO = os.path.dirname(ROOT)
 HISTORY = os.path.join(ROOT, "history.tsv")
 LEDGERS = {"platform": "PLT", "business": "BUS"}
 WINDOW = 15
@@ -376,7 +381,7 @@ def summarise(text, width=64):
 
 
 def load_env():
-    path = os.path.join(os.path.dirname(ROOT), ".env")
+    path = os.path.join(REPO, ".env")
     if not os.path.exists(path):
         return
     with open(path) as fh:
@@ -556,10 +561,9 @@ def standup_cron(period):
             raise ValueError(at)
     except ValueError:
         raise Fail(f"STANDUP_AT={at!r} is not HH:MM")
-    repo = os.path.dirname(ROOT)
-    script = os.path.join(ROOT, "blueprints", "standup.sh")
-    log = os.path.join(repo, ".notes", "standup.log")
-    return (f"{minute} {hour} {CRON_TAIL[period]} REPO={repo} {script}"
+    script = os.path.join(HERE, "blueprints", "standup.sh")
+    log = os.path.join(REPO, ".notes", "standup.log")
+    return (f"{minute} {hour} {CRON_TAIL[period]} REPO={REPO} {script}"
             f" >>{log} 2>&1")
 
 
@@ -723,7 +727,7 @@ def show_task(board, task, started):
         print(f"  ! blocked by {blocker}")
     path = sidecar_path(board.ledger, task.id)
     if path:
-        rel = os.path.relpath(path, os.path.dirname(ROOT))
+        rel = os.path.relpath(path, REPO)
         print(f"\n  detail: {rel}{'/' if os.path.isdir(path) else ''}")
         for extra in sidecar_extras(path):
             print(f"          {extra}")
@@ -861,7 +865,7 @@ def cmd_reset(args):
             ]
     rows = len(history_rows())
     decisions = []
-    dec_dir = os.path.join(os.path.dirname(ROOT), "notes", "decisions")
+    dec_dir = os.path.join(REPO, "notes", "decisions")
     if "--all" in args and os.path.isdir(dec_dir):
         decisions = [
             os.path.join(dec_dir, f) for f in sorted(os.listdir(dec_dir))
@@ -923,7 +927,7 @@ class Report:
 def git(*args, cwd=None):
     try:
         out = subprocess.run(
-            ["git", *args], cwd=cwd or os.path.dirname(ROOT),
+            ["git", *args], cwd=cwd or REPO,
             capture_output=True, text=True, timeout=10,
         )
         return out.stdout if out.returncode == 0 else ""
@@ -1195,7 +1199,7 @@ def check_generic(name, send=False):
     """Non-Telegram channels need one URL and nothing else, so there is no
     wizard to run — either it is set or it is not."""
     var = {"slack": "SLACK_WEBHOOK_URL", "webhook": "NOTIFY_WEBHOOK_URL"}[name]
-    env = os.path.join(os.path.dirname(ROOT), ".env")
+    env = os.path.join(REPO, ".env")
     if not os.environ.get(var):
         print(f"  NOTIFY={name} but {var} is not set.\n")
         print(f"  add it to {env}:\n")
@@ -1221,7 +1225,7 @@ def check_telegram(send=False):
     load_env()
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     chat = os.environ.get("TELEGRAM_CHAT_ID")
-    env = os.path.join(os.path.dirname(ROOT), ".env")
+    env = os.path.join(REPO, ".env")
 
     if not token:
         print("  no TELEGRAM_BOT_TOKEN set.\n")
@@ -1277,7 +1281,7 @@ def check_telegram(send=False):
 def cmd_check(args):
     if "--notify" in args:
         sys.exit(check_notify(send="--send" in args))
-    root = os.path.dirname(ROOT)
+    root = REPO
     rep = Report()
     if "--msg" in args:
         check_trailer(rep, args[args.index("--msg") + 1])

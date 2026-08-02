@@ -2,10 +2,12 @@
 
 ## in progress
 
+PLT-kkqk Move taskman machinery out of the records tree   @stewart
 
 ## backlog
 
 PLT-7g78 An existing repo should be able to adopt the skeleton without starting over
+PLT-ms4z Move DEC records out of notes into a top-level decisions folder
 
 ## recent
 

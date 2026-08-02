@@ -1,22 +1,22 @@
 {
   "permissions": {
     "allow": [
-      "Bash(./taskman/tm)",
-      "Bash(./taskman/tm add *)",
-      "Bash(./taskman/tm go *)",
-      "Bash(./taskman/tm park *)",
-      "Bash(./taskman/tm done *)",
-      "Bash(./taskman/tm find *)",
-      "Bash(./taskman/tm standup)",
-      "Bash(./taskman/tm standup --period daily)",
-      "Bash(./taskman/tm standup --period workday)",
-      "Bash(./taskman/tm standup --period bidaily)",
-      "Bash(./taskman/tm standup --period weekly)",
-      "Bash(./taskman/tm standup --cron)",
-      "Bash(./taskman/tm check)",
-      "Bash(./taskman/tm check --quiet)",
-      "Bash(./taskman/tm check --staged *)",
-      "Bash(./taskman/tm check --notify)",
+      "Bash(./taskman/_tooling/tm)",
+      "Bash(./taskman/_tooling/tm add *)",
+      "Bash(./taskman/_tooling/tm go *)",
+      "Bash(./taskman/_tooling/tm park *)",
+      "Bash(./taskman/_tooling/tm done *)",
+      "Bash(./taskman/_tooling/tm find *)",
+      "Bash(./taskman/_tooling/tm standup)",
+      "Bash(./taskman/_tooling/tm standup --period daily)",
+      "Bash(./taskman/_tooling/tm standup --period workday)",
+      "Bash(./taskman/_tooling/tm standup --period bidaily)",
+      "Bash(./taskman/_tooling/tm standup --period weekly)",
+      "Bash(./taskman/_tooling/tm standup --cron)",
+      "Bash(./taskman/_tooling/tm check)",
+      "Bash(./taskman/_tooling/tm check --quiet)",
+      "Bash(./taskman/_tooling/tm check --staged *)",
+      "Bash(./taskman/_tooling/tm check --notify)",
 
       "Bash(./notes/nm)",
       "Bash(./notes/nm add *)",
@@ -36,9 +36,9 @@
       "Bash(git check-ignore *)"
     ],
     "ask": [
-      "Bash(./taskman/tm reset *)",
-      "Bash(./taskman/tm check --notify --send)",
-      "Bash(./taskman/tm standup --send)",
+      "Bash(./taskman/_tooling/tm reset *)",
+      "Bash(./taskman/_tooling/tm check --notify --send)",
+      "Bash(./taskman/_tooling/tm standup --send)",
       "Bash(./notes/nm prune --yes)"
     ]
   }

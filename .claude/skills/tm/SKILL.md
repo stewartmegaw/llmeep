@@ -5,7 +5,7 @@ description: Task tracking — create, start, complete and search tasks. Use whe
 
 # tm
 
-**ADAPTER ONLY — no logic here.** All behaviour lives in `taskman/tm`. If you find yourself
+**ADAPTER ONLY — no logic here.** All behaviour lives in `taskman/_tooling/tm`. If you find yourself
 wanting to add rules to this file, they belong in the executable or in
 `taskman/ontology.md`, so that people using other agents get the same system
 (`DEC-003`, principle 3).
@@ -13,17 +13,17 @@ wanting to add rules to this file, they belong in the executable or in
 Run from the repo root:
 
 ```sh
-taskman/tm add [-b] [-n] <title...>   # -b business ledger, -n top of the order
-taskman/tm go [id]                    # show the current task, or start the next one
-taskman/tm park [id] [-n]             # return it to the backlog, unassigned
-taskman/tm done [id] [--force]        # complete it
-taskman/tm find <term>                # search every task ever completed
-taskman/tm standup [--send]           # the period's work; --send posts it
-taskman/tm standup --cron             # the crontab line, if scheduling it
+taskman/_tooling/tm add [-b] [-n] <title...>   # -b business ledger, -n top of the order
+taskman/_tooling/tm go [id]                    # show the current task, or start the next one
+taskman/_tooling/tm park [id] [-n]             # return it to the backlog, unassigned
+taskman/_tooling/tm done [id] [--force]        # complete it
+taskman/_tooling/tm find <term>                # search every task ever completed
+taskman/_tooling/tm standup [--send]           # the period's work; --send posts it
+taskman/_tooling/tm standup --cron             # the crontab line, if scheduling it
 
-taskman/tm check                      # validate records (hooks and CI call this)
-taskman/tm check --notify [--send]    # verify the notification channel
-taskman/tm reset [--yes]              # clear task records when adopting the skeleton
+taskman/_tooling/tm check                      # validate records (hooks and CI call this)
+taskman/_tooling/tm check --notify [--send]    # verify the notification channel
+taskman/_tooling/tm reset [--yes]              # clear task records when adopting the skeleton
 ```
 
 ## Translating what the user says
@@ -39,7 +39,7 @@ taskman/tm reset [--yes]              # clear task records when adopting the ske
 | "commit task" / "that's done" | `tm done`, then `git commit` with `closes <id>` in the message |
 | "have we done this before" | `tm find <term>` |
 | "what did we get done this week" / "standup" | `tm standup` — **without** `--send` unless they ask to post it |
-| "schedule the standup" / "how do I automate this" | `tm standup --cron`, and point at `taskman/blueprints/standup.sh` |
+| "schedule the standup" / "how do I automate this" | `tm standup --cron`, and point at `taskman/_tooling/blueprints/standup.sh` |
 | "I've just cloned this to start a project" | `tm reset` to see what goes, then `--yes` |
 | "is the Telegram bot set up" | `tm check --notify` — add `--send` only if they want a test message |
 

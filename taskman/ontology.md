@@ -234,7 +234,7 @@ One of five operations. Everything else — listing, reordering — is a file re
 
 **A skill is an executable command**, not a vendor artifact. Every agent can run a shell
 command, and so can a person; it is the only common denominator that does not pick a winner.
-One executable, `taskman/tm`, written in Python 3 with standard library only — no install
+One executable, `taskman/_tooling/tm`, written in Python 3 with standard library only — no install
 step. See [`DEC-003`](../notes/decisions/DEC-003-skills-are-executables.md).
 
 | Skill  | Invocation           | Does                                                            |
@@ -307,7 +307,7 @@ A wrapper that surfaces these in an agent's native skill list is **ergonomics, n
 and carries a header saying so:
 
 ```
-.claude/skills/tm/SKILL.md   ->  runs ./taskman/tm
+.claude/skills/tm/SKILL.md   ->  runs ./taskman/_tooling/tm
 ```
 
 If an adapter contains behaviour, someone using a different agent gets a different system —
@@ -346,7 +346,7 @@ itself — bot name, description, which room, who can see it, how long it retain
 in the service, not in this repo. The repo's share is one line in `.env` and a secret. That is
 the boundary, not a leak: swapping channels touches no record, no ontology file and no task.
 
-**Adding a channel is one function and one dict entry** in `taskman/tm`. That is the whole
+**Adding a channel is one function and one dict entry** in `taskman/_tooling/tm`. That is the whole
 extension point — no plugin loader, no registry, no config schema. See
 [`DEC-008`](../notes/decisions/DEC-008-notifier-is-swappable.md).
 
@@ -426,7 +426,7 @@ One step, from a clean clone — `.git/hooks` is not committed, so git is pointe
 committed directory instead:
 
 ```sh
-git config core.hooksPath taskman/hooks
+git config core.hooksPath taskman/_tooling/hooks
 ```
 
 | Hook          | Runs                | Effect                                          |

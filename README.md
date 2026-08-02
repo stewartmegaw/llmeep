@@ -53,12 +53,12 @@ because every agent reads README. Point yours at this file.
 Six commands. No install step — one Python 3 file, standard library only.
 
 ```sh
-taskman/tm add Fix flaky auth test   # create; -b for business, -n for top of the order
-taskman/tm go                        # start the next task, or show the one in progress
-taskman/tm park                      # put it back; unassigns it
-taskman/tm done                      # complete the current task
-taskman/tm find auth                 # search everything ever completed
-taskman/tm standup                   # what closed this period; --send posts it
+taskman/_tooling/tm add Fix flaky auth test   # create; -b for business, -n for top of the order
+taskman/_tooling/tm go                        # start the next task, or show the one in progress
+taskman/_tooling/tm park                      # put it back; unassigns it
+taskman/_tooling/tm done                      # complete the current task
+taskman/_tooling/tm find auth                 # search everything ever completed
+taskman/_tooling/tm standup                   # what closed this period; --send posts it
 ```
 
 Defaults do the work: `add` assumes platform, `go` and `done` assume the current task. Nothing
@@ -77,13 +77,13 @@ is the one question the working tree stops being able to answer. `tm standup` as
 case worth optimising for.
 
 ```sh
-taskman/tm standup           # what closed this period, and what is still open
-taskman/tm standup --send    # ...and post it to the team channel
+taskman/_tooling/tm standup           # what closed this period, and what is still open
+taskman/_tooling/tm standup --send    # ...and post it to the team channel
 ```
 
 Set `STANDUP_PERIOD` to `daily`, `workday`, `bidaily` or `weekly` in `.env`.
 
-**If you want it unattended**, `taskman/blueprints/standup.sh` is a blueprint for an always-on
+**If you want it unattended**, `taskman/_tooling/blueprints/standup.sh` is a blueprint for an always-on
 machine: it fetches, then reports. Nothing here runs it — `tm standup --cron` prints the line
 that would (at `STANDUP_AT`, default `09:00`), and you decide whether to schedule it
 ([`DEC-017`](notes/decisions/DEC-017-the-standup-is-usually-a-person.md)).
@@ -91,7 +91,7 @@ that would (at `STANDUP_AT`, default `09:00`), and you decide whether to schedul
 **Close the task, then commit** — code, board and history land together:
 
 ```sh
-taskman/tm done PLT-007
+taskman/_tooling/tm done PLT-007
 git commit -m "Fix flaky auth test. closes PLT-007"
 ```
 
@@ -186,7 +186,7 @@ Full model: [`notes/ontology.md`](notes/ontology.md).
 **Install the validation hooks** — one step, because `.git/hooks` is not committed:
 
 ```sh
-git config core.hooksPath taskman/hooks
+git config core.hooksPath taskman/_tooling/hooks
 ```
 
 Agent permissions are committed in `.claude/settings.json`, so a clone stops prompting for the
@@ -217,7 +217,7 @@ Full model: [`taskman/ontology.md`](taskman/ontology.md).
 ```sh
 git clone <this-repo> my-project && cd my-project
 rm -rf .git && git init
-git config core.hooksPath taskman/hooks
+git config core.hooksPath taskman/_tooling/hooks
 ```
 
 The default branch is **`release`** — a clean skeleton with empty boards, ready to use. That is
@@ -234,7 +234,7 @@ Then work through [`ontology/domain/README.md`](ontology/domain/README.md).
 | `v1`, `v2`, …   | Pinned versions                       | pin to a specific one           |
 | `main`          | Development, with full task history   | improve the skeleton itself     |
 
-**If you cloned `main` instead**, run `taskman/tm reset --yes` — otherwise you inherit this
+**If you cloned `main` instead**, run `taskman/_tooling/tm reset --yes` — otherwise you inherit this
 project's task history and `find` returns the skeleton's work as your prior art, which is the
 amnesia-prevention mechanism working against you. Every `tm add` and `tm go` says so until you
 do. `reset` clears both boards, `history.tsv` and the sidecars; it **keeps** the ontology,
@@ -250,7 +250,7 @@ Release branches are **write-once — never merged back**, which is what keeps `
 ```sh
 git checkout release
 git checkout main -- .
-taskman/tm reset --yes
+taskman/_tooling/tm reset --yes
 git commit -am "v2: clean skeleton" && git tag v2
 git checkout main            # work continues; history intact
 ```

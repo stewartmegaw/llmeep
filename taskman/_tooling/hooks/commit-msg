@@ -1,4 +1,4 @@
 #!/bin/sh
 # Rejects a `closes <id>` trailer naming a task that does not exist. The
 # trailer is the only link between task and commit, so a typo severs it.
-exec "$(git rev-parse --show-toplevel)/taskman/tm" check --msg "$1" --quiet
+exec "$(git rev-parse --show-toplevel)/taskman/_tooling/tm" check --msg "$1" --quiet

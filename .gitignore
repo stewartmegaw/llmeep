@@ -11,6 +11,11 @@
 !.claude/settings.json
 *.local.json
 
+# Bytecode. `tm` is a script, not a module, but anything that imports it once
+# leaves a __pycache__ behind — and a committed .pyc ships to every cloner.
+__pycache__/
+*.pyc
+
 # OS / editor noise
 .DS_Store
 Thumbs.db

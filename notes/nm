@@ -21,7 +21,7 @@ REPO = os.path.dirname(ROOT)
 ARCHIVE = os.path.join(ROOT, "notes.md")
 HISTORY = os.path.join(ROOT, "history.tsv")
 RAW = os.path.join(ROOT, "raw")
-TM = os.path.join(REPO, "taskman", "tm")
+TM = os.path.join(REPO, "taskman", "_tooling", "tm")
 
 WINDOW = 200        # entries kept in notes.md; the rest live in history.tsv
 RAW_STALE_DAYS = 30  # a capture unprocessed this long is probably never going to be
