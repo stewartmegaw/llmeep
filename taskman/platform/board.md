@@ -2,7 +2,6 @@
 
 ## in progress
 
-PLT-kkqk Move taskman machinery out of the records tree   @stewart
 
 ## backlog
 
@@ -11,6 +10,7 @@ PLT-ms4z Move DEC records out of notes into a top-level decisions folder
 
 ## recent
 
+2026-08-02  PLT-kkqk Move taskman machinery out of the records tree  @stewart
 2026-08-01  PLT-9jeg Provide a standup blueprint script for an always-on machine  @stewart
 2026-08-01  PLT-8ush Schedule the standup by cron instead of nudging at commit  @stewart
 2026-08-01  PLT-9wmv Add tm standup with a configurable period  @stewart
@@ -25,4 +25,3 @@ PLT-ms4z Move DEC records out of notes into a top-level decisions folder
 2026-07-31  PLT-2fyj Make Telegram notification-only
 2026-07-31  PLT-005  Notify team Telegram bot from done
 2026-07-31  PLT-5pk8 Add tasks from Telegram
-2026-07-31  PLT-tf3z Reset task records when adopting the skeleton

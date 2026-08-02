@@ -1074,6 +1074,19 @@ def check_ontology_currency(rep, root):
     )
 
 
+def check_hooks(rep):
+    """A hooks directory that has moved fails *silently* — git runs nothing and
+    says nothing. So the one check that cannot rely on a hook is the one that
+    asks whether the hooks are wired up at all."""
+    want = os.path.relpath(os.path.join(HERE, "hooks"), REPO)
+    have = (git("config", "core.hooksPath") or "").strip()
+    if not have:
+        rep.warn(f"no git hooks installed — `git config core.hooksPath {want}`")
+    elif not os.path.isdir(os.path.join(REPO, have)):
+        rep.warn(f"core.hooksPath={have} no longer exists — "
+                 f"`git config core.hooksPath {want}`")
+
+
 def check_untracked_work(rep, root):
     """Work landing with no task is the drift that makes the board useless.
 
@@ -1291,6 +1304,7 @@ def cmd_check(args):
     else:
         check_boards(rep)
         check_sidecars(rep)
+        check_hooks(rep)
         if "--staged" in args:
             check_bypass(rep, root)
             check_decisions(rep, root)

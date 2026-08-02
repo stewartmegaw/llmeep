@@ -192,7 +192,7 @@ Acceptance being both optional and load-bearing is the design: at MVP pace most 
 earn a sidecar, but where there is no reviewer, criteria are the only quality gate that
 exists. You opt into the gate by writing it.
 
-[`_template.md`](_template.md) is the copyable skeleton of the above — an artifact, not part
+[`_template.md`](_tooling/_template.md) is the copyable skeleton of the above — an artifact, not part
 of this ontology. It carries no guidance, because guidance you delete on every use is friction.
 
 ## Window
@@ -244,7 +244,7 @@ step. See [`DEC-003`](../notes/decisions/DEC-003-skills-are-executables.md).
 | `park` | `tm park [id] [-n]`  | `in progress` → `backlog`, at the bottom (`-n` for the top). Unassigns it. |
 | `done` | `tm done [id]`       | Defaults to whatever is in progress. Moves to `recent`, prunes, appends to History, notifies. Run **before** committing. |
 | `find` | `tm find <term>`     | Greps History explicitly.                                        |
-| `standup` | `tm standup [--send]` | Reports the period's completions and what is still in progress. Prints; `--send` posts. Run by a person; `blueprints/standup.sh` is there if you want it unattended. |
+| `standup` | `tm standup [--send]` | Reports the period's completions and what is still in progress. Prints; `--send` posts. Run by a person; `_tooling/blueprints/standup.sh` is there if you want it unattended. |
 
 ```sh
 tm add Fix flaky auth test        # title needs no quotes; everything after the flags is the title
@@ -517,6 +517,26 @@ mechanical covers that. If it proves to be where duplicated work starts,
 [`DEC-002`](../notes/decisions/DEC-002-task-history-index.md) names the fix.
 
 ---
+
+## Layout
+
+Records and machinery are separate trees. `taskman/` is what you and the agent read; nothing
+in it is executable. `_tooling/` is what runs, and nothing in it is a record.
+
+```
+taskman/
+  ontology.md        this file
+  history.tsv        every completion, append-only, grep-only
+  platform/          board.md + tasks/ sidecars
+  business/          board.md + tasks/ sidecars
+  _tooling/
+    tm               the executable
+    hooks/           pre-commit, commit-msg, post-commit
+    blueprints/      optional, run by nothing here
+    _template.md     the copyable sidecar skeleton
+```
+
+The underscore says *not a record* — the same signal `_template.md` already carried.
 
 ## Glossary
 
