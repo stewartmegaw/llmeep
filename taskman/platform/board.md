@@ -7,6 +7,7 @@
 
 PLT-7g78 An existing repo should be able to adopt the skeleton without starting over
 PLT-cajd Decisions need a find before they could ever be pruned
+PLT-9c84 nm cannot remove an archived note, and drop already means something else
 
 ## recent
 
