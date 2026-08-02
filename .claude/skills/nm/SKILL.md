@@ -41,6 +41,10 @@ Sam owns the Stripe migration end to end
 EOF
 ```
 
+**Text is a shell argument, so quote it or use stdin.** A `;`, `&`, `|`, `(` or `)` in what the
+user said will split the command and silently truncate the record — the tool never sees the rest.
+Heredoc is the safe default when the text is anything but plain words.
+
 `--from` is a short slug for where it came from: `acme-call`, `standup`, `board-review`.
 
 **Never write the transcript to disk.** Not to `notes/raw/`, not anywhere. An exported call is

@@ -2,7 +2,7 @@
 
 ## 2026-08-02
 
-NTE-4pfx Review ease of use — commands, markers and rules have accumulated fast
+NTE-brrk Review ease of use — commands, markers and rules have accumulated fast; check a fresh cloner can still get going
 
 ## 2026-08-01
 

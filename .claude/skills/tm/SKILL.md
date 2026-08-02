@@ -65,6 +65,10 @@ would not mention it in standup, it does not need a task.
 
 ## Titles are handles
 
+**A title is a shell argument, so quote it or use stdin.** A `;`, `&`, `|`, `(` or `)` in what
+the user said will split the command and silently truncate the title — `tm` never sees the rest,
+and the board looks fine because the fragment is still a valid title.
+
 **120 characters, two sentences.** `tm add` refuses a longer title. When the user describes work
 in a paragraph, do not put the paragraph in the title — write a short handle and put the rest in
 a sidecar.
