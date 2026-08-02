@@ -529,6 +529,7 @@ taskman/
   history.tsv        every completion, append-only, grep-only
   platform/          board.md + tasks/ sidecars
   business/          board.md + tasks/ sidecars
+  UNADOPTED.md       present until `tm reset`; says whose records these are
   _tooling/
     tm               the executable
     hooks/           pre-commit, commit-msg, post-commit

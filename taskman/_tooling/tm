@@ -830,7 +830,7 @@ def cmd_find(args):
 
 # ---------------------------------------------------------------------- reset
 
-MARKER = ".skeleton"
+MARKER = "UNADOPTED.md"
 
 
 def marker_path():
@@ -840,10 +840,15 @@ def marker_path():
 def skeleton_nudge():
     """Present until `tm reset` runs. Without it, a new project silently
     inherits the skeleton's task history and `find` returns someone else's
-    work as its own prior art."""
+    work as its own prior art.
+
+    A named markdown file rather than a dotfile: this is the one marker whose
+    entire audience is a human who has just cloned something and does not yet
+    know what any of it is. Nothing parses it, so it costs nothing to make it
+    say so in full."""
     if os.path.exists(marker_path()):
-        print("\n  ~ these are the skeleton's own records — `tm reset` if you cloned"
-              "\n    this to start a project")
+        print(f"\n  ~ these are the skeleton's own records — see taskman/{MARKER},"
+              "\n    or run `tm reset` if you cloned this to start a project")
 
 
 def cmd_reset(args):

@@ -234,7 +234,9 @@ Then work through [`ontology/domain/README.md`](ontology/domain/README.md).
 | `v1`, `v2`, …   | Pinned versions                       | pin to a specific one           |
 | `main`          | Development, with full task history   | improve the skeleton itself     |
 
-**If you cloned `main` instead**, run `taskman/_tooling/tm reset --yes` — otherwise you inherit this
+**If you cloned `main` instead**, `taskman/UNADOPTED.md` will be sitting there saying so, and
+`tm` repeats it after every `add` and `go` until you deal with it. Run
+`taskman/_tooling/tm reset --yes` — otherwise you inherit this
 project's task history and `find` returns the skeleton's work as your prior art, which is the
 amnesia-prevention mechanism working against you. Every `tm add` and `tm go` says so until you
 do. `reset` clears both boards, `history.tsv` and the sidecars; it **keeps** the ontology,
