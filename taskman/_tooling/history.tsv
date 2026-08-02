@@ -25,3 +25,4 @@
 2026-08-02	PLT-xw2q	platform	Give notes its own reset and adoption marker	stewart
 2026-08-02	PLT-ms4z	platform	Move DEC records out of notes into a top-level decisions folder	stewart
 2026-08-02	PLT-9wdq	platform	A note whose task shipped should leave the window, not just be hidden	stewart
+2026-08-02	PLT-nq2u	platform	Pruning a shipped note should drop its history row too, not just the window line	stewart

@@ -12,6 +12,7 @@ PLT-rnqp The 200-note window is too big to read whole; compare with the board's 
 
 ## recent
 
+2026-08-02  PLT-nq2u Pruning a shipped note should drop its history row too, not just the window line  @stewart
 2026-08-02  PLT-9wdq A note whose task shipped should leave the window, not just be hidden  @stewart
 2026-08-02  PLT-ms4z Move DEC records out of notes into a top-level decisions folder  @stewart
 2026-08-02  PLT-xw2q Give notes its own reset and adoption marker  @stewart
@@ -26,4 +27,3 @@ PLT-rnqp The 200-note window is too big to read whole; compare with the board's 
 2026-07-31  PLT-n4zk Record assignees on tasks            @stewart
 2026-07-31  PLT-rc4c Add a tm command to return a task from doing to open
 2026-07-31  PLT-jcv5 check --notify should not send unless asked
-2026-07-31  PLT-uhhk Make the notifier swappable

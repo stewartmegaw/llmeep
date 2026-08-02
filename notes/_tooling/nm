@@ -303,14 +303,28 @@ def shipped_tasks():
     return out
 
 
+def history_drop(ids):
+    """The only deletion from an append-only file, and it is deliberate: the
+    rows removed describe ideas that became tasks that shipped, so taskman's
+    ledger already holds the durable record. Rewrites in place rather than
+    marking, because a tombstone is a second record of the thing we are
+    removing precisely for being a second record."""
+    kept = [l for l in open(HISTORY).read().splitlines()
+            if not any(l.startswith(i + "\t") or f"\t{i}\t" in l for i in ids)]
+    with open(HISTORY, "w") as fh:
+        fh.write("\n".join(kept) + "\n")
+
+
 def cmd_prune(args):
     """Dry unless --yes. Pruning captures discards work nobody did; pruning the
-    archive only narrows the window, since history.tsv keeps everything.
+    archive normally only narrows the window, since history.tsv keeps
+    everything — a shipped note is the exception and goes entirely.
 
-    A note whose task shipped leaves the window too. It is not deleted — the
-    row in history.tsv is the permanent record of where that task came from —
-    but at 200 slots a note about finished work evicts an idea nobody has acted
-    on yet, and that is the wrong trade (DEC-022)."""
+    A note whose task shipped is removed outright, history row included. Once
+    the task has a permanent row of its own, the note is a second record of one
+    idea — and keeping it costs a per-commit check that its link still resolves.
+    Git holds the deleted row like any other; `git log -S <id>` finds it
+    (DEC-023)."""
     apply = "--yes" in args
     cutoff = date.today() - timedelta(days=RAW_STALE_DAYS)
     stale = []
@@ -337,7 +351,7 @@ def cmd_prune(args):
     for name, when in stale:
         print(f"  raw/{name}  unprocessed since {when}")
     for note in shipped:
-        print(f"  {note.id}  shipped as {note.task}")
+        print(f"  {note.id}  shipped as {note.task} — removed, git keeps it")
     if over:
         print(f"  archive is {len(archive.notes)}; {over} would leave the window "
               "(history.tsv keeps them)")
@@ -348,6 +362,8 @@ def cmd_prune(args):
         os.remove(os.path.join(RAW, name))
     archive.notes = [n for n in archive.notes if n not in shipped]
     archive.save()  # save() enforces the window
+    if shipped:
+        history_drop({n.id for n in shipped})
     print(f"\n  ✓ pruned {len(stale)} capture(s), "
           f"{len(shipped)} shipped, {over} over the window")
 

@@ -101,11 +101,11 @@ NTE-shmy  Acme want SSO before they will renew            src:acme-call  task:PL
 NTE-enu9  Sam owns the Stripe migration end to end        src:acme-call
 ```
 
-**A promoted note leaves the window once its task ships.** Not deleted — the row in
-`history.tsv` is the permanent record of where that task came from, and `find` still returns it.
-But `notes.md` holds 200 and a note about finished work would otherwise evict an idea nobody has
-acted on yet. `nm prune` does the removing; see
-[`DEC-022`](../decisions/DEC-022-shipped-notes-leave-the-window.md).
+**A promoted note is removed once its task ships** — from the window and from `history.tsv`.
+Until then it stays: a task can be parked or dropped, and the note is the only record the idea
+existed. Once the task has a permanent row of its own, the note is a second record of one idea,
+and git keeps the deleted row like any other (`git log -S <id>`). `nm prune` does the removing;
+see [`DEC-023`](../decisions/DEC-023-a-shipped-note-is-removed-outright.md).
 
 ## Archive and history
 
@@ -118,7 +118,7 @@ Exactly the split taskman uses, for the same reason.
 
 Pruning narrows the window; it loses nothing.
 
-**One exception to append-only:** promoting a note rewrites its history row to add the task id.
+**Two exceptions to append-only:** promoting a note rewrites its history row to add the task id, and pruning a shipped note removes the row outright.
 A link discovered later is new information about an existing row, not a second row — and a
 `find` that could not show where a note went would be missing the useful half.
 

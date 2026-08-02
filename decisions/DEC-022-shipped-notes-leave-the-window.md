@@ -1,11 +1,11 @@
 ---
 id: DEC-022
 title: A note whose task shipped leaves the window
-status: accepted
+status: superseded
 decided: 2026-08-02
 deciders: [stew]
 supersedes: []
-superseded_by: []
+superseded_by: [DEC-023]
 relates_to: [DEC-012]
 ---
 

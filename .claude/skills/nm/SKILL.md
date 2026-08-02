@@ -115,8 +115,8 @@ End with the rule and hint line whenever there are notes. **Never link the ids**
 markdown links to repo files render as "unsupported link" over Remote Control.
 
 **Mark a linked task `✓` once it is done** — one `grep -f` of the linked ids against
-`taskman/_tooling/history.tsv`. A shipped note is on its way out rather than hidden: `nm prune`
-removes it from the window, and until then the tick says why it is still there.
+`taskman/_tooling/history.tsv`. A ticked note is awaiting removal, not hidden: `nm prune` deletes
+it outright, window and history row both, because the task now carries the record.
 
 **Offer `nm prune` when you see ticks.** That is the command that clears them.
 
@@ -131,8 +131,8 @@ If captures are waiting, offer once to distil them; do not distil unasked.
   wearing the wrong clothes.
 - **Promote eagerly.** A note that is clearly work should become a task in the same breath — do
   not leave the user to ask. A note that is context stays a note forever, and that is fine.
-- **A promoted note is not deleted.** It records that a task came from a particular conversation
-  on a particular day, which git cannot reconstruct.
+- **A promoted note survives until its task ships**, then `nm prune` deletes it. Until then a
+  task can be parked or dropped, and the note is the only record the idea existed.
 - **`notes/raw/` is for things worth reading again** — a written summary, a shared document, an
   idea to process later. The test is whether anyone would open it twice. Presence means pending;
   there is no processed marker.
