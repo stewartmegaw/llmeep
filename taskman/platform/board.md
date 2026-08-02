@@ -7,6 +7,7 @@
 
 PLT-7g78 An existing repo should be able to adopt the skeleton without starting over
 PLT-ms4z Move DEC records out of notes into a top-level decisions folder
+PLT-cajd Decisions need a find before they could ever be pruned
 
 ## recent
 
