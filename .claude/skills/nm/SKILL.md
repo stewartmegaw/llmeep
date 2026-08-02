@@ -15,7 +15,7 @@ Run from the repo root:
 notes/_tooling/nm add [--from <src>] <text...>   # capture; reads stdin for batch
 notes/_tooling/nm drop <file>                    # capture processed — deletes it, git keeps it
 notes/_tooling/nm promote <NTE-id> [-b] [-n]     # note becomes a task, linked both ways
-notes/_tooling/nm prune [--yes]                  # bound raw/ and the archive; dry without --yes
+notes/_tooling/nm prune [--yes]                  # bound raw/, drop shipped notes; dry without --yes
 notes/_tooling/nm find <term>                    # search every note ever captured
 notes/_tooling/nm reset [--yes]                  # clear notes when adopting the skeleton
 ```
@@ -96,10 +96,12 @@ between notes. `###` heading for the date, `---` under it.
 **Leave a blank line after every `---`.** Without one the terminal renderer swallows the rule
 into the line below and prints a literal `---NTE-shmy` — tested 2026-08-02.
 
-    3 captures waiting in raw/ · 12 shipped, hidden
+    3 captures waiting in raw/
 
     ### 2026-08-01
     ---
+
+    **NTE-shmy**  Acme want SSO before they will renew → PLT-9wmv ✓
 
     **NTE-enu9**  Sam owns the Stripe migration → PLT-2m4x
 
@@ -112,17 +114,11 @@ into the line below and prints a literal `---NTE-shmy` — tested 2026-08-02.
 End with the rule and hint line whenever there are notes. **Never link the ids** — relative
 markdown links to repo files render as "unsupported link" over Remote Control.
 
-**A note whose task shipped is done being a note. Leave it out.** It stays in the archive
-forever — it is the only record that a task came from a particular conversation — but it has
-stopped being something anyone needs to read, and an archive of hundreds cannot afford lines
-that are merely true. Count them on the lead line instead.
+**Mark a linked task `✓` once it is done** — one `grep -f` of the linked ids against
+`taskman/_tooling/history.tsv`. A shipped note is on its way out rather than hidden: `nm prune`
+removes it from the window, and until then the tick says why it is still there.
 
-One `grep -f` of the linked ids against `taskman/_tooling/history.tsv` sorts the list: ids found
-there are hidden and counted, ids not found stay visible with their task, unlinked notes stay
-visible.
-
-**Show them only when asked** — "all notes", "what shipped", "everything". Then mark each `✓`,
-because in that view the tick is the point.
+**Offer `nm prune` when you see ticks.** That is the command that clears them.
 
 Mark promoted notes with their task. Drop the `src:` tags unless asked — provenance matters when
 searching, not when reading. No commentary.

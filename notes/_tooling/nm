@@ -286,9 +286,31 @@ def cmd_promote(args):
     print(f"  → {tid}")
 
 
+def shipped_tasks():
+    """Task ids that have completed. Reads taskman's ledger directly — `check`
+    already does, and the alternative is taskman calling into notes on `done`,
+    which couples the two in the direction that actually matters."""
+    path = os.path.join(REPO, "taskman", "_tooling", "history.tsv")
+    if not os.path.exists(path):
+        return set()
+    out = set()
+    for line in open(path):
+        if line.startswith("#") or not line.strip():
+            continue
+        parts = line.split("\t")
+        if len(parts) >= 2:
+            out.add(parts[1])
+    return out
+
+
 def cmd_prune(args):
     """Dry unless --yes. Pruning captures discards work nobody did; pruning the
-    archive only narrows the window, since history.tsv keeps everything."""
+    archive only narrows the window, since history.tsv keeps everything.
+
+    A note whose task shipped leaves the window too. It is not deleted — the
+    row in history.tsv is the permanent record of where that task came from —
+    but at 200 slots a note about finished work evicts an idea nobody has acted
+    on yet, and that is the wrong trade (DEC-022)."""
     apply = "--yes" in args
     cutoff = date.today() - timedelta(days=RAW_STALE_DAYS)
     stale = []
@@ -304,14 +326,18 @@ def cmd_prune(args):
                 stale.append((name, when))
 
     archive = Archive()
-    over = max(0, len(archive.notes) - WINDOW)
+    done = shipped_tasks()
+    shipped = [n for n in archive.notes if n.task and n.task in done]
+    over = max(0, len(archive.notes) - len(shipped) - WINDOW)
 
-    if not stale and not over:
+    if not stale and not over and not shipped:
         print(f"  nothing to prune — {len(archive.notes)} note(s), "
               f"{len(os.listdir(RAW)) if os.path.isdir(RAW) else 0} capture(s)")
         return
     for name, when in stale:
         print(f"  raw/{name}  unprocessed since {when}")
+    for note in shipped:
+        print(f"  {note.id}  shipped as {note.task}")
     if over:
         print(f"  archive is {len(archive.notes)}; {over} would leave the window "
               "(history.tsv keeps them)")
@@ -320,8 +346,10 @@ def cmd_prune(args):
         return
     for name, _ in stale:
         os.remove(os.path.join(RAW, name))
+    archive.notes = [n for n in archive.notes if n not in shipped]
     archive.save()  # save() enforces the window
-    print(f"\n  ✓ pruned {len(stale)} capture(s)" + (f", {over} note(s)" if over else ""))
+    print(f"\n  ✓ pruned {len(stale)} capture(s), "
+          f"{len(shipped)} shipped, {over} over the window")
 
 
 def cmd_find(args):

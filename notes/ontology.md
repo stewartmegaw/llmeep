@@ -101,9 +101,11 @@ NTE-shmy  Acme want SSO before they will renew            src:acme-call  task:PL
 NTE-enu9  Sam owns the Stripe migration end to end        src:acme-call
 ```
 
-**A promoted note is not deleted.** It is the record that a task came from a particular
-conversation on a particular day — which is the part worth keeping, and the part git cannot
-reconstruct.
+**A promoted note leaves the window once its task ships.** Not deleted — the row in
+`history.tsv` is the permanent record of where that task came from, and `find` still returns it.
+But `notes.md` holds 200 and a note about finished work would otherwise evict an idea nobody has
+acted on yet. `nm prune` does the removing; see
+[`DEC-022`](../decisions/DEC-022-shipped-notes-leave-the-window.md).
 
 ## Archive and history
 
