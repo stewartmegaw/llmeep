@@ -127,6 +127,11 @@ If captures are waiting, offer once to distil them; do not distil unasked.
 
 ## Rules
 
+**Never write a bare id in prose.** Attach a title snippet — `PLT-9wmv (add tm standup)`, not
+`PLT-9wmv`. Ids are four random characters, chosen to be collision-proof rather than memorable,
+and this gets read on a phone away from the repo. Rendered lists are exempt: the title is already
+on the line.
+
 - **A note is one line**, capped at 200 characters. Anything longer is a task or a decision
   wearing the wrong clothes.
 - **Promote eagerly.** A note that is clearly work should become a task in the same breath — do

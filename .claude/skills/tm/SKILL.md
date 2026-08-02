@@ -137,6 +137,11 @@ Say "nothing in the backlog" and stop if both boards are clear.
 
 ## Rules
 
+**Never write a bare id in prose.** Attach a title snippet — `PLT-9wmv (add tm standup)`, not
+`PLT-9wmv`. Ids are four random characters, chosen to be collision-proof rather than memorable,
+and this gets read on a phone away from the repo. Rendered lists are exempt: the title is already
+on the line.
+
 - **You classify, the tool does not.** `add` always assumes the platform ledger. Decide from
   the routing rule in `taskman/ontology.md` and pass `-b` yourself (principle 7).
 - **Run `done` before committing**, so the board, history and code land in one commit.
