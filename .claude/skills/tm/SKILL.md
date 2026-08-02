@@ -82,7 +82,10 @@ remembered rather than done, that is `nm` — see its skill. A note becomes a ta
 
 ## When asked for tasks, lift the tasks
 
-Read the boards and render the live state. **Nothing else** — no commentary on what is
+**Read `taskman/*/board.md` first, every time** — never from memory, and never from the example
+below. Ids are four random characters, so a plausible wrong one reads exactly like a right one.
+
+Render the live state. **Nothing else** — no commentary on what is
 outstanding, no suggestions about what to file, no summary of recent work. If they wanted
 analysis they will ask for it.
 
