@@ -82,6 +82,10 @@ producing fifteen, you are transcribing rather than distilling.
 
 ## When asked for notes, summarise them
 
+**Show the 20 most recent and say how many remain** — `…and 34 older, `nm find` or ask for all`.
+The file holds up to 200 because an agent reads it whole cheaply; a person scanning a phone does
+not. Storage and presentation are bounded separately and by different numbers.
+
 **Read `notes/notes.md` first, every time.** Never render the list from memory or from the
 example below — ids are four random characters and a plausible-looking wrong one is
 indistinguishable from a right one until someone acts on it.

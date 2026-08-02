@@ -27,7 +27,7 @@ RAW = os.path.join(ROOT, "raw")
 MARKER = os.path.join(ROOT, "UNADOPTED.md")
 TM = os.path.join(REPO, "taskman", "_tooling", "tm")
 
-WINDOW = 200        # entries kept in notes.md; the rest live in history.tsv
+WINDOW = 200        # what `prune` narrows notes.md to; nothing else enforces it
 RAW_STALE_DAYS = 30  # a capture unprocessed this long is probably never going to be
 MAX_HITS = 3
 TEXT_MAX = 200      # a note is a line, not a paragraph
@@ -111,9 +111,19 @@ class Archive:
                 return n
         return None
 
-    def save(self):
+    def narrow(self, keep):
+        """Drop the oldest beyond `keep`, returning them. Only `prune` calls
+        this — narrowing is a deliberate act, never a side effect of a write."""
         self.notes.sort(key=lambda n: n.on, reverse=True)
-        del self.notes[WINDOW:]
+        dropped, self.notes = self.notes[keep:], self.notes[:keep]
+        return dropped
+
+    def save(self):
+        """Sorts, never truncates. Narrowing the window is `prune` — a named,
+        dry-by-default act — not a side effect of adding a note. This used to
+        drop the oldest entry on every write, silently, which also made
+        `prune`'s window branch and `check`'s window guard unreachable."""
+        self.notes.sort(key=lambda n: n.on, reverse=True)
         out, on = ["# notes"], None
         for note in self.notes:
             if note.on != on:
@@ -369,10 +379,15 @@ def cmd_prune(args):
 
     archive = Archive()
     done = shipped_tasks()
-    shipped = [n for n in archive.notes if n.task and n.task in done]
+    # Scans history, not just the window. A note can fall out of the window
+    # while its task is still open, and would then never be reachable again —
+    # leaving one idea recorded in two ledgers forever, which is the whole
+    # thing DEC-023 removes.
+    shipped_ids = {r["id"] for r in history_rows() if r.get("task") in done and r.get("task")}
+    shipped = [n for n in archive.notes if n.id in shipped_ids]
     over = max(0, len(archive.notes) - len(shipped) - WINDOW)
 
-    if not stale and not over and not shipped:
+    if not stale and not over and not shipped_ids:
         print(f"  nothing to prune — {len(archive.notes)} note(s), "
               f"{len(os.listdir(RAW)) if os.path.isdir(RAW) else 0} capture(s)")
         return
@@ -380,6 +395,8 @@ def cmd_prune(args):
         print(f"  raw/{name}  unprocessed since {when}")
     for note in shipped:
         print(f"  {note.id}  shipped as {note.task} — removed, git keeps it")
+    for orphan in sorted(shipped_ids - {n.id for n in shipped}):
+        print(f"  {orphan}  shipped, already out of the window — history row removed")
     if over:
         print(f"  archive is {len(archive.notes)}; {over} would leave the window "
               "(history.tsv keeps them)")
@@ -389,11 +406,13 @@ def cmd_prune(args):
     for name, _ in stale:
         os.remove(os.path.join(RAW, name))
     archive.notes = [n for n in archive.notes if n not in shipped]
-    archive.save()  # save() enforces the window
-    if shipped:
-        history_drop({n.id for n in shipped})
+    if over:
+        archive.narrow(WINDOW)   # these stay in history.tsv; only the window narrows
+    archive.save()
+    if shipped_ids:
+        history_drop(shipped_ids)
     print(f"\n  ✓ pruned {len(stale)} capture(s), "
-          f"{len(shipped)} shipped, {over} over the window")
+          f"{len(shipped_ids)} shipped, {over} over the window")
 
 
 def cmd_find(args):
@@ -472,8 +491,10 @@ def cmd_check(args):
     dates = [n.on for n in archive.notes]
     if dates != sorted(dates, reverse=True):
         errors.append("notes.md is not newest-first")
+    warnings = []
     if len(archive.notes) > WINDOW:
-        errors.append(f"notes.md holds {len(archive.notes)}, the window is {WINDOW}")
+        warnings.append(f"notes.md holds {len(archive.notes)}, the window is {WINDOW} "
+                        "— `nm prune` to narrow it")
     known_tasks = set()
     for ledger in ("platform", "business"):
         board = os.path.join(REPO, "taskman", ledger, "board.md")
@@ -490,11 +511,13 @@ def cmd_check(args):
                           f"the cap is {TEXT_MAX}")
         if note.task and note.task not in known_tasks:
             errors.append(f"{note.id} points at {note.task}, which does not exist")
+    for w in warnings:
+        print(f"  ~ {w}")
     for e in errors:
         print(f"  ! {e}", file=sys.stderr)
     if errors:
         return 1
-    if "--quiet" not in args:
+    if "--quiet" not in args and not warnings:
         print("  ✓ notes consistent")
     return 0
 

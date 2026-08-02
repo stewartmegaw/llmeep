@@ -118,6 +118,8 @@ Exactly the split taskman uses, for the same reason.
 
 Pruning narrows the window; it loses nothing.
 
+**The window narrows only on `prune`** — never as a side effect of adding a note ([`DEC-025`](../decisions/DEC-025-the-window-narrows-only-on-prune.md)).
+
 **Two exceptions to append-only:** promoting a note rewrites its history row to add the task id, and pruning a shipped note removes the row outright.
 A link discovered later is new information about an existing row, not a second row — and a
 `find` that could not show where a note went would be missing the useful half.

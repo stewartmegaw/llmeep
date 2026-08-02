@@ -27,3 +27,4 @@
 2026-08-02	PLT-9wdq	platform	A note whose task shipped should leave the window, not just be hidden	stewart
 2026-08-02	PLT-nq2u	platform	Pruning a shipped note should drop its history row too, not just the window line	stewart
 2026-08-02	PLT-9c84	platform	nm cannot remove an archived note, and drop already means something else	stewart
+2026-08-02	PLT-rnqp	platform	The 200-note window is too big to read whole; compare with the board's 15	stewart
