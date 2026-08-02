@@ -82,17 +82,22 @@ captures** — that is the actionable part, and it is invisible in `notes.md`.
 
 **Render as markdown, never a code block** — a code block scrolls horizontally on a phone,
 which is where this gets read. Date, then `---` on its own line. Bold the id. Blank line
-between notes. `###` heading for the date, `---` immediately under it.
+between notes. `###` heading for the date, `---` under it.
+
+**Leave a blank line after every `---`.** Without one the terminal renderer swallows the rule
+into the line below and prints a literal `---NTE-shmy` — tested 2026-08-02.
 
     3 captures waiting in raw/
 
     ### 2026-08-01
     ---
+
     **NTE-shmy**  Acme want SSO before they will renew → PLT-9wmv
 
     **NTE-enu9**  Sam owns the Stripe migration
 
     ---
+
     *promote · find · discuss*
 
 End with the rule and hint line whenever there are notes. **Never link the ids** — relative

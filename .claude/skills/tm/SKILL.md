@@ -86,18 +86,24 @@ analysis they will ask for it.
 scrolls horizontally on a phone, and this is read on a phone. Vertical length is the cheaper
 cost — scrolling down is natural, scrolling sideways is not.
 
-`###` heading, then `---` immediately under it, above the list. Bold the id. Blank line
-between tasks. Tags become prose after an em dash.
+`###` heading, then `---` under it, above the list. Bold the id. Blank line between tasks.
+Tags become prose after an em dash.
+
+**Leave a blank line after every `---`.** Without one the terminal renderer swallows the rule
+into the line below and prints a literal `---PLT-9puy` — tested 2026-08-02. The blank line
+before it is optional; the one after is not.
 
 **Never link the ids.** A relative markdown link to a repo file renders as "unsupported link"
 over Remote Control — tested 2026-08-01. Plain bold ids only.
 
     ### in progress
     ---
+
     **PLT-9puy**  Fix flaky auth test — @stew
 
     ### backlog
     ---
+
     **PLT-k3f9**  Migrate config loader — @sam
 
     **PLT-2m4x**  Upgrade toolchain — blocked by PLT-9puy
@@ -105,6 +111,7 @@ over Remote Control — tested 2026-08-01. Plain bold ids only.
     **PLT-7t1p**  Drop legacy endpoint — *unassigned*
 
     ---
+
     *start · done · park · drop · discuss*
 
 Omit empty sections. Omit `recent` unless asked.
