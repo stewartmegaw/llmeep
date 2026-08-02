@@ -2,6 +2,7 @@
 
 ## 2026-08-02
 
+NTE-4pfx Review ease of use — commands, markers and rules have accumulated fast
 
 ## 2026-08-01
 
