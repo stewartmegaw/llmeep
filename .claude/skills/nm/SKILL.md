@@ -101,9 +101,11 @@ into the line below and prints a literal `---NTE-shmy` — tested 2026-08-02.
     ### 2026-08-01
     ---
 
-    **NTE-shmy**  Acme want SSO before they will renew → PLT-9wmv
+    **NTE-shmy**  Acme want SSO before they will renew → PLT-9wmv ✓
 
-    **NTE-enu9**  Sam owns the Stripe migration
+    **NTE-enu9**  Sam owns the Stripe migration → PLT-2m4x
+
+    **NTE-k8dq**  Their security review lands 2026-09-15
 
     ---
 
@@ -111,6 +113,11 @@ into the line below and prints a literal `---NTE-shmy` — tested 2026-08-02.
 
 End with the rule and hint line whenever there are notes. **Never link the ids** — relative
 markdown links to repo files render as "unsupported link" over Remote Control.
+
+**Mark a linked task `✓` once it is done.** A `task:` link says a task *exists*, not that it
+happened — and most of the archive is ideas, so which ones shipped is the useful part. One
+`grep -f` against `taskman/_tooling/history.tsv` covers the whole list; ids found there get a
+`✓`, the rest stay plain.
 
 Mark promoted notes with their task. Drop the `src:` tags unless asked — provenance matters when
 searching, not when reading. No commentary.
