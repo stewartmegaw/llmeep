@@ -21,3 +21,4 @@
 2026-08-01	PLT-9jeg	platform	Provide a standup blueprint script for an always-on machine	stewart
 2026-08-02	PLT-kkqk	platform	Move taskman machinery out of the records tree	stewart
 2026-08-02	PLT-7xjv	platform	Make the skeleton adoption marker legible instead of an empty dotfile	stewart
+2026-08-02	PLT-5m5t	platform	Mirror the tooling split across taskman and notes	stewart

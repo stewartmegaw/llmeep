@@ -10,13 +10,17 @@ It lives here rather than in `ontology/core.md` because it describes one subsyst
 
 ```
 notes/
-  nm             <- the executable; five commands
   ontology.md    <- this file
   notes.md       <- the archive: the window you read
-  history.tsv    <- every note ever; grep-only, never loaded
   raw/           <- captures waiting to be processed
   decisions/     <- DEC records; a different thing, see below
+  _tooling/      <- nothing here is hand-edited
+    nm           <- the executable; five commands
+    history.tsv  <- every note ever; grep-only, never loaded
 ```
+
+Same shape as `taskman/`: what a person reads sits in the open, what only a tool touches sits
+under `_tooling/`.
 
 ---
 
@@ -178,7 +182,7 @@ They share a folder because both are durable knowledge. They share nothing else.
 | **distil**  | Turn a capture into notes. Judgement; the agent's job.             |
 | **note**    | One line in the archive. `NTE-` id.                                |
 | **archive** | `notes.md` — the window of recent notes, read whole.               |
-| **history** | `notes/history.tsv` — every note ever. Grep-only.                  |
+| **history** | `notes/_tooling/history.tsv` — every note ever. Grep-only.                  |
 | **promote** | Turn a note into a task, linking both ways.                        |
 | **prune**   | Drop stale captures; narrow the window.                            |
 

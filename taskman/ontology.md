@@ -13,15 +13,16 @@ the [root README](../README.md) and not repeated here.
 
 ```
 taskman/
-  tm               <- the executable; five commands
   ontology.md      <- this file
-  history.tsv      <- every completed task; grep-only, never loaded
   platform/
     board.md
     tasks/         <- optional sidecars
   business/
     board.md
     tasks/
+  _tooling/        <- nothing here is hand-edited
+    tm             <- the executable; six commands
+    history.tsv    <- every completed task; grep-only, never loaded
 ```
 
 ---
@@ -207,7 +208,7 @@ The `recent` section of a Board: the last 15 completed Tasks, newest first.
 The append-only index of every Task that has ever completed. The query layer for work that has
 left the Window.
 
-- **Lives in:** `taskman/history.tsv`. Written by `done`, one line per completion.
+- **Lives in:** `taskman/_tooling/history.tsv`. Written by `done`, one line per completion.
   **Append-only; never rewritten.**
 
   ```
@@ -526,16 +527,20 @@ in it is executable. `_tooling/` is what runs, and nothing in it is a record.
 ```
 taskman/
   ontology.md        this file
-  history.tsv        every completion, append-only, grep-only
   platform/          board.md + tasks/ sidecars
   business/          board.md + tasks/ sidecars
   UNADOPTED.md       present until `tm reset`; says whose records these are
   _tooling/
     tm               the executable
+    history.tsv      every completion, append-only, grep-only
     hooks/           pre-commit, commit-msg, post-commit
     blueprints/      optional, run by nothing here
     _template.md     the copyable sidecar skeleton
 ```
+
+The line is **hand-edited or not**. `board.md` gets reordered by hand constantly, so it sits in
+the open; `history.tsv` is append-only and read only by grep, so it sits with the tool that
+writes it. `notes/` is split the same way, deliberately — one shape to learn, not two.
 
 The underscore says *not a record* — the same signal `_template.md` already carried.
 
@@ -550,7 +555,7 @@ The underscore says *not a record* — the same signal `_template.md` already ca
 | **sidecar**  | Optional detail file for a task whose title was not enough.             |
 | **window**   | The `recent` section — last 15 completed.                               |
 | **prune**    | Drop an entry off the end of the window, out of the working tree.       |
-| **history**  | `taskman/history.tsv`. Grep-only, never loaded.                         |
+| **history**  | `taskman/_tooling/history.tsv`. Grep-only, never loaded.                         |
 | **position** | A task's place in the `open` order. **This is its priority.**           |
 
 ### Words we avoid

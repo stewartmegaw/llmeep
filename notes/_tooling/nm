@@ -16,10 +16,13 @@ import subprocess
 import sys
 from datetime import date, timedelta
 
-ROOT = os.environ.get("NM_ROOT") or os.path.dirname(os.path.abspath(__file__))
+# HERE is the machinery and the ledger it appends to; ROOT is what a person
+# reads; REPO is the tree around both. Mirrors tm exactly (DEC-019).
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.environ.get("NM_ROOT") or os.path.dirname(HERE)
 REPO = os.path.dirname(ROOT)
 ARCHIVE = os.path.join(ROOT, "notes.md")
-HISTORY = os.path.join(ROOT, "history.tsv")
+HISTORY = os.path.join(HERE, "history.tsv")
 RAW = os.path.join(ROOT, "raw")
 TM = os.path.join(REPO, "taskman", "_tooling", "tm")
 
@@ -364,7 +367,7 @@ def cmd_check(args):
         board = os.path.join(REPO, "taskman", ledger, "board.md")
         if os.path.exists(board):
             known_tasks |= set(re.findall(r"\b(?:PLT|BUS)-\S+", open(board).read()))
-    th = os.path.join(REPO, "taskman", "history.tsv")
+    th = os.path.join(REPO, "taskman", "_tooling", "history.tsv")
     if os.path.exists(th):
         known_tasks |= set(re.findall(r"\b(?:PLT|BUS)-\S+", open(th).read()))
     for note in archive.notes:

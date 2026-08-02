@@ -154,12 +154,12 @@ The commonest path never touches the filesystem: paste an exported call transcri
 agent and it captures what survives.
 
 ```sh
-notes/nm add --from acme-call <<'EOF'
+notes/_tooling/nm add --from acme-call <<'EOF'
 Acme want SSO before they will renew
 Sam owns the Stripe migration end to end
 EOF
 
-notes/nm promote NTE-shmy    # a note becomes a task, linked both ways
+notes/_tooling/nm promote NTE-shmy    # a note becomes a task, linked both ways
 ```
 
 **The transcript is never stored.** An exported call is large and mostly noise, and `notes/raw/`
@@ -176,9 +176,9 @@ The test for a line earning its place: **would someone act differently for havin
 A note that fails that is noise wearing a summary's clothes.
 
 ```sh
-notes/nm drop <file>     # a capture in notes/raw/ is processed; git keeps it
-notes/nm prune           # bound raw/ and the archive; dry without --yes
-notes/nm find <term>     # search every note ever captured
+notes/_tooling/nm drop <file>     # a capture in notes/raw/ is processed; git keeps it
+notes/_tooling/nm prune           # bound raw/ and the archive; dry without --yes
+notes/_tooling/nm find <term>     # search every note ever captured
 ```
 
 Full model: [`notes/ontology.md`](notes/ontology.md).

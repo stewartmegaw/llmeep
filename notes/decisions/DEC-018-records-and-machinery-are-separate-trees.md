@@ -1,11 +1,11 @@
 ---
 id: DEC-018
 title: Records and machinery live in separate trees
-status: accepted
+status: superseded
 decided: 2026-08-02
 deciders: [stew]
 supersedes: []
-superseded_by: []
+superseded_by: [DEC-019]
 relates_to: [DEC-001, DEC-003]
 ---
 

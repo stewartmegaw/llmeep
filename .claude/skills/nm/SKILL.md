@@ -5,18 +5,18 @@ description: Notes — capture, distil and promote. Use when the user pastes a c
 
 # nm
 
-**ADAPTER ONLY — no logic here.** All behaviour lives in `notes/nm`; the model is
+**ADAPTER ONLY — no logic here.** All behaviour lives in `notes/_tooling/nm`; the model is
 `notes/ontology.md`. If you want to add rules, they belong in one of those, so people using
 other agents get the same system (`DEC-003`, principle 3).
 
 Run from the repo root:
 
 ```sh
-notes/nm add [--from <src>] <text...>   # capture; reads stdin for batch
-notes/nm drop <file>                    # capture processed — deletes it, git keeps it
-notes/nm promote <NTE-id> [-b] [-n]     # note becomes a task, linked both ways
-notes/nm prune [--yes]                  # bound raw/ and the archive; dry without --yes
-notes/nm find <term>                    # search every note ever captured
+notes/_tooling/nm add [--from <src>] <text...>   # capture; reads stdin for batch
+notes/_tooling/nm drop <file>                    # capture processed — deletes it, git keeps it
+notes/_tooling/nm promote <NTE-id> [-b] [-n]     # note becomes a task, linked both ways
+notes/_tooling/nm prune [--yes]                  # bound raw/ and the archive; dry without --yes
+notes/_tooling/nm find <term>                    # search every note ever captured
 ```
 
 ## Distilling is your job, not a command
@@ -33,7 +33,7 @@ asked:
 4. Tell the user what you captured and what you promoted — briefly.
 
 ```sh
-notes/nm add --from acme-call <<'EOF'
+notes/_tooling/nm add --from acme-call <<'EOF'
 Acme want SSO before they will renew
 Their security review lands 2026-09-15
 Sam owns the Stripe migration end to end

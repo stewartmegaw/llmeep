@@ -18,14 +18,14 @@
       "Bash(./taskman/_tooling/tm check --staged *)",
       "Bash(./taskman/_tooling/tm check --notify)",
 
-      "Bash(./notes/nm)",
-      "Bash(./notes/nm add *)",
-      "Bash(./notes/nm drop *)",
-      "Bash(./notes/nm promote *)",
-      "Bash(./notes/nm find *)",
-      "Bash(./notes/nm prune)",
-      "Bash(./notes/nm check)",
-      "Bash(./notes/nm check --quiet)",
+      "Bash(./notes/_tooling/nm)",
+      "Bash(./notes/_tooling/nm add *)",
+      "Bash(./notes/_tooling/nm drop *)",
+      "Bash(./notes/_tooling/nm promote *)",
+      "Bash(./notes/_tooling/nm find *)",
+      "Bash(./notes/_tooling/nm prune)",
+      "Bash(./notes/_tooling/nm check)",
+      "Bash(./notes/_tooling/nm check --quiet)",
 
       "Bash(git status *)",
       "Bash(git log *)",
@@ -39,7 +39,7 @@
       "Bash(./taskman/_tooling/tm reset *)",
       "Bash(./taskman/_tooling/tm check --notify --send)",
       "Bash(./taskman/_tooling/tm standup --send)",
-      "Bash(./notes/nm prune --yes)"
+      "Bash(./notes/_tooling/nm prune --yes)"
     ]
   }
 }
