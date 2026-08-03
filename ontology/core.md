@@ -22,12 +22,26 @@ subsystem is named here.
 | **note**      | [`notes/_tooling/ontology.md`](../notes/_tooling/ontology.md) — with capture, archive, distil, promote, prune |
 | **decision**  | below — it belongs to the project, not to a subsystem |
 | **scratch**   | [`.notes/README.md`](../.notes/README.md) — local, disposable, never a source of truth |
-| **platform**  | The system being built. One per project, in `platform/`. Never "the app" or "the product". |
+| **platform**  | The system being built. Below — it is a rule, not a directory. Never "the app" or "the product". |
 | **business**  | Everything that is not the platform. Subject of `tasks/business/`. |
 
 The test for whether something belongs here or in a subsystem: **is it referenced by more than
 one subsystem?** Task is defined in `tasks/` because only that subsystem defines it, even
 though commits and notes cite task ids. Principles live here because everything obeys them.
+
+## Platform
+
+The system being built: one per project, and the subject of every task in the `platform` ledger.
+
+**It is the repo minus llmeep's own paths** — anything that is not `tasks/`, `notes/`,
+`decisions/`, `ontology/`, `.notes/` or `.claude/`, and not documentation or configuration
+sitting loose at the top. A fresh clone puts it in `platform/`, an empty directory kept for the
+purpose. A repo that adopted llmeep keeps its code where it already was, and that code is no
+less the platform for it (`PLT-tdb5`).
+
+Defining it by subtraction rather than by a directory is what lets `tm` warn about work landing
+with no task in a repo that never had a `platform/` — the pathspec matched nothing there, so
+the warning was silently absent.
 
 ## Decision
 

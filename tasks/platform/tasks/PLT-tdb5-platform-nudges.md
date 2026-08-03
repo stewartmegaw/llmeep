@@ -31,9 +31,9 @@ is llmeep itself: a README-only commit must stay silent, and a commit touching `
 
 ## Acceptance
 
-- [ ] A commit touching only `README.md` or root config produces no nudge in this repo
-- [ ] A commit touching code with no task in progress nudges, in a greenfield clone and in an
+- [x] A commit touching only `README.md` or root config produces no nudge in this repo
+- [x] A commit touching code with no task in progress nudges, in a greenfield clone and in an
       adopted repo where the code sits at the root
-- [ ] `--into ops` behaves the same, with the skeleton one level down
-- [ ] The `platform` definition is stated in `ontology/core.md`, since it stops being "the
+- [x] `--into ops` behaves the same, with the skeleton one level down
+- [x] The `platform` definition is stated in `ontology/core.md`, since it stops being "the
       `platform/` directory" and becomes a rule
