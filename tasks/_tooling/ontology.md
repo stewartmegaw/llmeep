@@ -74,14 +74,14 @@ PLT-011  Migrate config loader            @sam
 
 ## prioritised
 
-PLT-007  Fix flaky auth test
+PLT-007  Fix flaky auth test               filed:2026-07-28
 PLT-002  Rework the retry policy          @sam  blocked:PLT-007  detail
-PLT-009  Upgrade toolchain
+PLT-009  Upgrade toolchain                filed:2026-07-30
 
 ## backlog
 
-PLT-014  Replace the fixture loader
-PLT-021  Audit the retry timeouts
+PLT-014  Replace the fixture loader       filed:2026-08-01
+PLT-021  Audit the retry timeouts         filed:2026-07-11
 
 ## recent
 
@@ -96,9 +96,21 @@ PLT-021  Audit the retry timeouts
   Ranking is a separate, deliberate act, so filing a thought costs nothing and the queue stays
   a statement someone actually made. A line's position in the pool means nothing; do not read
   it as priority, and do not spend effort arranging it.
+
+  `tm standup` displays the pool newest-`filed:` first. That is a **view, not an order** — it
+  sorts what it prints and never writes the board back, because a pool that acquires a
+  persistent sequence is just the queue again.
 - **Status is section.** `in progress` holds at most one task **per assignee**.
 - **First token is the task's own ID.** Everything after the title is a labelled tag.
 - **`blocked:PLT-007`** — cannot start until that task is done.
+- **`filed:2026-08-01`** — when `add` created the line. **Write-once**, and the one exemption
+  from *no metadata* above: that rule is about fields two branches can both edit, and this is
+  set at birth by the branch that created the line, which does not exist on the other side. The
+  union rule for open lines covers it with no new case.
+
+  **Its absence is permanent and legal.** Anything filed before the tag existed has none, and
+  back-filling from git would write wrong dates — renames move the board, and a commit date is
+  not a filing date. `check` never complains about a missing one.
 - **`@stew`** — who owns it. See [Assignee](#assignee).
 - **`detail`** — a [Sidecar](#sidecar) exists. Its absence means the line is the whole task,
   so nothing goes looking.
