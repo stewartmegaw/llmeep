@@ -32,3 +32,4 @@
 2026-08-03	PLT-8u3y	platform	Rename the taskman folder to tasks	stewart
 2026-08-03	PLT-6sqw	platform	Fix the version-cutting recipe and the release rationale	stewart
 2026-08-03	PLT-f8u9	platform	tm reset leaves folder sidecars behind	stewart
+2026-08-03	PLT-7fyv	platform	Offer to commit a closed task before starting the next one	stewart

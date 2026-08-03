@@ -10,6 +10,7 @@ PLT-cajd Decisions need a find before they could ever be pruned
 
 ## recent
 
+2026-08-03  PLT-7fyv Offer to commit a closed task before starting the next one  @stewart
 2026-08-03  PLT-f8u9 tm reset leaves folder sidecars behind  @stewart
 2026-08-03  PLT-6sqw Fix the version-cutting recipe and the release rationale  @stewart
 2026-08-03  PLT-8u3y Rename the taskman folder to tasks   @stewart
@@ -24,4 +25,3 @@ PLT-cajd Decisions need a find before they could ever be pruned
 2026-08-02  PLT-7xjv Make the skeleton adoption marker legible instead of an empty dotfile  @stewart
 2026-08-02  PLT-kkqk Move taskman machinery out of the records tree  @stewart
 2026-08-01  PLT-9jeg Provide a standup blueprint script for an always-on machine  @stewart
-2026-08-01  PLT-8ush Schedule the standup by cron instead of nudging at commit  @stewart
