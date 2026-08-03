@@ -49,7 +49,8 @@ SECTIONS = {"in progress": "in_progress",
             "prioritised": "prioritised",
             "backlog": "backlog"}
 
-TAG_RE = re.compile(r"^(detail|@[a-z0-9][a-z0-9._-]*|blocked:[A-Za-z]{3}-\S+)$")
+TAG_RE = re.compile(r"^(detail|@[a-z0-9][a-z0-9._-]*|blocked:[A-Za-z]{3}-\S+"
+                    r"|filed:\d{4}-\d{2}-\d{2})$")
 ID_RE = re.compile(r"^(PLT|BUS)-\S+$")
 
 
@@ -77,6 +78,17 @@ class Task:
     @property
     def has_detail(self):
         return "detail" in self.tags
+
+    @property
+    def filed(self):
+        """When `add` created the line, or None for anything filed before this
+        existed. **Absence is permanent and legal** — back-filling it from git
+        would write wrong dates (renames move the board, and the commit date is
+        not the filing date), so an undated line stays undated forever."""
+        for t in self.tags:
+            if t.startswith("filed:"):
+                return t.split(":", 1)[1]
+        return None
 
     @property
     def assignee(self):
@@ -702,16 +714,29 @@ def standup_next():
         # inferred from the absence of one.
         out.append(("PRIORITY (0)", ["· nothing prioritised"]))
     if pooled:
-        out.append((f"BACKLOG ({len(pooled)})", standup_lines(pooled)))
+        # Newest first, matching `recent`. Sorting happens here and nowhere
+        # else: the pool is unordered by design (`DEC-027`), so this is a view,
+        # not an ordering — nothing writes the board back in this sequence.
+        # Undated lines predate `filed:` and sort last, which is where the
+        # oldest belong under DESC anyway.
+        pooled.sort(key=lambda t: t.filed or "", reverse=True)
+        out.append((f"BACKLOG ({len(pooled)})", standup_lines(pooled, dated=True)))
     return out
 
 
-def standup_lines(tasks):
+def standup_lines(tasks, dated=False):
     """Body lines for one list of tasks — capped, tagged, and honest about what
     the cap hid. The heading carries the full count, so the trailing "…and N
-    more" is what makes the truncation visible in the lines themselves."""
-    body = [f"{ledger_tag(t)}  {t.title}" + (f" — @{t.assignee}" if t.assignee else "")
-            for t in tasks[:STANDUP_LIST]]
+    more" is what makes the truncation visible in the lines themselves.
+
+    `dated` shows the filing date, for the one list that is sorted by it. An
+    order with an invisible key reads as arbitrary, and the column is what makes
+    an undated line legible as undated rather than as a formatting slip."""
+    body = []
+    for t in tasks[:STANDUP_LIST]:
+        when = f"{t.filed or '—'.ljust(10)}  " if dated else ""
+        body.append(f"{ledger_tag(t)}  {when}{t.title}"
+                    + (f" — @{t.assignee}" if t.assignee else ""))
     if len(tasks) > STANDUP_LIST:
         body.append(f"…and {len(tasks) - STANDUP_LIST} more")
     return body
@@ -849,6 +874,11 @@ def cmd_add(args):
         show_related(title)  # before allocating, so a duplicate can be abandoned
     task = Task(new_id(LEDGERS[ledger], all_known_ids()), title)
     task.assign(slug(who))
+    # Write-once, and only ever by the branch that created the line — which is
+    # why this is exempt from the board's no-metadata rule. A field two sides
+    # can both edit conflicts; one that is set at birth and never touched again
+    # cannot, and the union rule for open lines already covers it.
+    task.tags.append(f"filed:{date.today().isoformat()}")
     # Filing costs no ranking decision: everything lands in the pool, and
     # deciding it is next is the separate, deliberate act `-n` performs.
     if top:
@@ -1238,6 +1268,13 @@ def check_boards(rep):
                 rep.error(f"{task.id} is blocked by {b}, which does not exist")
             if task.has_detail and not sidecar_path(ledger, task.id):
                 rep.error(f"{task.id} is tagged detail but has no sidecar")
+            # A tag only stays a tag while it matches. `filed:tomorrow` fails
+            # TAG_RE, so `_split_tags` leaves it on the end of the title and the
+            # board still looks fine — the one failure mode of adding a dated
+            # tag, and invisible without this.
+            if re.search(r"\bfiled:\S*", task.title):
+                rep.error(f"{task.id} has a malformed filed: date in its title — "
+                          "the tag must read filed:YYYY-MM-DD to parse as one")
 
 
 def check_sidecars(rep):
