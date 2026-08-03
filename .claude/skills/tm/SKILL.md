@@ -42,7 +42,7 @@ tasks/_tooling/tm reset [--yes]              # clear task records when adopting 
 | "what did we get done this week" / "standup" | `tm standup` — **without** `--send` unless they ask to post it |
 | "schedule the standup" / "how do I automate this" | `tm standup --cron`, and point at `tasks/_tooling/blueprints/standup.sh` |
 | "I've just cloned this to start a project" | `tm reset` to see what goes, then `--yes` |
-| "is the Telegram bot set up" | `tm check --notify` — add `--send` only if they want a test message |
+| "is the Telegram bot set up" / "post to the group instead" | `tm check --notify` — it lists every chat the bot can see; add `--send` only if they want a test message |
 
 **You are the mobile interface.** Telegram sends completion notifications and nothing reads
 its inbox — messages sent to the bot are ignored. Task management is this conversation,
