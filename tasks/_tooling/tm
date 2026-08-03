@@ -609,12 +609,23 @@ def standup_sections(period, today=None):
         # The point of the standup is not the trophy cabinet. Work that has sat
         # in progress across a period is the part someone should react to.
         sections.append(("IN PROGRESS",
-                         [f"· {t.title} — {'@' + t.assignee if t.assignee else 'unassigned'}"
+                         [f"{ledger_tag(t)}  {t.title} — "
+                          f"{'@' + t.assignee if t.assignee else 'unassigned'}"
                           for t in live]))
     return sections + extras
 
 
 STANDUP_LIST = 8   # a standup is read aloud or on a phone; a full board is neither
+
+
+def ledger_tag(task):
+    """`PLT` / `BUS`, taken from the id rather than from which board it was read
+    off. One list mixes both ledgers, and without the tag a business line is
+    indistinguishable from a platform one — the reader has to already know.
+
+    Reading it off the id means the tag cannot disagree with the task: a line on
+    the wrong board is a `check` error, not a mislabelled standup."""
+    return task.id.split("-")[0].upper()
 
 
 def render_plain(sections):
@@ -662,7 +673,12 @@ def standup_next():
     Reads `prioritised` only. The pool is unranked by definition, so listing the
     first eight of it would present arbitrary lines as a plan. When nothing is
     ranked, saying so is the more useful report — an empty queue behind a full
-    pool is exactly the thing a standup should surface."""
+    pool is exactly the thing a standup should surface.
+
+    Both ledgers share one list, tagged per line rather than split under two
+    headings. The ordering across them is still a judgement someone made, and
+    two sections would either duplicate the eight-line budget or force an
+    arbitrary split of it."""
     queued, pooled = [], 0
     for ledger in LEDGERS:
         try:
@@ -675,7 +691,7 @@ def standup_next():
         if pooled:
             return [("PRIORITY", [f"· nothing prioritised — {pooled} waiting in the backlog"])]
         return []
-    body = [f"· {t.title}" + (f" — @{t.assignee}" if t.assignee else "")
+    body = [f"{ledger_tag(t)}  {t.title}" + (f" — @{t.assignee}" if t.assignee else "")
             for t in queued[:STANDUP_LIST]]
     if len(queued) > STANDUP_LIST:
         body.append(f"…and {len(queued) - STANDUP_LIST} more")

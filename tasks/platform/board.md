@@ -7,13 +7,13 @@
 
 PLT-cajd Decisions need a find before they could ever be pruned
 PLT-3wjv Board could use a per-person filter
-PLT-99e2 Split the standup's next-up list by ledger
 
 ## backlog
 
 
 ## recent
 
+2026-08-03  PLT-99e2 Tag each standup line with its ledger  @stewart
 2026-08-03  PLT-97n3 Split the backlog into a prioritised section and an unordered pool  @stewart
 2026-08-03  PLT-4hck check --notify cannot help you change an already-set chat  @stewart
 2026-08-03  PLT-2mv7 Standup headers should be bold in Telegram  @stewart
@@ -28,4 +28,3 @@ PLT-99e2 Split the standup's next-up list by ledger
 2026-08-03  PLT-tdb5 The platform nudges never fire in an adopted repo  @stewart
 2026-08-03  PLT-jdgz Move adopt to the repo root          @stewart
 2026-08-03  PLT-rhew tm check --release verifies a cut tree before it is committed  @stewart
-2026-08-03  PLT-4yn8 adopt leaves a repo with no entry point  @stewart

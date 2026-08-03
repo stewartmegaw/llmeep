@@ -112,17 +112,24 @@ the plain text cannot — **bold each heading**, leave the body as it is, and ke
 wording and order. Do not re-summarise it; the point is that what you show and what Telegram
 receives are the same report.
 
-    **Standup · 2026-08-02 → 2026-08-03**
+    **2026-08-02 → 2026-08-03**
 
     **@stew**
     ✓ Fix flaky auth test
 
+    **In progress**
+    PLT  Migrate config loader — @sam
+
     **Priority**
-    · Migrate config loader
-    · Upgrade toolchain
+    PLT  Upgrade toolchain
+    BUS  Renew the Acme contract
 
     **Captured, not yet work**
     · Acme want SSO before they will renew
+
+**`PLT` and `BUS` are the tool's, not yours.** Both ledgers share one list, so the tag is the
+only thing saying which is which — keep it, keep the two-space gap, and never add one to a line
+the tool did not tag. Captured notes have no ledger and keep their `·`.
 
 Same constraints as the board: **never a code block** — it scrolls sideways on a phone — and a
 blank line after any `---`. No hint line; a standup is a report, not a menu.
