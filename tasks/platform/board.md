@@ -7,6 +7,7 @@
 
 PLT-cajd Decisions need a find before they could ever be pruned
 PLT-3wjv Board could use a per-person filter
+PLT-2mv7 Standup headers should be bold in Telegram       detail
 
 ## recent
 
