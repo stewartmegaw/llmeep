@@ -10,6 +10,7 @@ PLT-rhew tm check --release verifies a cut tree before it is committed  detail
 
 ## recent
 
+2026-08-03  PLT-4yn8 adopt leaves a repo with no entry point  @stewart
 2026-08-03  PLT-7g78 An existing repo should be able to adopt the skeleton without starting over  @stewart
 2026-08-03  PLT-su83 Ontology decision links break on a release cut  @stewart
 2026-08-03  PLT-swrt Reduce the ontology to what is actually referenced  @stewart
@@ -24,4 +25,3 @@ PLT-rhew tm check --release verifies a cut tree before it is committed  detail
 2026-08-03  PLT-f7ge Name the skeleton llmeep in the README  @stewart
 2026-08-02  PLT-rnqp The 200-note window is too big to read whole; compare with the board's 15  @stewart
 2026-08-02  PLT-9c84 nm cannot remove an archived note, and drop already means something else  @stewart
-2026-08-02  PLT-nq2u Pruning a shipped note should drop its history row too, not just the window line  @stewart

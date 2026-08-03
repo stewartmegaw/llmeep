@@ -21,6 +21,7 @@ That works because `tm` and `nm` derive their roots from where they sit
 """
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -101,6 +102,47 @@ def append_ignores(top, prefix, report):
     report.append(("edit", ".gitignore", f"{len(missing)} line(s) appended"))
 
 
+def working_agreement(top, dest_root, into, report):
+    """The greenfield path hands a cloner llmeep's README and tells them to keep
+    the half above the `---`. An adopter cannot have that file — theirs is
+    already there and is not ours to touch — so the same half is extracted to a
+    file of its own. Extracted rather than maintained separately, because a
+    second copy of a document is a copy that goes stale.
+
+    Nested, it becomes the install directory's README, which is where anyone
+    opening that directory will look. Flat, it needs a name of its own.
+    """
+    src = os.path.join(SRC, "README.md")
+    if not os.path.exists(src):
+        return
+    text = open(src).read()
+    m = re.search(r"<!-- adopt:start.*?-->(.*?)<!-- adopt:end -->", text, re.S)
+    if not m:       # markers gone: ship nothing rather than the wrong half
+        report.append(("skip", "working agreement", "no adopt: markers in README"))
+        return
+
+    # `platform/` is llmeep's hole for a codebase. An adopting repo *is* the
+    # codebase, so the bullet pointing at it would be a dead link and bad advice.
+    body = re.sub(
+        r"^\d+\. Put your codebase in .*$",
+        "6. Your code stays where it is — in llmeep's terms this repo *is* the platform.",
+        m.group(1).strip(), flags=re.M)
+    body = "# How work is tracked here\n\n" + body + "\n"
+    body += (
+        "\n---\n\nInstalled by [llmeep](https://github.com/stewartmegaw/llmeep). "
+        "This file describes the tooling only —\nwhat *this* project is belongs in "
+        "`README.md`, and what it is made of belongs in `ontology/domain/`.\n"
+    )
+
+    dst = os.path.join(dest_root, "README.md") if into else os.path.join(top, "LLMEEP.md")
+    if os.path.exists(dst):
+        report.append(("skip", rel(dst, top), "exists"))
+        return
+    with open(dst, "w") as fh:
+        fh.write(body)
+    report.append(("add", rel(dst, top), "how the tooling works — link it from your README"))
+
+
 def reset(root, tool, args, report):
     """A clone carries llmeep's own records. Clearing them here means an adopter
     never sees someone else's board, and never has to know `reset` exists."""
@@ -145,6 +187,7 @@ def main(argv):
             print(f"    + {prefix}{t}/")
         for a in AGENT:
             print(f"    + {a}")
+        print(f"    + {prefix + 'README.md' if into else 'LLMEEP.md'}  (how the tooling works)")
         print("    ~ .gitignore, git config core.hooksPath")
         return 0
 
@@ -156,6 +199,7 @@ def main(argv):
         if os.path.exists(src):
             copy(src, os.path.join(top, a), report, top)
 
+    working_agreement(top, dest_root, into, report)
     append_ignores(top, prefix, report)
     reset(dest_root, "tasks", ["--all"], report)
     reset(dest_root, "notes", [], report)
