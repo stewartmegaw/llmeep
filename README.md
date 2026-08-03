@@ -28,6 +28,18 @@ git config core.hooksPath tasks/_tooling/hooks     # validation on commit
 
 That is the whole install — two Python 3 files, standard library only, nothing to build.
 
+**Already have a repo?** Run `adopt` from inside it instead. Your code, history and README are
+untouched; it adds the record trees beside them and starts you with empty boards:
+
+```sh
+git clone --depth 1 https://github.com/stewartmegaw/llmeep.git /tmp/llmeep
+cd my-project
+/tmp/llmeep/_tooling/adopt --dry-run    # then again without --dry-run
+```
+
+If your repo already has a `tasks/`, `notes/`, `decisions/` or `ontology/`, it stops and tells
+you to nest instead — `--into ops`. [More on adopting](#adopting-into-a-repo-that-already-exists).
+
 **Now say to your agent.** "What am I on?", "lets start the next task", "that's done, commit it" —
 the commands below are what it runs for you, and the whole system is designed to be driven that
 way rather than typed. Point your agent at this file.
@@ -37,6 +49,8 @@ checks standalone, so CI needs no separate configuration. Agent permissions are 
 `.claude/settings.json`, so a clone stops prompting for the daily commands immediately — the
 three that change something you cannot take back (`tm reset`, `tm check --notify --send`,
 `nm prune --yes`) deliberately still ask.
+
+<!-- adopt:start — everything to adopt:end is copied into an adopting repo by _tooling/adopt -->
 
 ## Tracking work
 
@@ -114,6 +128,8 @@ of growing with the project.
 5. Describe your own project in [`ontology/domain/`](ontology/domain/README.md) — the
    extension point. You should not need to edit the core ontology.
 6. Put your codebase in [`platform/`](platform/README.md).
+
+<!-- adopt:end -->
 
 ---
 
@@ -285,6 +301,11 @@ It copies the four record trees and the agent adapters in, appends to `.gitignor
 replacing it, installs the hooks, and clears llmeep's own records so you start empty. Anything
 already present is skipped and reported, never overwritten. **Your code stays where it is** —
 `platform/` is not created, because an existing repo already has one.
+
+Your README is not touched either, so the working agreement is written to **`LLMEEP.md`**
+(`ops/README.md` for a nested install) — the same sections a fresh clone is told to keep,
+extracted from the region between the `adopt:` markers in this file. Link to it from your own
+README. It is generated at adopt time rather than maintained separately, so it cannot drift.
 
 `tasks`, `notes`, `decisions` and `ontology` are ordinary words, so if your repo already uses
 one, `adopt` stops rather than merging into it:
