@@ -7,6 +7,7 @@
 
 PLT-cajd Decisions need a find before they could ever be pruned
 PLT-3wjv Board could use a per-person filter
+PLT-ty47 .llmeep is the script and its own manifest       detail
 
 ## recent
 
