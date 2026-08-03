@@ -724,6 +724,16 @@ def standup_next():
     return out
 
 
+def show_date(iso):
+    """`2026-08-31` → `31-08-26`, for reading. Storage stays ISO: the pool sorts
+    by lexical comparison on the tag, and `TAG_RE` and `check` both key on that
+    shape, so this reverses at the point of display and nowhere else."""
+    if not iso:
+        return "—"
+    year, month, day = iso.split("-")
+    return f"{day}-{month}-{year[2:]}"
+
+
 def standup_lines(tasks, dated=False):
     """Body lines for one list of tasks — capped, tagged, and honest about what
     the cap hid. The heading carries the full count, so the trailing "…and N
@@ -734,7 +744,7 @@ def standup_lines(tasks, dated=False):
     an undated line legible as undated rather than as a formatting slip."""
     body = []
     for t in tasks[:STANDUP_LIST]:
-        when = f"{t.filed or '—'.ljust(10)}  " if dated else ""
+        when = f"{show_date(t.filed).ljust(8)}  " if dated else ""
         body.append(f"{ledger_tag(t)}  {when}{t.title}"
                     + (f" — @{t.assignee}" if t.assignee else ""))
     if len(tasks) > STANDUP_LIST:

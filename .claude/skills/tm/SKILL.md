@@ -125,9 +125,9 @@ receives are the same report.
     BUS  Renew the Acme contract
 
     **Backlog (11)**
-    PLT  2026-08-01  Replace the fixture loader
-    BUS  2026-07-29  Draft the pricing page
-    PLT  —           Audit the retry timeouts
+    PLT  01-08-26  Replace the fixture loader
+    BUS  29-07-26  Draft the pricing page
+    PLT  —         Audit the retry timeouts
     …and 8 more
 
     **Captured, not yet work**
@@ -142,8 +142,9 @@ lines is not a contradiction — reproduce both the count and the `…and N more
 never recount from the lines you can see. `Priority (0)` appears only when nothing is ranked and
 the pool is not empty, which is the one state a standup most needs to say out loud.
 
-**Only `Backlog` carries dates, and only it is sorted.** Newest filing first, with `—` for lines
-filed before the tag existed. Keep the tool's order — do not re-sort it, do not read it as
+**Only `Backlog` carries dates, and only it is sorted.** Newest filing first, shown `DD-MM-YY`,
+with `—` for lines filed before the tag existed. The board stores ISO — never copy the displayed
+form back into a `filed:` tag. Keep the tool's order — do not re-sort it, do not read it as
 priority, and never suggest reordering the board to match. It is a view over an unordered pool.
 
 Same constraints as the board: **never a code block** — it scrolls sideways on a phone — and a
