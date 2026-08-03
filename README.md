@@ -1,6 +1,7 @@
-# Project Skeleton
+# llmeep
 
-A clonable skeleton for small teams and agents building fast.
+A clonable skeleton for small teams and agents building fast. The name is an LLM and a road
+runner: *meep meep*, and it is already gone.
 
 ## Why this exists
 
