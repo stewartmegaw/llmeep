@@ -103,6 +103,28 @@ plus whatever else the task needs.
 remembered rather than done, that is `nm` — see its skill. A note becomes a task with
 `nm promote`, not `tm add`, so the link back to the conversation survives.
 
+## Rendering a standup
+
+`tm standup` prints for a terminal. You are rendering for a phone, so give the headings weight
+the plain text cannot — **bold each heading**, leave the body as it is, and keep the tool's own
+wording and order. Do not re-summarise it; the point is that what you show and what Telegram
+receives are the same report.
+
+    **Standup · 2026-08-02 → 2026-08-03**
+
+    **@stew**
+    ✓ Fix flaky auth test
+
+    **Next up**
+    · Migrate config loader
+    · Upgrade toolchain
+
+    **Captured, not yet work**
+    · Acme want SSO before they will renew
+
+Same constraints as the board: **never a code block** — it scrolls sideways on a phone — and a
+blank line after any `---`. No hint line; a standup is a report, not a menu.
+
 ## When asked for tasks, lift the tasks
 
 **Read `tasks/*/board.md` first, every time** — never from memory, and never from the example

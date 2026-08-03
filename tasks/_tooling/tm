@@ -421,7 +421,8 @@ def notify_telegram(text):
     if not token or not chat:
         return None
     post(f"https://api.telegram.org/bot{token}/sendMessage",
-         urllib.parse.urlencode({"chat_id": chat, "text": text}).encode())
+         urllib.parse.urlencode({"chat_id": chat, "text": text,
+                                 "parse_mode": "HTML"}).encode())
     return "telegram"
 
 
@@ -453,18 +454,36 @@ NOTIFIERS = {
 }
 
 
+def html_escape(text):
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
 def notify_text(text):
     """Dispatch to whichever channel is configured. Split out from `notify` so
     that anything with something to say — a completion, a standup — posts
-    through one place and no caller learns the channel's name."""
+    through one place and no caller learns the channel's name.
+
+    Accepts a plain string, or sections for something with structure. The
+    channel decides how a heading looks; the caller never learns which channel
+    it got."""
     load_env()
     name = (os.environ.get("NOTIFY") or "telegram").strip().lower()
     send = NOTIFIERS.get(name)
     if send is None:
         print(f"  ! unknown NOTIFY={name!r}; known: {', '.join(NOTIFIERS)}")
         return False
+    # Resolved here rather than at import: the renderers are defined further
+    # down, beside the standup that produces the sections they take.
+    renderers = {"telegram": render_telegram, "slack": render_slack}
+    if isinstance(text, str):
+        # Telegram is asked to parse HTML now, so a plain line has to be escaped
+        # too — `done` posts a task title, and a title with `<` or `&` in it
+        # would otherwise be rejected by the API rather than sent.
+        body = html_escape(text) if name == "telegram" else text
+    else:
+        body = renderers.get(name, render_plain)(text)
     try:
-        return send(text)
+        return send(body)
     except (urllib.error.URLError, OSError) as exc:
         # Never fail the caller because a notification failed.
         print(f"  ! {name} not sent: {exc}")
@@ -533,8 +552,9 @@ def standup_window(period, today=None):
     return today - timedelta(days=7), f"{year}-W{week:02d}"
 
 
-def standup_text(period, today=None):
-    """The report, or None when there is nothing worth anyone's attention."""
+def standup_sections(period, today=None):
+    """The report as (heading, lines), or None when there is nothing worth
+    anyone's attention."""
     today = today or date.today()
     start, _ = standup_window(period, today)
     if start is None:
@@ -555,26 +575,66 @@ def standup_text(period, today=None):
     if not done and not live and not extras:
         return None
 
-    lines = [f"Standup · {start.isoformat()} → {today.isoformat()}"]
+    # (heading, [line, …]). Structure rather than a formatted string, because
+    # this is read on a terminal, in Telegram and in Slack, and each wants its
+    # own emphasis — the notifier is swappable and the standup must not care
+    # which one it is talking to (`DEC-008`, `PLT-2mv7`).
+    sections = [(f"Standup · {start.isoformat()} → {today.isoformat()}", [])]
     by_who = {}
     for row in done:
         by_who.setdefault(row.get("who") or "unassigned", []).append(row)
     for who in sorted(by_who):
-        lines += ["", who if who == "unassigned" else f"@{who}"]
-        lines += [f"  ✓ {r['title']}" for r in by_who[who]]
+        sections.append((who if who == "unassigned" else f"@{who}",
+                         [f"✓ {r['title']}" for r in by_who[who]]))
     if not done:
-        lines += ["", "Nothing completed."]
+        sections.append(("Nothing completed.", []))
     if live:
         # The point of the standup is not the trophy cabinet. Work that has sat
         # in progress across a period is the part someone should react to.
-        lines += ["", "Still in progress"]
-        lines += [f"  · {t.title} — {'@' + t.assignee if t.assignee else 'unassigned'}"
-                  for t in live]
-    lines += extras
-    return "\n".join(lines)
+        sections.append(("IN PROGRESS",
+                         [f"· {t.title} — {'@' + t.assignee if t.assignee else 'unassigned'}"
+                          for t in live]))
+    return sections + extras
 
 
 STANDUP_LIST = 8   # a standup is read aloud or on a phone; a full board is neither
+
+
+def render_plain(sections):
+    """The terminal, and any channel that wants no markup. Unchanged from what
+    the standup printed before it grew renderers."""
+    out = []
+    for heading, body in sections:
+        if out:
+            out.append("")
+        out.append(heading)
+        out += [f"  {line}" for line in body]
+    return "\n".join(out)
+
+
+def render_telegram(sections):
+    """HTML rather than MarkdownV2. MarkdownV2 demands `_ * [ ] ( ) ~ ` > # + -
+    = | { } . !` be escaped anywhere they appear, and task titles here are full
+    of `--force`, `.llmeep` and `ontology/domain/`; one missed escape and the
+    API rejects the whole message. HTML needs three characters escaped and `<b>`
+    is all this wants."""
+    out = []
+    for heading, body in sections:
+        if out:
+            out.append("")
+        out.append(f"<b>{html_escape(heading)}</b>")
+        out += [f"  {html_escape(line)}" for line in body]
+    return "\n".join(out)
+
+
+def render_slack(sections):
+    out = []
+    for heading, body in sections:
+        if out:
+            out.append("")
+        out.append(f"*{heading}*")
+        out += [f"  {line}" for line in body]
+    return "\n".join(out)
 
 
 def standup_next():
@@ -589,12 +649,11 @@ def standup_next():
             continue
     if not queued:
         return []
-    out = ["", "Next up"]
-    out += [f"  · {t.title}" + (f" — @{t.assignee}" if t.assignee else "")
+    body = [f"· {t.title}" + (f" — @{t.assignee}" if t.assignee else "")
             for t in queued[:STANDUP_LIST]]
     if len(queued) > STANDUP_LIST:
-        out.append(f"  …and {len(queued) - STANDUP_LIST} more")
-    return out
+        body.append(f"…and {len(queued) - STANDUP_LIST} more")
+    return [("NEXT UP", body)]
 
 
 def standup_notes():
@@ -621,11 +680,10 @@ def standup_notes():
     unpromoted = [n for n in notes if not n[1]]
     if not unpromoted:
         return []
-    out = ["", "Captured, not yet work"]
-    out += [f"  · {body}" for body, _ in unpromoted[:STANDUP_LIST]]
+    body = [f"· {text}" for text, _ in unpromoted[:STANDUP_LIST]]
     if len(unpromoted) > STANDUP_LIST:
-        out.append(f"  …and {len(unpromoted) - STANDUP_LIST} more")
-    return out
+        body.append(f"…and {len(unpromoted) - STANDUP_LIST} more")
+    return [("CAPTURED, NOT YET WORK", body)]
 
 
 def standup_cron(period):
@@ -662,20 +720,24 @@ def cmd_standup(args):
     period = standup_period(override)
     if "--cron" in args:
         return cmd_standup_cron(period)
-    text = standup_text(period)
-    if text is None:
+    sections = standup_sections(period)
+    if sections is None:
         print(f"  nothing to report this {period} period")
         return
     print()
-    for line in text.split("\n"):
+    for line in render_plain(sections).split("\n"):
         print(f"  {line}".rstrip())
     print()
     if "--send" not in args:
         print("  not sent — add --send to post it to the team")
         return
-    channel = notify_text(text)
-    print(f"  sent via {channel}" if channel else
-          "  ! no channel configured — see .env.example")
+    channel = notify_text(sections)
+    if channel:
+        print(f"  sent via {channel}")
+    elif channel is None:
+        print("  ! not sent — no channel configured, see .env.example")
+    else:
+        print("  ! not sent — the channel rejected it; the reason is above")
 
 
 def new_id(prefix, taken):
