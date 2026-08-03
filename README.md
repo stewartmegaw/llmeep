@@ -298,7 +298,9 @@ cd my-project
 ```
 
 It copies the four record trees and the agent adapters in, appends to `.gitignore` rather than
-replacing it, installs the hooks, and clears llmeep's own records so you start empty. Anything
+replacing it, installs the hooks, and clears llmeep's own records so you start empty.
+**Restart your agent session afterwards** — skills are read at startup, so the two it just
+installed are invisible to the session that ran it. Anything
 already present is skipped and reported, never overwritten. **Your code stays where it is** —
 `platform/` is not created, because an existing repo already has one.
 
@@ -315,7 +317,10 @@ one, `adopt` stops rather than merging into it:
 ```
 
 Nesting needs no configuration: `tm` and `nm` derive their roots from where they sit, and the
-hooks resolve `tm` from their own location rather than the repo root.
+hooks resolve `tm` from their own location rather than the repo root. What does need adjusting,
+`adopt` adjusts — the permission allowlist in `.claude/settings.json` and both `SKILL.md` files
+are rewritten to the nested paths, since an allowlist that matches nothing prompts for every
+command and a skill that names the wrong path sends your agent at a file that is not there.
 
 **And cut this README back.** Everything from the `---` above down is about llmeep, not about
 your project — delete it and write your own introduction in its place. Keep the sections above
