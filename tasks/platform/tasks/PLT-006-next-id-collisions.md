@@ -55,7 +55,7 @@ instead, and neither was relying on the ID.
 Rejected: **derive from max** (detects, does not prevent) and **keep the counter, check on
 merge** (leaves the window open between allocation and merge).
 
-A resolution procedure now exists in [the ontology](../../ontology.md) — the agent unions the
+A resolution procedure now exists in [the ontology](../../_tooling/ontology.md) — the agent unions the
 boards, re-derives `next_id`, and renumbers the loser of a duplicate. **That is a cure, not a
 prevention.** Renumbering breaks the never-renumbered rule, and any commit trailer already
 naming the old ID silently points at the wrong task and cannot be fixed without rewriting

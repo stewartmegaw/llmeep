@@ -1,11 +1,11 @@
 ---
 id: DEC-019
 title: The tooling split is hand-edited or not, and both subsystems use it
-status: accepted
+status: superseded
 decided: 2026-08-02
 deciders: [stew]
 supersedes: [DEC-018]
-superseded_by: []
+superseded_by: [DEC-026]
 relates_to: [DEC-002, DEC-012]
 ---
 

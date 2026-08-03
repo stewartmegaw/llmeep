@@ -62,7 +62,7 @@ Slack needs one URL — so `check` dispatches, while sending goes through `notif
 them.
 
 **The out-of-repo configuration is stated as an advantage**, in `.env.example`, the root README
-and `tasks/ontology.md`: the channel is external and replaceable *by design*.
+and `tasks/_tooling/ontology.md`: the channel is external and replaceable *by design*.
 
 ## Alternatives considered
 

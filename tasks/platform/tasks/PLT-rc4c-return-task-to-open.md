@@ -12,7 +12,7 @@ Parking a started task is a command, not a hand edit.
 
 ## Context
 
-The lifecycle in [`ontology.md`](../../ontology.md) lists `doing → open` ("returned; no
+The lifecycle in [`ontology.md`](../../_tooling/ontology.md) lists `doing → open` ("returned; no
 ceremony") as legal, but `tm` has no operation for it. It came up twice on 2026-07-31 — parking
 `PLT-005` while it waited on a bot token, and dropping `PLT-vs6d` once it was obsolete — and
 both times the board was edited by hand.
@@ -26,7 +26,7 @@ transition is exactly what [principle 2](../../../ontology/principles.md) exists
 - [x] Refuses with a clear message when nothing is in `doing`, or when the named task is not.
 - [x] Returns to the **bottom** by default so the next bare `go` does not restart it; `-n` for
       the top.
-- [x] Documented in `tasks/ontology.md`, the root README and the agent skill.
+- [x] Documented in `tasks/_tooling/ontology.md`, the root README and the agent skill.
 
 ## Approach
 
@@ -36,7 +36,7 @@ transition is exactly what [principle 2](../../../ontology/principles.md) exists
   transition (`add`, `go`, `done`) is a command. This one being manual is an inconsistency, not
   a design.
 - **No** — moving a line between sections of one file breaks no invariant, which is the exact
-  test the [reordering exemption](../../ontology.md) uses. By that test it qualifies as a hand
+  test the [reordering exemption](../../_tooling/ontology.md) uses. By that test it qualifies as a hand
   edit and the gap is imaginary.
 
 **WIP-1 was the tiebreaker.** `go` refuses when `doing` is occupied, so a user switching tasks

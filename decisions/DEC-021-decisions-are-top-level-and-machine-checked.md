@@ -17,7 +17,7 @@ relates_to: [DEC-012, DEC-019, DEC-020]
 knowledge. True, and the only thing the two shared.
 
 The cost showed up as **five places that had to say decisions are the exception**: the folder
-annotation in `notes/ontology.md`, a section in the same file titled *"Decisions are a different
+annotation in `notes/_tooling/ontology.md`, a section in the same file titled *"Decisions are a different
 thing"*, a rule in the `nm` skill, the `nm reset` output, and `ontology/core.md` calling a
 decision "Note-adjacent" and then immediately disclaiming the adjacency.
 

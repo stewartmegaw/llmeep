@@ -14,7 +14,7 @@ folders.
 
 ## Acceptance
 
-- [x] `notes/ontology.md` exists; Note, Raw and Archive move out of `ontology/core.md`, which
+- [x] `notes/_tooling/ontology.md` exists; Note, Raw and Archive move out of `ontology/core.md`, which
       keeps one-line pointers for anything referenced from outside.
 - [x] `notes/nm` implements the mechanical operations; judgement stays with the agent.
 - [x] `notes/raw/` is a committed capture inbox; presence means pending.
@@ -87,7 +87,7 @@ One entry per line. `--from` records the source as a `src:` tag; the date comes 
 ### What distillation keeps
 
 Guidance for the agent, not logic for the tool — this is judgement, and belongs in
-`notes/ontology.md` and the agent skill:
+`notes/_tooling/ontology.md` and the agent skill:
 
 | Keep | Discard |
 |---|---|
@@ -181,7 +181,7 @@ Reading is `cat notes/notes.md`; there is no `list`, on the same grounds as the 
 - 2026-08-01 — primary use case added: paste a call transcript, distil in one pass. Transcripts
   are deliberately never written, because `raw/` is committed and git would keep the noise
   forever.
-- 2026-08-01 — built. `notes/nm`, `notes/ontology.md`, the archive/history split, and `nm check`
+- 2026-08-01 — built. `notes/nm`, `notes/_tooling/ontology.md`, the archive/history split, and `nm check`
   in the pre-commit hook. `meetings/`, `reference/` and `.notes/inbox.md` removed. `tm add --id`
   added so `nm promote` gets a machine-readable id rather than parsing prose. Recorded as
   `DEC-012`.

@@ -3,7 +3,7 @@
 **Gitignored.** Everything here is local to one machine and disposable. This README is the
 only file in this tree that is committed.
 
-The counterpart is [`notes/`](../notes/ontology.md), which is shared and durable. The
+The counterpart is [`notes/`](../notes/_tooling/ontology.md), which is shared and durable. The
 distinction is [principle 4](../ontology/principles.md): `notes/` is what the project stands
 behind; `.notes/` is one machine's thinking, in progress.
 
@@ -43,5 +43,5 @@ obligation to keep it, and no obligation to tidy it.
 ## Capture goes to `notes/raw/`, not here
 
 There is deliberately no inbox in this folder. Something noticed mid-flow belongs in
-[`notes/raw/`](../notes/ontology.md) — committed, so a teammate can process it, and with a
+[`notes/raw/`](../notes/_tooling/ontology.md) — committed, so a teammate can process it, and with a
 lifecycle rather than a file that only fills up. `.notes/` is for material with no future.

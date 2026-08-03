@@ -48,7 +48,7 @@ something `promote` does.
 removed for being a second record.
 
 This is the second exception to append-only in `notes/`, after `promote` rewriting a row to add
-its task id. Both are now named in `notes/ontology.md`.
+its task id. Both are now named in `notes/_tooling/ontology.md`.
 
 ## Alternatives considered
 

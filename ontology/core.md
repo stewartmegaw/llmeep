@@ -18,8 +18,8 @@ subsystem is named here.
 
 | Term          | Defined in                                        |
 | ------------- | ------------------------------------------------- |
-| **task**      | [`tasks/ontology.md`](../tasks/ontology.md) — with ledger, board, sidecar, window, history |
-| **note**      | [`notes/ontology.md`](../notes/ontology.md) — with capture, archive, distil, promote, prune |
+| **task**      | [`tasks/_tooling/ontology.md`](../tasks/_tooling/ontology.md) — with ledger, board, sidecar, window, history |
+| **note**      | [`notes/_tooling/ontology.md`](../notes/_tooling/ontology.md) — with capture, archive, distil, promote, prune |
 | **decision**  | below — it belongs to the project, not to a subsystem |
 | **scratch**   | [`.notes/README.md`](../.notes/README.md) — local, disposable, never a source of truth |
 | **platform**  | The system being built. One per project, in `platform/`. Never "the app" or "the product". |
@@ -55,7 +55,7 @@ Not style policing — each of these has caused a real ambiguity.
 | TODO (as a tracker)  | Untracked work with no ID. Fine in code, not as a unit of work.  | a **task**                     |
 | archive (as a verb)  | Ambiguous: deleted, or done, or superseded?                      | `done`, `dropped`, `superseded` |
 
-Tasks has its own avoid-list — see [`tasks/ontology.md`](../tasks/ontology.md).
+Tasks has its own avoid-list — see [`tasks/_tooling/ontology.md`](../tasks/_tooling/ontology.md).
 
 ## Naming conventions
 

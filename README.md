@@ -1,6 +1,6 @@
 ![Road Runner](https://static.wikia.nocookie.net/looneytunesshow/images/4/42/Road_Runner.svg/revision/latest/scale-to-width-down/268)
 
-# llmeep
+# LLMeep
 
 A project skeleton for a small team working with agents. Tasks, notes and decisions are flat
 files in your repo, driven by two commands and read by whatever agent you point at them —
@@ -58,7 +58,7 @@ the message is the permanent link between the two. Listing is reading
 [the board](tasks/platform/board.md); reordering is moving a line in it. Neither needs a
 command.
 
-Full model: [`tasks/ontology.md`](tasks/ontology.md).
+Full model: [`tasks/_tooling/ontology.md`](tasks/_tooling/ontology.md).
 
 ## Capturing work
 
@@ -82,45 +82,34 @@ notes/_tooling/nm prune              # bound raw/ and the archive; dry without -
 notes/_tooling/nm find <term>        # search every note ever captured
 ```
 
-Full model: [`notes/ontology.md`](notes/ontology.md).
+Full model: [`notes/_tooling/ontology.md`](notes/_tooling/ontology.md).
 
 ## What it costs your agent
 
 Nothing here is auto-loaded — no `CLAUDE.md`, no always-on context file. What an agent carries
 is what it chooses to read, so the standing cost is two lines:
 
-| Loaded              | When                         | Roughly         |
-| ------------------- | ---------------------------- | --------------- |
-| Skill descriptions  | always, in every prompt      | **~150 tokens** |
-| `tm` skill          | when you mention tasks       | ~2,500          |
-| `nm` skill          | when you mention notes       | ~2,000          |
-| A board             | when it lists or starts work | ~400            |
-| `tasks/ontology.md` | only when changing the model | ~7,900          |
+| Loaded             | When                         | Roughly         |
+| ------------------ | ---------------------------- | --------------- |
+| Skill descriptions | always, in every prompt      | **~150 tokens** |
+| `tm` skill         | when you mention tasks       | ~2,500          |
+| `nm` skill         | when you mention notes       | ~2,000          |
+| A board            | when it lists or starts work | ~400            |
 
 A working session on tasks costs about **3,000 tokens** of context — the skill plus the board —
 and the board stays that size on purpose: `recent` is capped at 15 and everything older is
 searched with `find` rather than carried. That cap is the whole reason the cost is flat instead
 of growing with the project.
 
-## Layout
-
-| Path        | Committed | Purpose                                                            |
-| ----------- | --------- | ------------------------------------------------------------------ |
-| `ontology/` | yes       | The shared vocabulary. What things are called and how they relate. |
-| `tasks/`    | yes       | Task boards. `platform/` for build work, `business/` for the rest. |
-| `notes/`    | yes       | The intake funnel for work. Captures, notes, decisions.            |
-| `.notes/`   | **no**    | Local working memory. Sessions, scratch, inbox. Gitignored.        |
-| `platform/` | yes       | **Your project goes here.** Empty in the skeleton.                 |
-
 ## Start here
 
 1. [`ontology/principles.md`](ontology/principles.md) — the seven rules everything follows from.
 2. [`ontology/core.md`](ontology/core.md) — the entities that cut across subsystems. A
    self-contained subsystem keeps its vocabulary next to itself instead, like
-   [`tasks/ontology.md`](tasks/ontology.md).
-3. [`tasks/ontology.md`](tasks/ontology.md) — how work is tracked. One board file,
+   [`tasks/_tooling/ontology.md`](tasks/_tooling/ontology.md).
+3. [`tasks/_tooling/ontology.md`](tasks/_tooling/ontology.md) — how work is tracked. One board file,
    priority by position.
-4. [`notes/ontology.md`](notes/ontology.md) — how work arrives. Capture, distil, promote,
+4. [`notes/_tooling/ontology.md`](notes/_tooling/ontology.md) — how work arrives. Capture, distil, promote,
    prune.
 5. Describe your own project in [`ontology/domain/`](ontology/domain/README.md) — the
    extension point. You should not need to edit the core ontology.
@@ -131,8 +120,8 @@ of growing with the project.
 **Everything below is about llmeep itself, not about your project.** When you adopt this
 skeleton, delete from this line down and write your own — the sections above are the working
 agreement and are worth keeping. Nothing in the tooling reads this file, so you can cut it
-freely; the model lives in [`tasks/ontology.md`](tasks/ontology.md) and
-[`notes/ontology.md`](notes/ontology.md), which survive any rewrite.
+freely; the model lives in [`tasks/_tooling/ontology.md`](tasks/_tooling/ontology.md) and
+[`notes/_tooling/ontology.md`](notes/_tooling/ontology.md), which survive any rewrite.
 
 ## Why this exists
 
@@ -227,7 +216,7 @@ The rule generalises past Telegram: **before building an input surface, check wh
 with the repository already does it better.** Slack, email, a web UI — the answer is usually
 yes, and the surface you skip is one you never have to keep in sync.
 
-Full model: [`tasks/ontology.md`](tasks/ontology.md).
+Full model: [`tasks/_tooling/ontology.md`](tasks/_tooling/ontology.md).
 
 ### The standup
 
@@ -312,7 +301,7 @@ Whether to keep the decisions depends on which repo you are becoming. Improving 
 keep them — they explain why the design is what it is. Starting your own project, add `--all`:
 `decisions/` is then yours from `DEC-001`, rather than someone else's twenty-five records with
 your first decision filed behind them. The design is still described by `ontology/`,
-`tasks/ontology.md` and `notes/ontology.md`, which `reset` never touches.
+`tasks/_tooling/ontology.md` and `notes/_tooling/ontology.md`, which `reset` never touches.
 
 ### Cutting a version
 
@@ -359,7 +348,7 @@ Known limits, which are not bugs:
 - **Validation checks consistency, not truth.** The hooks cannot tell you a task was closed that
   should not have been — this has already happened once here, and is recorded in the history.
 - **Boards conflict on branches.** The resolution procedure in
-  [`tasks/ontology.md`](tasks/ontology.md) exists but has never been run in anger.
+  [`tasks/_tooling/ontology.md`](tasks/_tooling/ontology.md) exists but has never been run in anger.
 - **Telegram fires on `done`, not on push**, so on a branch the team hears about work before
   they can pull it.
 
