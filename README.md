@@ -1,43 +1,8 @@
 # llmeep
 
-A clonable skeleton for small teams and agents building fast. The name is an LLM and a road
-runner: *meep meep*, and it is already gone.
-
-## Why this exists
-
-Most project scaffolding assumes a team that cannot hold context in its head. Jira, PR
-review, sprint ceremony, exhaustive specs — all of it is coordination overhead, and it only
-pays for itself at a size most projects never reach. Applied to a small team shipping an
-MVP, it is pure friction:
-
-- **Jira is too much friction for a team that wants to move fast.** The ticket is not
-  communicating with anyone; it is a form you fill in for yourself.
-- **What is the point of a PR when there is one developer?** And in a near future where
-  reviewing AI-generated changes at volume is not meaningful review, the review column tracks
-  a step nobody performs.
-- **The AI has the context right there in the project.** A tracker living somewhere else is a
-  second, worse copy that someone has to keep in sync by hand.
-- **Building is now rapid.** A lengthy description of work that takes an hour has no reader.
-  A title is frequently the whole task, and a definition of done is worth writing only
-  sometimes.
-- **Git is already a database.** Completed work does not need to sit in the working tree. Keep
-  a short window of recent history and search the rest on demand.
-- **The agent is the interface.** Bots, forms and dashboards are input surfaces built for
-  humans who lack context. An agent already has the whole repository — so it takes the input,
-  and every other channel becomes notification-only.
-
-So this skeleton keeps only what stays irreducible at that size: **a shared vocabulary**, **an
-ordered list of what is next**, and **a durable record of why**. Everything else is deleted
-rather than made lighter.
-
-Two consequences run through the whole design. **Records are written for agents first** —
-machine-parseable beats pretty, and rendering for humans is a separate job. And **fewer moving
-parts wins**: fewer skills, fewer files, fewer states, fewer things to keep in sync.
-
-It is agnostic to **language**, **architecture** and **LLM vendor**. Nothing assumes you write
-Go or TypeScript, nothing assumes a monolith or microservices, and nothing here is named after
-a model provider — the agent contract lives in `README.md`, not `CLAUDE.md` or `AGENTS.md`,
-because every agent reads README. Point yours at this file.
+**How work is tracked in this repo.** Tasks, notes and decisions are flat files under version
+control, driven by two commands and read by whatever agent you point at them. There is no
+tracker, no bot and no dashboard to keep in sync.
 
 ## Layout
 
@@ -140,13 +105,15 @@ The rule generalises past Telegram: **before building an input surface, check wh
 with the repository already does it better.** Slack, email, a web UI — the answer is usually
 yes, and the surface you skip is one you never have to keep in sync.
 
+Full model: [`tasks/ontology.md`](tasks/ontology.md).
+
 ## Capturing work
 
 `notes/` is not a filing cabinet — it is the funnel that feeds the board.
 
 ```
 capture              distil               promote            prune
-notes/raw/*.md  ──▶  notes/notes.md  ──▶  taskman board  ──▶  git
+notes/raw/*.md  ──▶  notes/notes.md  ──▶  tasks board    ──▶  git
    (inbox)           (archive)                                 (archive)
                           └──▶ or stays as context, never promoted
 ```
@@ -184,20 +151,20 @@ notes/_tooling/nm find <term>     # search every note ever captured
 
 Full model: [`notes/ontology.md`](notes/ontology.md).
 
+## Setup
+
 **Install the validation hooks** — one step, because `.git/hooks` is not committed:
 
 ```sh
 git config core.hooksPath tasks/_tooling/hooks
 ```
 
-Agent permissions are committed in `.claude/settings.json`, so a clone stops prompting for the
-daily commands immediately. The three that change something you cannot take back — `tm reset`,
-`tm check --notify --send`, `nm prune --yes` — deliberately still ask.
-
 They block on inconsistent records and warn on drift. `tm check` runs the same checks
 standalone, so CI needs no separate configuration.
 
-Full model: [`tasks/ontology.md`](tasks/ontology.md).
+Agent permissions are committed in `.claude/settings.json`, so a clone stops prompting for the
+daily commands immediately. The three that change something you cannot take back — `tm reset`,
+`tm check --notify --send`, `nm prune --yes` — deliberately still ask.
 
 ## Start here
 
@@ -212,6 +179,53 @@ Full model: [`tasks/ontology.md`](tasks/ontology.md).
 5. Describe your own project in [`ontology/domain/`](ontology/domain/README.md) — the
    extension point. You should not need to edit the core ontology.
 6. Put your codebase in [`platform/`](platform/README.md).
+
+---
+
+**Everything below is about llmeep itself, not about your project.** When you adopt this
+skeleton, delete from this line down and write your own — the sections above are the working
+agreement and are worth keeping. Nothing in the tooling reads this file, so you can cut it
+freely; the model lives in [`tasks/ontology.md`](tasks/ontology.md) and
+[`notes/ontology.md`](notes/ontology.md), which survive any rewrite.
+
+## Why this exists
+
+llmeep is a clonable skeleton for small teams and agents building fast. The name is an LLM and
+a road runner: *meep meep*, and it is already gone.
+
+Most project scaffolding assumes a team that cannot hold context in its head. Jira, PR
+review, sprint ceremony, exhaustive specs — all of it is coordination overhead, and it only
+pays for itself at a size most projects never reach. Applied to a small team shipping an
+MVP, it is pure friction:
+
+- **Jira is too much friction for a team that wants to move fast.** The ticket is not
+  communicating with anyone; it is a form you fill in for yourself.
+- **What is the point of a PR when there is one developer?** And in a near future where
+  reviewing AI-generated changes at volume is not meaningful review, the review column tracks
+  a step nobody performs.
+- **The AI has the context right there in the project.** A tracker living somewhere else is a
+  second, worse copy that someone has to keep in sync by hand.
+- **Building is now rapid.** A lengthy description of work that takes an hour has no reader.
+  A title is frequently the whole task, and a definition of done is worth writing only
+  sometimes.
+- **Git is already a database.** Completed work does not need to sit in the working tree. Keep
+  a short window of recent history and search the rest on demand.
+- **The agent is the interface.** Bots, forms and dashboards are input surfaces built for
+  humans who lack context. An agent already has the whole repository — so it takes the input,
+  and every other channel becomes notification-only.
+
+So this skeleton keeps only what stays irreducible at that size: **a shared vocabulary**, **an
+ordered list of what is next**, and **a durable record of why**. Everything else is deleted
+rather than made lighter.
+
+Two consequences run through the whole design. **Records are written for agents first** —
+machine-parseable beats pretty, and rendering for humans is a separate job. And **fewer moving
+parts wins**: fewer skills, fewer files, fewer states, fewer things to keep in sync.
+
+It is agnostic to **language**, **architecture** and **LLM vendor**. Nothing assumes you write
+Go or TypeScript, nothing assumes a monolith or microservices, and nothing here is named after
+a model provider — the agent contract lives in `README.md`, not `CLAUDE.md` or `AGENTS.md`,
+because every agent reads README. Point yours at this file.
 
 ## Adopting this skeleton
 
@@ -228,6 +242,11 @@ this project's boards, history and notes, and two resets to run before they stop
 by accident.
 
 Then work through [`ontology/domain/README.md`](ontology/domain/README.md).
+
+**And cut this README back.** Everything from the `---` above down is about llmeep, not about
+your project — delete it and write your own introduction in its place. Keep the sections above
+the line: they describe how the tooling in this repo is driven, and they stay true whatever you
+build in `platform/`.
 
 ### Branches
 
