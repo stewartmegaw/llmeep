@@ -48,3 +48,4 @@
 2026-08-03	PLT-x9wv	platform	nm still points at taskman, so promote and prune are broken	stewart
 2026-08-03	PLT-gxq2	platform	An installed skeleton can update itself to a newer release	stewart
 2026-08-03	PLT-qbnn	platform	An adopted repo is never told how to update	stewart
+2026-08-03	PLT-ckkd	platform	Standup should show what is next and what was captured	stewart

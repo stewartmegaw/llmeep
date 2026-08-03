@@ -11,6 +11,7 @@ PLT-ty47 .llmeep is the script and its own manifest       detail
 
 ## recent
 
+2026-08-03  PLT-ckkd Standup should show what is next and what was captured  @stewart
 2026-08-03  PLT-qbnn An adopted repo is never told how to update  @stewart
 2026-08-03  PLT-gxq2 An installed skeleton can update itself to a newer release  @stewart
 2026-08-03  PLT-x9wv nm still points at taskman, so promote and prune are broken  @stewart
@@ -25,4 +26,3 @@ PLT-ty47 .llmeep is the script and its own manifest       detail
 2026-08-03  PLT-fy4e A clean skeleton is missing notes/raw and platform sidecars  @stewart
 2026-08-03  PLT-evwe The README status section claims work that is done  @stewart
 2026-08-03  PLT-g3qq README decision links break on a release cut  @stewart
-2026-08-03  PLT-44pv A released skeleton should not carry llmeep decisions  @stewart
