@@ -34,6 +34,13 @@ it.
 
 HTML mode needs only `&`, `<` and `>` escaped, and `<b>` is all this needs.
 
+## The same is true of the agent's own rendering
+
+The standup is read in two places, and both are phones: Telegram, and the agent's reply over
+Remote Control. `SKILL.md` already says how to render a board — `###` heading, rule under it,
+bold ids, blank line after every `---` — and says nothing about a standup, so the agent echoes
+the tool's plain text. Same fix, different surface: the skill needs a rendering rule for it.
+
 ## Care
 
 - **A rejected message must not be silent.** `post()` raises on a non-2xx and `notify` currently
@@ -44,9 +51,12 @@ HTML mode needs only `&`, `<` and `>` escaped, and `<b>` is all this needs.
 
 ## Acceptance
 
-- [ ] Telegram shows `Next up` and `Captured, not yet work` bold, body plain
-- [ ] A title containing `-`, `.`, `(` and `_` posts without error
-- [ ] `tm standup` printed to a terminal is byte-identical to today's output
-- [ ] Slack and webhook paths still send, with slack bolding and webhook plain
-- [ ] `tm done`'s notification is unchanged
-- [ ] A message Telegram rejects reports failure rather than "sent via telegram"
+- [x] Telegram shows `Next up` and `Captured, not yet work` bold, body plain
+- [x] A title containing `-`, `.`, `(` and `_` posts without error
+- [x] `tm standup` printed to a terminal is byte-identical to today's output
+- [x] Slack and webhook paths still send, with slack bolding and webhook plain
+- [x] `tm done`'s notification is unchanged
+- [x] A message Telegram rejects reports failure rather than "sent via telegram"
+- [x] `SKILL.md` says how to render a standup in conversation, and the headings are bold there
+      too — the constraint that broke board rendering applies: a blank line after every `---`,
+      and never a code block

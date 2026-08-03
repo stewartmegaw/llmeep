@@ -7,10 +7,10 @@
 
 PLT-cajd Decisions need a find before they could ever be pruned
 PLT-3wjv Board could use a per-person filter
-PLT-2mv7 Standup headers should be bold in Telegram       detail
 
 ## recent
 
+2026-08-03  PLT-2mv7 Standup headers should be bold in Telegram  @stewart
 2026-08-03  PLT-h6fq The working agreement belongs with the install, not at the root  @stewart
 2026-08-03  PLT-hfwz Default the standup period to daily  @stewart
 2026-08-03  PLT-ty47 .llmeep is the script and its own manifest  @stewart
@@ -25,4 +25,3 @@ PLT-2mv7 Standup headers should be bold in Telegram       detail
 2026-08-03  PLT-4yn8 adopt leaves a repo with no entry point  @stewart
 2026-08-03  PLT-7g78 An existing repo should be able to adopt the skeleton without starting over  @stewart
 2026-08-03  PLT-su83 Ontology decision links break on a release cut  @stewart
-2026-08-03  PLT-swrt Reduce the ontology to what is actually referenced  @stewart
