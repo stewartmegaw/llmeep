@@ -37,6 +37,11 @@ TREES = ["tasks", "notes", "decisions", "ontology"]
 # paths, since an existing repo's .claude/ may already hold other skills.
 AGENT = [".claude/skills/tm", ".claude/skills/nm", ".claude/settings.json", ".env.example"]
 
+# `.notes/` is gitignored except its README, which states the contract the rest
+# of the ontology points at. Appending that carve-out to .gitignore without
+# shipping the file it names leaves a dead link in ontology/core.md.
+SCRATCH = ".notes/README.md"
+
 IGNORES = [
     "# llmeep — local working memory, never committed except its contract.",
     "{p}.notes/*",
@@ -187,6 +192,7 @@ def main(argv):
             print(f"    + {prefix}{t}/")
         for a in AGENT:
             print(f"    + {a}")
+        print(f"    + {prefix}{SCRATCH}")
         print(f"    + {prefix + 'README.md' if into else 'LLMEEP.md'}  (how the tooling works)")
         print("    ~ .gitignore, git config core.hooksPath")
         return 0
@@ -199,6 +205,7 @@ def main(argv):
         if os.path.exists(src):
             copy(src, os.path.join(top, a), report, top)
 
+    copy(os.path.join(SRC, SCRATCH), os.path.join(dest_root, SCRATCH), report, top)
     working_agreement(top, dest_root, into, report)
     append_ignores(top, prefix, report)
     reset(dest_root, "tasks", ["--all"], report)

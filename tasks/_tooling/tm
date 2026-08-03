@@ -1363,12 +1363,100 @@ def check_telegram(send=False):
     return 1
 
 
+# Directories the layout promises but git cannot carry, because git tracks no
+# empty directory. Each needs a `.gitkeep`, and each has gone missing from a cut
+# before now.
+RELEASE_DIRS = [
+    "notes/raw", "tasks/platform/tasks", "tasks/business/tasks", "ontology/domain",
+]
+
+LINK_RE = re.compile(r"\]\((?!https?:|#|mailto:)([^)]+)\)")
+
+
+def dead_links(root):
+    """Relative links that resolve on `main` and not in a cut tree. Every one of
+    these so far pointed into `decisions/`, which `reset --all` empties — found
+    four times by eye and once by this function, which is why it exists."""
+    out = []
+    for path in git("ls-files", "*.md").split():
+        full = os.path.join(root, path)
+        if not os.path.exists(full):
+            continue
+        with open(full) as fh:
+            text = fh.read()
+        for target in LINK_RE.findall(text):
+            target = target.split("#")[0]
+            if not target:
+                continue
+            resolved = os.path.normpath(os.path.join(os.path.dirname(full), target))
+            if not os.path.exists(resolved):
+                out.append(f"{path} → {target}")
+    return out
+
+
+def check_release(rep, root):
+    """A cut tree is one that has never existed on `main`: records emptied,
+    decisions cleared, directories git could not carry. Nothing else validates
+    that difference, so every defect in it was found after publishing — v2
+    shipped this project's decisions, v3 broke ten links and lost two
+    directories, v5 broke fifteen more.
+
+    Run inside the cut, after both resets and before the commit. Never wired
+    into a hook: cutting a version is deliberate and rare, and `check` keeps its
+    no-side-effects contract (`DEC-009`)."""
+    for ledger in LEDGERS:
+        try:
+            board = Board(ledger)
+        except Fail:
+            continue
+        n = len(board.in_progress) + len(board.backlog) + len(board.recent)
+        if n:
+            rep.error(f"{ledger} board still has {n} task line(s) — run `tm reset --yes --all`")
+    if len(history_rows()):
+        rep.error("tasks history.tsv still has rows — run `tm reset --yes --all`")
+
+    notes_hist = os.path.join(root, "notes", "_tooling", "history.tsv")
+    if os.path.exists(notes_hist):
+        with open(notes_hist) as fh:
+            rows = [l for l in fh if l.strip() and not l.startswith("#")]
+        if rows:
+            rep.error(f"notes history.tsv still has {len(rows)} row(s) — run `nm reset --yes`")
+    archive = os.path.join(root, "notes", "notes.md")
+    if os.path.exists(archive):
+        with open(archive) as fh:
+            kept = [l for l in fh if l.strip() and not l.startswith("#")]
+        if kept:
+            rep.error(f"notes.md still holds {len(kept)} note(s) — run `nm reset --yes`")
+
+    for sub in ("tasks", "notes"):
+        if os.path.exists(os.path.join(root, sub, MARKER)):
+            rep.error(f"{sub}/{MARKER} is still here — its reset has not run")
+
+    dec = os.path.join(root, "decisions")
+    if os.path.isdir(dec):
+        left = [f for f in sorted(os.listdir(dec)) if f.startswith("DEC-")]
+        if left:
+            rep.error(f"decisions/ still holds {len(left)} record(s) — `tm reset --yes --all` "
+                      "drops them; a release belongs to nobody yet")
+        if not os.path.exists(os.path.join(dec, "_template.md")):
+            rep.error("decisions/_template.md is missing — `--all` keeps the template")
+
+    for d in RELEASE_DIRS:
+        if not os.path.isdir(os.path.join(root, d)):
+            rep.error(f"{d}/ is absent — git carries no empty directory; it needs a .gitkeep")
+
+    for link in dead_links(root):
+        rep.error(f"dead link: {link}")
+
+
 def cmd_check(args):
     if "--notify" in args:
         sys.exit(check_notify(send="--send" in args))
     root = REPO
     rep = Report()
-    if "--msg" in args:
+    if "--release" in args:
+        check_release(rep, root)
+    elif "--msg" in args:
         check_trailer(rep, args[args.index("--msg") + 1])
     elif "--nudge" in args:
         check_nudge(rep, root)
@@ -1385,7 +1473,7 @@ def cmd_check(args):
             check_ontology_currency(rep, root)
     code = rep.emit()
     if code == 0 and not rep.warnings and "--quiet" not in args:
-        print("  ✓ records consistent")
+        print("  ✓ release tree is clean" if "--release" in args else "  ✓ records consistent")
     sys.exit(code)
 
 
@@ -1402,6 +1490,7 @@ USAGE = """tm — taskman
 
   tm check [--staged]           validate records; used by hooks and CI
   tm check --notify [--send]    verify the notification channel (--send posts)
+  tm check --release            validate a cut tree before committing the version
   tm reset [--yes] [--all]      clear task records when adopting the skeleton
 
 Listing is reading the board; reordering is moving a line in it.
