@@ -57,9 +57,9 @@ every file it replaces, or the update silently un-fixes `PLT-wxr5`.
 
 ## Acceptance
 
-- [ ] `update` run in a flat install replaces machinery and leaves every record byte-identical
-- [ ] Both `history.tsv` files survive, verified by checksum before and after
-- [ ] A nested install is found without being told, and replaced files come out rerooted
-- [ ] A locally modified file is reported and not overwritten without `--force`
-- [ ] The install records its version, and `update` refuses to move backwards
-- [ ] `tm check` passes in the updated repo, and the board is unchanged
+- [x] `update` run in a flat install replaces machinery and leaves every record byte-identical
+- [x] Both `history.tsv` files survive, verified by checksum before and after
+- [x] A nested install is found without being told, and replaced files come out rerooted
+- [x] A locally modified file is reported and not overwritten without `--force`
+- [x] The install records its version, and `update` refuses to move backwards
+- [x] `tm check` passes in the updated repo, and the board is unchanged

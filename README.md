@@ -316,6 +316,25 @@ one, `adopt` stops rather than merging into it:
 /tmp/llmeep/adopt --into ops    # ops/tasks/, ops/notes/, ops/decisions/, ops/ontology/
 ```
 
+### Taking a newer release
+
+`adopt` records what it installed — version and a checksum per file — in `.llmeep`. That is what
+lets the same script update you later, from a fresh clone of the newer version:
+
+```sh
+/tmp/llmeep/adopt --update --dry-run    # what would change
+/tmp/llmeep/adopt --update
+```
+
+It replaces **machinery only** — the two `_tooling/` trees, the ontology's core and principles,
+the templates, the skills — and never a record. Both `history.tsv` files are excluded by name,
+because they are records that happen to live inside machinery; boards, notes, captures,
+decisions and `ontology/domain/` are never touched at all.
+
+A file you have edited since installing is **reported and kept**, not overwritten; the checksums
+are how it can tell. Re-run with `--force` once you have diffed it. Updates refuse to run
+backwards, or from an unreleased clone onto a released install.
+
 Nesting needs no configuration: `tm` and `nm` derive their roots from where they sit, and the
 hooks resolve `tm` from their own location rather than the repo root. What does need adjusting,
 `adopt` adjusts — the permission allowlist in `.claude/settings.json` and both `SKILL.md` files
