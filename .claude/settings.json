@@ -1,0 +1,47 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./tasks/_tooling/tm)",
+      "Bash(./tasks/_tooling/tm add *)",
+      "Bash(./tasks/_tooling/tm go *)",
+      "Bash(./tasks/_tooling/tm park *)",
+      "Bash(./tasks/_tooling/tm done *)",
+      "Bash(./tasks/_tooling/tm find *)",
+      "Bash(./tasks/_tooling/tm standup)",
+      "Bash(./tasks/_tooling/tm standup --period daily)",
+      "Bash(./tasks/_tooling/tm standup --period workday)",
+      "Bash(./tasks/_tooling/tm standup --period bidaily)",
+      "Bash(./tasks/_tooling/tm standup --period weekly)",
+      "Bash(./tasks/_tooling/tm standup --cron)",
+      "Bash(./tasks/_tooling/tm check)",
+      "Bash(./tasks/_tooling/tm check --quiet)",
+      "Bash(./tasks/_tooling/tm check --staged *)",
+      "Bash(./tasks/_tooling/tm check --notify)",
+
+      "Bash(./notes/_tooling/nm)",
+      "Bash(./notes/_tooling/nm add *)",
+      "Bash(./notes/_tooling/nm drop *)",
+      "Bash(./notes/_tooling/nm promote *)",
+      "Bash(./notes/_tooling/nm find *)",
+      "Bash(./notes/_tooling/nm prune)",
+      "Bash(./notes/_tooling/nm check)",
+      "Bash(./notes/_tooling/nm check --quiet)",
+      "Bash(./notes/_tooling/nm reset)",
+
+      "Bash(git status *)",
+      "Bash(git log *)",
+      "Bash(git diff *)",
+      "Bash(git show *)",
+      "Bash(git branch)",
+      "Bash(git rev-parse *)",
+      "Bash(git check-ignore *)"
+    ],
+    "ask": [
+      "Bash(./tasks/_tooling/tm reset *)",
+      "Bash(./tasks/_tooling/tm check --notify --send)",
+      "Bash(./tasks/_tooling/tm standup --send)",
+      "Bash(./notes/_tooling/nm prune --yes)",
+      "Bash(./notes/_tooling/nm reset --yes)"
+    ]
+  }
+}

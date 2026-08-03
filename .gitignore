@@ -2,12 +2,19 @@
 .notes/*
 !.notes/README.md
 
-# Agent tooling. Vendor adapters are committed (DEC-003); local settings never are.
-# Same carve-out pattern as .notes/ above: ignore the directory, re-include the one
-# path that belongs in the repo. Add a pair here for each agent the team uses.
+# Agent tooling. Vendor adapters and the shared permission allowlist are committed
+# (DEC-003); anything *.local.json never is. Same carve-out pattern as .notes/ above:
+# ignore the directory, re-include the paths that belong in the repo. Add a pair here
+# for each agent the team uses.
 .claude/*
 !.claude/skills/
+!.claude/settings.json
 *.local.json
+
+# Bytecode. `tm` is a script, not a module, but anything that imports it once
+# leaves a __pycache__ behind — and a committed .pyc ships to every cloner.
+__pycache__/
+*.pyc
 
 # OS / editor noise
 .DS_Store

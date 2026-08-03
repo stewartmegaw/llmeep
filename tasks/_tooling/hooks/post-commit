@@ -1,0 +1,4 @@
+#!/bin/sh
+# Nudges if a task is still in progress. Never blocks — this is the check that
+# catches direct git use, and blocking it would break the escape hatches.
+"$(git rev-parse --show-toplevel)/tasks/_tooling/tm" check --nudge --quiet || true

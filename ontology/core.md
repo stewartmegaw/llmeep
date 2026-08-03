@@ -23,7 +23,7 @@ Everything about the project that is not the platform: customers, positioning, p
 operations, finance, legal, hiring.
 
 - **Identity:** singular, like Platform.
-- **Lives in:** no dedicated tree — it is the subject matter of `taskman/business/` and of
+- **Lives in:** no dedicated tree — it is the subject matter of `tasks/business/` and of
   much of `notes/`.
 - **Relates to:** subject of every task in [Ledger](#ledger) `business`.
 
@@ -31,7 +31,7 @@ operations, finance, legal, hiring.
 
 A unit of intended change — the thing the project actually tracks.
 
-- **Defined in:** [`taskman/ontology.md`](../taskman/ontology.md), along with Ledger, Board,
+- **Defined in:** [`tasks/ontology.md`](../tasks/ontology.md), along with Ledger, Board,
   Sidecar, Window and History.
 - **Notes:** taskman's vocabulary is co-located with taskman. Only the pointer lives here,
   because a Task is referenced from outside the subsystem — a [Note](#note) or a commit
@@ -39,34 +39,39 @@ A unit of intended change — the thing the project actually tracks.
 
 ## Note
 
-Durable knowledge intended to survive the session that produced it, and to be relied on by
-others.
+Durable knowledge captured from a conversation, a call, or a thought — and the intake funnel
+that feeds the board.
 
-- **Identity:** file path. Decisions additionally carry a sequential ID, `DEC-###`.
-- **Lives in:** `notes/` — `decisions/`, `meetings/`, `reference/`.
-- **Relates to:** may be referenced by [Tasks](#task) and by other Notes.
-- **Notes:** committed and reviewable. A Note is a claim the project stands behind.
+- **Defined in:** [`notes/ontology.md`](../notes/ontology.md), along with Capture, Archive and
+  the distil/promote/prune lifecycle.
+- **Notes:** only the pointer lives here, because a Note is referenced from outside the
+  subsystem — a task can name the note it came from.
 
 ## Decision
 
-A Note recording a choice that was made, the alternatives rejected, and why.
+A record of a choice made, the alternatives rejected, and why — a claim the project stands
+behind, written deliberately. It belongs to the project rather than to any subsystem, which is
+why it sits at the top level (`DEC-021`). A [Note](#note) is something someone said on a
+Tuesday; the two are unrelated.
 
 - **Identity:** `DEC-###`, sequential, never reused.
-- **Lives in:** `notes/decisions/DEC-###-<slug>.md`
-- **Relates to:** may supersede an earlier Decision; may be motivated by a [Task](#task).
-- **Lifecycle:** `accepted → superseded`. **A Decision is never edited to change its
-  substance and never deleted.** To change a decision, write a new one that supersedes it.
-  The record of having believed something is itself the value.
+- **Lives in:** `decisions/DEC-###-<slug>.md`
+- **Lifecycle:** `accepted → superseded`. **Never edited in substance and never deleted.** To
+  change a decision, write a new one that supersedes it — the record of having believed
+  something is itself the value.
+- **Enforced, not trusted:** `tm check` rejects a rewrite, a one-sided supersession, a status
+  that disagrees with `superseded_by`, a dangling reference and a duplicate id. Nobody can hold
+  that graph in their head, so nobody is asked to.
 
 ## Scratch
 
-Local, disposable working material: session logs, intermediate reasoning, an unsorted
-inbox, anything not yet worth committing.
+Local, disposable working material: session logs, intermediate reasoning, anything not yet worth
+committing.
 
 - **Identity:** none guaranteed. Nothing may reference Scratch as a source of truth.
 - **Lives in:** `.notes/` — gitignored.
-- **Relates to:** may be **promoted** into a [Note](#note) or a [Task](#task). Promotion is
-  explicit and one-directional; see principle 4.
+- **Relates to:** may be **promoted** into a [Note](#note) or a Task. Promotion is explicit and
+  one-directional; see principle 4.
 
 ## Ontology
 
@@ -93,5 +98,5 @@ An unattended process — a hook, a scheduled job, a CI step — that performs t
 mutation a Skill does, without a human or agent in the loop.
 
 - **Relates to:** shares the invariants and, ideally, the implementation of [Skills](#skill).
-- **Notes:** Skills and Automations are the only two legitimate writers to `taskman/` and
+- **Notes:** Skills and Automations are the only two legitimate writers to `tasks/` and
   `notes/`.
