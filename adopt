@@ -123,9 +123,8 @@ def working_agreement(top, dest_root, into, report):
     file of its own. Extracted rather than maintained separately, because a
     second copy of a document is a copy that goes stale.
 
-    Always at the repo root, even for a nested install. Inside the install it
-    would need its links relative to itself and its commands relative to the
-    root — the same file cannot be both, and rerooting it broke every link.
+    Nested, it becomes the install directory's README, which is where anyone
+    opening that directory will look. Flat, it needs a name of its own.
     """
     src = os.path.join(SRC, "README.md")
     if not os.path.exists(src):
@@ -149,9 +148,7 @@ def working_agreement(top, dest_root, into, report):
         "`README.md`, and what it is made of belongs in `ontology/domain/`.\n"
     )
 
-    if into:                 # the file documents paths, like everything else
-        body = reroot_text(body, into)
-    dst = os.path.join(top, "LLMEEP.md")
+    dst = os.path.join(dest_root, "README.md") if into else os.path.join(top, "LLMEEP.md")
     if os.path.exists(dst):
         report.append(("skip", rel(dst, top), "exists"))
         return
@@ -245,18 +242,6 @@ def find_install(top):
     )
 
 
-def reroot_text(text, into):
-    """Rewrite llmeep's own paths for a nested install. One function, because
-    every file that documents a path needs the same treatment and each one that
-    got its own version of this logic has been a bug (`PLT-wxr5`, `PLT-yftg`)."""
-    trees = "tasks|notes|decisions|ontology"
-    # `./tasks/…` first — the general pattern refuses to match after a dot,
-    # which is what keeps it off `.notes/` and off already-rooted paths.
-    text = re.sub(rf"\./({trees})/", rf"./{into}/\1/", text)
-    text = re.sub(rf"(?<![\w./-])({trees})/", rf"{into}/\1/", text)
-    return re.sub(r"(?<![\w/-])\.notes/", f"{into}/.notes/", text)
-
-
 def reroot(top, into, report):
     """Everything llmeep ships writes its own paths from the repo root, because
     that is where they normally are. Nested, every one of them is wrong:
@@ -270,6 +255,7 @@ def reroot(top, into, report):
     Reported by a repo that adopted with `--into ops` and had to fix all three
     by hand (`PLT-wxr5`).
     """
+    trees = "tasks|notes|decisions|ontology"
     files = [os.path.join(top, ".claude", "settings.json"),
              os.path.join(top, ".claude", "skills", "tm", "SKILL.md"),
              os.path.join(top, ".claude", "skills", "nm", "SKILL.md")]
@@ -279,7 +265,11 @@ def reroot(top, into, report):
         with open(path) as fh:
             text = fh.read()
         before = text
-        text = reroot_text(text, into)
+        # `./tasks/…` first — the general pattern below refuses to match after a
+        # dot, which is what keeps it off `.notes/` and off already-rooted paths.
+        text = re.sub(rf"\./({trees})/", rf"./{into}/\1/", text)
+        text = re.sub(rf"(?<![\w./-])({trees})/", rf"{into}/\1/", text)
+        text = re.sub(r"(?<![\w/-])\.notes/", f"{into}/.notes/", text)
         if text == before:
             continue
         with open(path, "w") as fh:

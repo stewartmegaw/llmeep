@@ -115,23 +115,6 @@ and the board stays that size on purpose: `recent` is capped at 15 and everythin
 searched with `find` rather than carried. That cap is the whole reason the cost is flat instead
 of growing with the project.
 
-## Updating
-
-The tooling here was installed by `adopt`, which recorded the version and a checksum per file
-in `.llmeep`. To take a newer release, clone llmeep and point its `adopt` at this repo:
-
-```sh
-git clone --depth 1 https://github.com/stewartmegaw/llmeep.git /tmp/llmeep
-/tmp/llmeep/adopt --update --dry-run    # what would change
-/tmp/llmeep/adopt --update
-```
-
-**Machinery is replaced; records never are.** Boards, notes, captures, decisions, both
-`history.tsv` files and `ontology/domain/` are not touched. A file you have edited since
-installing is reported and kept — the checksums are how it can tell — so re-run with `--force`
-once you have diffed it. Restart your agent session afterwards, since skills are read at
-startup.
-
 ## Start here
 
 1. [`ontology/principles.md`](ontology/principles.md) — the seven rules everything follows from.
