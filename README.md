@@ -291,12 +291,12 @@ shipped wrong.
 
 Not yet done, and honest about it:
 
-- **Telegram** (`PLT-005`) is written and wired into `done`, but has never sent a message.
-  Needs a bot token and an `.env.example`.
-- **`notes/`** is conventions only — no tooling, and its entities still live in
-  `ontology/core.md` rather than a co-located `notes/ontology.md`.
 - **`ontology/domain/`** is correctly empty, which also means nobody has followed its six steps
   end to end.
+- **Adopting into an existing repo** assumes you are starting fresh; a project with its own
+  history has no path in yet (`PLT-7g78`).
+- **Decisions have no `find`.** Twenty-five records and no way to search them, which is the
+  precondition for ever pruning the folder (`PLT-cajd`).
 
 Known limits, which are not bugs:
 
