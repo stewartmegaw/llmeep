@@ -2,23 +2,39 @@
 
 # llmeep
 
-**How work is tracked in this repo.** Tasks, notes and decisions are flat files under version
-control, driven by two commands and read by whatever agent you point at them. There is no
-tracker, no bot and no dashboard to keep in sync.
+A project skeleton for a small team working with agents. Tasks, notes and decisions are flat
+files in your repo, driven by two commands and read by whatever agent you point at them —
+no tracker, no bot, no dashboard to keep in sync.
 
-## Layout
+## Get started
 
-| Path        | Committed | Purpose                                                            |
-| ----------- | --------- | ------------------------------------------------------------------ |
-| `ontology/` | yes       | The shared vocabulary. What things are called and how they relate.  |
-| `tasks/`    | yes       | Task boards. `platform/` for build work, `business/` for the rest.  |
-| `notes/`    | yes       | The intake funnel for work. Captures, notes, decisions.             |
-| `.notes/`   | **no**    | Local working memory. Sessions, scratch, inbox. Gitignored.         |
-| `platform/` | yes       | **Your project goes here.** Empty in the skeleton.                  |
+```sh
+git clone --depth 1 https://github.com/stewartmegaw/llmeep.git my-project
+cd my-project && rm -rf .git && git init
+git config core.hooksPath tasks/_tooling/hooks     # validation on commit
+```
+
+That is the whole install — two Python 3 files, standard library only, nothing to build. Then
+put your codebase in `platform/` and file the first thing you need to do:
+
+```sh
+tasks/_tooling/tm add Fix the signup redirect
+tasks/_tooling/tm go                               # start it
+tasks/_tooling/tm done                             # close it, then commit
+git commit -am "Fix the signup redirect. closes PLT-9puy"
+```
+
+**Or just say it to your agent.** "What am I on?", "start PLT-9puy", "that's done, commit it" —
+the commands below are what it runs for you, and the whole system is designed to be driven that
+way rather than typed. Point your agent at this file.
+
+The hooks block a commit on inconsistent records and warn on drift; `tm check` runs the same
+checks standalone, so CI needs no separate configuration. Agent permissions are committed in
+`.claude/settings.json`, so a clone stops prompting for the daily commands immediately — the
+three that change something you cannot take back (`tm reset`, `tm check --notify --send`,
+`nm prune --yes`) deliberately still ask.
 
 ## Tracking work
-
-Six commands. No install step — one Python 3 file, standard library only.
 
 ```sh
 tasks/_tooling/tm add Fix flaky auth test   # create; -b for business, -n for top of the order
@@ -30,82 +46,13 @@ tasks/_tooling/tm standup                   # what closed this period; --send po
 ```
 
 Defaults do the work: `add` assumes platform, `go` and `done` assume the current task. Nothing
-inferable from state has to be typed — including **who you are**: `go` assigns a task to you,
-derived from your git config, and `done` records it. With more than one developer, the board
-answers *who is doing what next* without anyone maintaining it
-([`DEC-010`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-010-tasks-carry-an-assignee.md)).
+inferable from state has to be typed — including **who you are**: `go` assigns a task to you
+from your git config, and `done` records it.
 
-### The standup
-
-Completed tasks fall out of `recent` as the window fills, so *what did we actually get done*
-is the one question the working tree stops being able to answer. `tm standup` asks git instead.
-
-**Usually it is a person.** Whoever runs the weekly call types it and reads the output out;
-`--send` posts it if the team wants it in writing. That needs no infrastructure, and it is the
-case worth optimising for.
-
-```sh
-tasks/_tooling/tm standup           # what closed this period, and what is still open
-tasks/_tooling/tm standup --send    # ...and post it to the team channel
-```
-
-Set `STANDUP_PERIOD` to `daily`, `workday`, `bidaily` or `weekly` in `.env`.
-
-**If you want it unattended**, `tasks/_tooling/blueprints/standup.sh` is a blueprint for an always-on
-machine: it fetches, then reports. Nothing here runs it — `tm standup --cron` prints the line
-that would (at `STANDUP_AT`, default `09:00`), and you decide whether to schedule it
-([`DEC-017`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-017-the-standup-is-usually-a-person.md)).
-
-**Close the task, then commit** — code, board and history land together:
-
-```sh
-tasks/_tooling/tm done PLT-007
-git commit -m "Fix flaky auth test. closes PLT-007"
-```
-
-The trailer makes the commit self-identifying, so `find` can recover it later and no SHA is
-stored anywhere.
-
-Listing is reading [the board](tasks/platform/board.md); reordering is moving a line in it.
-Neither needs a command. `add` and `go` search history automatically, so work that was already
-attempted surfaces without anyone deciding to look.
-
-### The agent is the interface
-
-There is deliberately **no chat bot, no form, no dashboard** for managing work. Anything you
-would type into one, you say to the agent — including from a phone, since Claude Code runs
-there too. You speak; it translates:
-
-```
-"what am I on?"          →   tm go
-"start PLT-9puy"         →   tm go PLT-9puy
-"add a task for X"       →   tm add X
-"that's done, commit it" →   tm done  &&  git commit -m "…. closes PLT-9puy"
-```
-
-**That includes git.** Nothing enforces it — direct git use keeps working, and revert, rebase
-and CI must never be blocked — but the board only stays current if the agent is driving.
-
-**Every other channel is notification-only, and swappable.** `done` announces completions to
-whatever `NOTIFY` names — `telegram`, `slack`, `webhook` or `none`. Messages sent *back* to a
-channel are ignored; Telegram's BotFather description says so and it advertises no commands.
-
-That the channel's configuration lives in the *service* rather than the repo is the point, not
-a gap: bot name, description, which room, who can see it — all of that differs per team and
-belongs to them. The repo's share is one line and a secret, so swapping channels touches no
-record and no ontology. Adding one is a function plus a dict entry
-([`DEC-008`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-008-notifier-is-swappable.md)).
-
-We built the other way first and deleted it. Inbound Telegram worked — `/add` filed tasks,
-`/list` returned the board — and it was still a worse version of something already available
-from the same phone: an agent needs no command syntax, no flags, and lands the change on the
-board directly instead of queueing it for a later pull. See
-[`DEC-006`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-006-telegram-is-notification-only.md) and
-[`DEC-007`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-007-stray-telegram-messages-are-ignored.md).
-
-The rule generalises past Telegram: **before building an input surface, check whether an agent
-with the repository already does it better.** Slack, email, a web UI — the answer is usually
-yes, and the surface you skip is one you never have to keep in sync.
+**Close the task, then commit** — code, board and history land together, and `closes <id>` in
+the message is the permanent link between the two. Listing is reading
+[the board](tasks/platform/board.md); reordering is moving a line in it. Neither needs a
+command.
 
 Full model: [`tasks/ontology.md`](tasks/ontology.md).
 
@@ -120,53 +67,46 @@ notes/raw/*.md  ──▶  notes/notes.md  ──▶  tasks board    ──▶  
                           └──▶ or stays as context, never promoted
 ```
 
-The commonest path never touches the filesystem: paste an exported call transcript into the
-agent and it captures what survives.
+Paste a call transcript into your agent and it captures what survives; the note is the
+artifact, and the transcript is scaffolding that never gets committed.
 
 ```sh
-notes/_tooling/nm add --from acme-call <<'EOF'
-Acme want SSO before they will renew
-Sam owns the Stripe migration end to end
-EOF
-
-notes/_tooling/nm promote NTE-shmy    # a note becomes a task, linked both ways
-```
-
-**The transcript is never stored.** An exported call is large and mostly noise, and `notes/raw/`
-is committed — saving one would put "hello how are you" into git *permanently*, because pruning
-clears the working tree but not history, and every clone carries it forever. **The note is the
-artifact; the transcript is scaffolding.**
-
-**Distilling is the agent's job, not a command.** Deciding what in a conversation mattered is
-judgement, so there is no `nm process`. The agent reads, calls `nm add` for what survives, and
-`nm drop` for the file. `nm` never parses a transcript — the same split as everywhere else in
-this project: mechanism in the tool, judgement in the agent.
-
-The test for a line earning its place: **would someone act differently for having read it?**
-A note that fails that is noise wearing a summary's clothes.
-
-```sh
-notes/_tooling/nm drop <file>     # a capture in notes/raw/ is processed; git keeps it
-notes/_tooling/nm prune           # bound raw/ and the archive; dry without --yes
-notes/_tooling/nm find <term>     # search every note ever captured
+notes/_tooling/nm add --from acme-call "Acme want SSO before they will renew"
+notes/_tooling/nm promote NTE-shmy   # a note becomes a task, linked both ways
+notes/_tooling/nm drop <file>        # a capture in notes/raw/ is processed; git keeps it
+notes/_tooling/nm prune              # bound raw/ and the archive; dry without --yes
+notes/_tooling/nm find <term>        # search every note ever captured
 ```
 
 Full model: [`notes/ontology.md`](notes/ontology.md).
 
-## Setup
+## What it costs your agent
 
-**Install the validation hooks** — one step, because `.git/hooks` is not committed:
+Nothing here is auto-loaded — no `CLAUDE.md`, no always-on context file. What an agent carries
+is what it chooses to read, so the standing cost is two lines:
 
-```sh
-git config core.hooksPath tasks/_tooling/hooks
-```
+| Loaded | When | Roughly |
+| --- | --- | --- |
+| Skill descriptions | always, in every prompt | **~150 tokens** |
+| `tm` skill | when you mention tasks | ~2,500 |
+| `nm` skill | when you mention notes | ~2,000 |
+| A board | when it lists or starts work | ~400 |
+| `tasks/ontology.md` | only when changing the model | ~7,900 |
 
-They block on inconsistent records and warn on drift. `tm check` runs the same checks
-standalone, so CI needs no separate configuration.
+A working session on tasks costs about **3,000 tokens** of context — the skill plus the board —
+and the board stays that size on purpose: `recent` is capped at 15 and everything older is
+searched with `find` rather than carried. That cap is the whole reason the cost is flat instead
+of growing with the project.
 
-Agent permissions are committed in `.claude/settings.json`, so a clone stops prompting for the
-daily commands immediately. The three that change something you cannot take back — `tm reset`,
-`tm check --notify --send`, `nm prune --yes` — deliberately still ask.
+## Layout
+
+| Path        | Committed | Purpose                                                            |
+| ----------- | --------- | ------------------------------------------------------------------ |
+| `ontology/` | yes       | The shared vocabulary. What things are called and how they relate.  |
+| `tasks/`    | yes       | Task boards. `platform/` for build work, `business/` for the rest.  |
+| `notes/`    | yes       | The intake funnel for work. Captures, notes, decisions.             |
+| `.notes/`   | **no**    | Local working memory. Sessions, scratch, inbox. Gitignored.         |
+| `platform/` | yes       | **Your project goes here.** Empty in the skeleton.                  |
 
 ## Start here
 
@@ -228,6 +168,97 @@ It is agnostic to **language**, **architecture** and **LLM vendor**. Nothing ass
 Go or TypeScript, nothing assumes a monolith or microservices, and nothing here is named after
 a model provider — the agent contract lives in `README.md`, not `CLAUDE.md` or `AGENTS.md`,
 because every agent reads README. Point yours at this file.
+
+## Design notes
+
+### What a note is for
+
+**The transcript is never stored.** An exported call is large and mostly noise, and `notes/raw/`
+is committed — saving one would put "hello how are you" into git *permanently*, because pruning
+clears the working tree but not history, and every clone carries it forever. **The note is the
+artifact; the transcript is scaffolding.**
+
+**Distilling is the agent's job, not a command.** Deciding what in a conversation mattered is
+judgement, so there is no `nm process`. The agent reads, calls `nm add` for what survives, and
+`nm drop` for the file. `nm` never parses a transcript — the same split as everywhere else in
+this project: mechanism in the tool, judgement in the agent.
+
+The test for a line earning its place: **would someone act differently for having read it?**
+A note that fails that is noise wearing a summary's clothes.
+
+### The agent is the interface
+
+There is deliberately **no chat bot, no form, no dashboard** for managing work. Anything you
+would type into one, you say to the agent — including from a phone, since Claude Code runs
+there too. You speak; it translates:
+
+```
+"what am I on?"          →   tm go
+"start PLT-9puy"         →   tm go PLT-9puy
+"add a task for X"       →   tm add X
+"that's done, commit it" →   tm done  &&  git commit -m "…. closes PLT-9puy"
+```
+
+**That includes git.** Nothing enforces it — direct git use keeps working, and revert, rebase
+and CI must never be blocked — but the board only stays current if the agent is driving.
+
+**Every other channel is notification-only, and swappable.** `done` announces completions to
+whatever `NOTIFY` names — `telegram`, `slack`, `webhook` or `none`. Messages sent *back* to a
+channel are ignored; Telegram's BotFather description says so and it advertises no commands.
+
+That the channel's configuration lives in the *service* rather than the repo is the point, not
+a gap: bot name, description, which room, who can see it — all of that differs per team and
+belongs to them. The repo's share is one line and a secret, so swapping channels touches no
+record and no ontology. Adding one is a function plus a dict entry
+([`DEC-008`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-008-notifier-is-swappable.md)).
+
+We built the other way first and deleted it. Inbound Telegram worked — `/add` filed tasks,
+`/list` returned the board — and it was still a worse version of something already available
+from the same phone: an agent needs no command syntax, no flags, and lands the change on the
+board directly instead of queueing it for a later pull. See
+[`DEC-006`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-006-telegram-is-notification-only.md) and
+[`DEC-007`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-007-stray-telegram-messages-are-ignored.md).
+
+The rule generalises past Telegram: **before building an input surface, check whether an agent
+with the repository already does it better.** Slack, email, a web UI — the answer is usually
+yes, and the surface you skip is one you never have to keep in sync.
+
+Full model: [`tasks/ontology.md`](tasks/ontology.md).
+
+### The standup
+
+Completed tasks fall out of `recent` as the window fills, so *what did we actually get done*
+is the one question the working tree stops being able to answer. `tm standup` asks git instead.
+
+**Usually it is a person.** Whoever runs the weekly call types it and reads the output out;
+`--send` posts it if the team wants it in writing. That needs no infrastructure, and it is the
+case worth optimising for.
+
+```sh
+tasks/_tooling/tm standup           # what closed this period, and what is still open
+tasks/_tooling/tm standup --send    # ...and post it to the team channel
+```
+
+Set `STANDUP_PERIOD` to `daily`, `workday`, `bidaily` or `weekly` in `.env`.
+
+**If you want it unattended**, `tasks/_tooling/blueprints/standup.sh` is a blueprint for an always-on
+machine: it fetches, then reports. Nothing here runs it — `tm standup --cron` prints the line
+that would (at `STANDUP_AT`, default `09:00`), and you decide whether to schedule it
+([`DEC-017`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-017-the-standup-is-usually-a-person.md)).
+
+**Close the task, then commit** — code, board and history land together:
+
+```sh
+tasks/_tooling/tm done PLT-007
+git commit -m "Fix flaky auth test. closes PLT-007"
+```
+
+The trailer makes the commit self-identifying, so `find` can recover it later and no SHA is
+stored anywhere.
+
+Listing is reading [the board](tasks/platform/board.md); reordering is moving a line in it.
+Neither needs a command. `add` and `go` search history automatically, so work that was already
+attempted surfaces without anyone deciding to look.
 
 ## Adopting this skeleton
 
