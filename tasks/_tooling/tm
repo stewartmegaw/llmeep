@@ -1146,11 +1146,15 @@ def check_hooks(rep):
     """A hooks directory that has moved fails *silently* — git runs nothing and
     says nothing. So the one check that cannot rely on a hook is the one that
     asks whether the hooks are wired up at all."""
-    want = os.path.relpath(os.path.join(HERE, "hooks"), REPO)
+    # Relative to the git toplevel, not to REPO: git resolves core.hooksPath
+    # from the top of the working tree, and llmeep may sit in a subdirectory of
+    # a repo it was adopted into.
+    top = (git("rev-parse", "--show-toplevel") or REPO).strip()
+    want = os.path.relpath(os.path.join(HERE, "hooks"), top)
     have = (git("config", "core.hooksPath") or "").strip()
     if not have:
         rep.warn(f"no git hooks installed — `git config core.hooksPath {want}`")
-    elif not os.path.isdir(os.path.join(REPO, have)):
+    elif not os.path.isdir(os.path.join(top, have)):
         rep.warn(f"core.hooksPath={have} no longer exists — "
                  f"`git config core.hooksPath {want}`")
 
