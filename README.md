@@ -269,6 +269,33 @@ by accident.
 
 Then work through [`ontology/domain/README.md`](ontology/domain/README.md).
 
+### Adopting into a repo that already exists
+
+The recipe above starts a project. To join one, run `adopt` from inside it — your code, your
+history and your README are never touched:
+
+```sh
+git clone --depth 1 https://github.com/stewartmegaw/llmeep.git /tmp/llmeep
+cd my-project
+/tmp/llmeep/_tooling/adopt --dry-run    # what it would do
+/tmp/llmeep/_tooling/adopt
+```
+
+It copies the four record trees and the agent adapters in, appends to `.gitignore` rather than
+replacing it, installs the hooks, and clears llmeep's own records so you start empty. Anything
+already present is skipped and reported, never overwritten. **Your code stays where it is** —
+`platform/` is not created, because an existing repo already has one.
+
+`tasks`, `notes`, `decisions` and `ontology` are ordinary words, so if your repo already uses
+one, `adopt` stops rather than merging into it:
+
+```sh
+/tmp/llmeep/_tooling/adopt --into ops    # ops/tasks/, ops/notes/, ops/decisions/, ops/ontology/
+```
+
+Nesting needs no configuration: `tm` and `nm` derive their roots from where they sit, and the
+hooks resolve `tm` from their own location rather than the repo root.
+
 **And cut this README back.** Everything from the `---` above down is about llmeep, not about
 your project — delete it and write your own introduction in its place. Keep the sections above
 the line: they describe how the tooling in this repo is driven, and they stay true whatever you

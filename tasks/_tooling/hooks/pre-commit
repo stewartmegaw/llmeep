@@ -1,7 +1,11 @@
 #!/bin/sh
 # Validates records before the commit lands. Blocks on errors.
 # Logic lives in the executables — hooks are thin (DEC-003).
-ROOT="$(git rev-parse --show-toplevel)"
-"$ROOT/tasks/_tooling/tm" check --staged --quiet || exit 1
-[ -x "$ROOT/notes/_tooling/nm" ] && { "$ROOT/notes/_tooling/nm" check --quiet || exit 1; }
+#
+# Paths are resolved from this file, not from the git toplevel: llmeep may sit
+# in a subdirectory of a repo it was adopted into (`adopt --into`).
+HERE="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+"$HERE/../tm" check --staged --quiet || exit 1
+NM="$HERE/../../../notes/_tooling/nm"
+[ -x "$NM" ] && { "$NM" check --quiet || exit 1; }
 exit 0

@@ -1,0 +1,183 @@
+#!/usr/bin/env python3
+"""adopt — install llmeep into an existing repository.
+
+The documented path (`clone && rm -rf .git && git init`) starts a project. This
+one joins a project that already exists: your code, your history and your README
+are never touched, and everything llmeep needs is added beside them.
+
+Run it from the repo you want to adopt into:
+
+    git clone --depth 1 <llmeep> /tmp/llmeep
+    cd my-project && /tmp/llmeep/_tooling/adopt
+
+`tasks`, `notes`, `decisions` and `ontology` are ordinary words, so a repo may
+well have one already. Rather than merge into it and hope, `adopt` stops and
+tells you to nest the lot under a directory of your choosing:
+
+    /tmp/llmeep/_tooling/adopt --into ops
+
+That works because `tm` and `nm` derive their roots from where they sit
+(`REPO = dirname(ROOT)`), so a nested install needs no configuration.
+"""
+
+import os
+import shutil
+import subprocess
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+SRC = os.path.dirname(HERE)
+
+# The record trees. `platform/` is deliberately absent: an adopting repo already
+# has its code, and it stays where it is.
+TREES = ["tasks", "notes", "decisions", "ontology"]
+
+# Agent adapters and the permission allowlist (DEC-003). Copied to the same
+# paths, since an existing repo's .claude/ may already hold other skills.
+AGENT = [".claude/skills/tm", ".claude/skills/nm", ".claude/settings.json", ".env.example"]
+
+IGNORES = [
+    "# llmeep — local working memory, never committed except its contract.",
+    "{p}.notes/*",
+    "!{p}.notes/README.md",
+    "{p}.env",
+    "!{p}.env.example",
+]
+
+
+class Fail(Exception):
+    pass
+
+
+def rel(path, top):
+    """Paths are reported as the adopter will see them — from their repo root."""
+    return os.path.relpath(path, top) if top else path
+
+
+def git(*args, cwd=None):
+    out = subprocess.run(["git", *args], cwd=cwd or os.getcwd(),
+                         capture_output=True, text=True)
+    return out.stdout.strip()
+
+
+def toplevel():
+    top = git("rev-parse", "--show-toplevel")
+    if not top:
+        raise Fail("not inside a git repository — `git init` first")
+    return top
+
+
+def copy(src, dst, report, top=None):
+    """Never overwrites. A path that already exists is reported and left alone,
+    because the thing already there is the adopter's and this is their repo."""
+    if os.path.exists(dst):
+        report.append(("skip", rel(dst, top), "exists"))
+        return False
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    if os.path.isdir(src):
+        shutil.copytree(src, dst)
+    else:
+        shutil.copy2(src, dst)
+    report.append(("add", rel(dst, top), ""))
+    return True
+
+
+def append_ignores(top, prefix, report):
+    """Appends only what is missing. An existing .gitignore is a file someone
+    wrote on purpose; rewriting or reordering it would be a surprise."""
+    path = os.path.join(top, ".gitignore")
+    have = open(path).read().splitlines() if os.path.exists(path) else []
+    want = [line.format(p=prefix) for line in IGNORES]
+    missing = [w for w in want if w not in have and not w.startswith("#")]
+    if not missing:
+        report.append(("skip", ".gitignore", "already covers it"))
+        return
+    with open(path, "a") as fh:
+        if have and have[-1].strip():
+            fh.write("\n")
+        fh.write(IGNORES[0] + "\n")
+        for w in missing:
+            fh.write(w + "\n")
+    report.append(("edit", ".gitignore", f"{len(missing)} line(s) appended"))
+
+
+def reset(root, tool, args, report):
+    """A clone carries llmeep's own records. Clearing them here means an adopter
+    never sees someone else's board, and never has to know `reset` exists."""
+    exe = os.path.join(root, tool, "_tooling", "tm" if tool == "tasks" else "nm")
+    if not os.path.exists(exe):
+        return
+    subprocess.run([sys.executable, exe, "reset", "--yes", *args],
+                   capture_output=True, text=True)
+    report.append(("reset", tool, "records cleared"))
+
+
+def main(argv):
+    into = ""
+    if "--into" in argv:
+        i = argv.index("--into")
+        try:
+            into = argv[i + 1].strip("/")
+        except IndexError:
+            raise Fail("--into needs a directory name")
+    dry = "--dry-run" in argv
+
+    top = toplevel()
+    if os.path.abspath(SRC) == os.path.abspath(top):
+        raise Fail("run this from the repo you are adopting into, not from llmeep itself")
+
+    dest_root = os.path.join(top, into) if into else top
+    prefix = f"{into}/" if into else ""
+
+    clashes = [t for t in TREES if os.path.exists(os.path.join(dest_root, t))]
+    if clashes and not into:
+        raise Fail(
+            f"{', '.join(clashes)} already exist(s) here.\n"
+            "  Nest llmeep instead:  adopt --into ops\n"
+            "  `tm` and `nm` find their own roots, so nothing else changes."
+        )
+    if clashes:
+        raise Fail(f"{', '.join(clashes)} already exist under {into}/ — pick another name")
+
+    if dry:
+        print(f"  would install into {rel(dest_root, top) if into else 'the repo root'}")
+        for t in TREES:
+            print(f"    + {prefix}{t}/")
+        for a in AGENT:
+            print(f"    + {a}")
+        print("    ~ .gitignore, git config core.hooksPath")
+        return 0
+
+    report = []
+    for t in TREES:
+        copy(os.path.join(SRC, t), os.path.join(dest_root, t), report, top)
+    for a in AGENT:
+        src = os.path.join(SRC, a)
+        if os.path.exists(src):
+            copy(src, os.path.join(top, a), report, top)
+
+    append_ignores(top, prefix, report)
+    reset(dest_root, "tasks", ["--all"], report)
+    reset(dest_root, "notes", [], report)
+
+    hooks = os.path.relpath(os.path.join(dest_root, "tasks", "_tooling", "hooks"), top)
+    git("config", "core.hooksPath", hooks, cwd=top)
+    report.append(("edit", "core.hooksPath", hooks))
+
+    width = max(len(p) for _, p, _ in report)
+    print()
+    for kind, path, note in report:
+        mark = {"add": "+", "skip": "!", "edit": "~", "reset": "✓"}[kind]
+        print(f"  {mark} {path:<{width}}  {note}")
+    print(f"\n  ✓ adopted. Your code, history and README are untouched.")
+    print(f"    Start with:  {prefix}tasks/_tooling/tm add <the first thing you need to do>")
+    print(f"    Then read:   {prefix}ontology/domain/README.md — describe your project there")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except Fail as e:
+        print(f"\n  ! {e}\n", file=sys.stderr)
+        sys.exit(1)

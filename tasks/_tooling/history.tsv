@@ -39,3 +39,4 @@
 2026-08-03	PLT-fy4e	platform	A clean skeleton is missing notes/raw and platform sidecars	stewart
 2026-08-03	PLT-swrt	platform	Reduce the ontology to what is actually referenced	stewart
 2026-08-03	PLT-su83	platform	Ontology decision links break on a release cut	stewart
+2026-08-03	PLT-7g78	platform	An existing repo should be able to adopt the skeleton without starting over	stewart
