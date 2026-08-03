@@ -66,7 +66,7 @@ Defaults do the work: `add` assumes platform, `go` and `done` assume the current
 inferable from state has to be typed — including **who you are**: `go` assigns a task to you,
 derived from your git config, and `done` records it. With more than one developer, the board
 answers *who is doing what next* without anyone maintaining it
-([`DEC-010`](decisions/DEC-010-tasks-carry-an-assignee.md)).
+([`DEC-010`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-010-tasks-carry-an-assignee.md)).
 
 ### The standup
 
@@ -87,7 +87,7 @@ Set `STANDUP_PERIOD` to `daily`, `workday`, `bidaily` or `weekly` in `.env`.
 **If you want it unattended**, `tasks/_tooling/blueprints/standup.sh` is a blueprint for an always-on
 machine: it fetches, then reports. Nothing here runs it — `tm standup --cron` prints the line
 that would (at `STANDUP_AT`, default `09:00`), and you decide whether to schedule it
-([`DEC-017`](decisions/DEC-017-the-standup-is-usually-a-person.md)).
+([`DEC-017`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-017-the-standup-is-usually-a-person.md)).
 
 **Close the task, then commit** — code, board and history land together:
 
@@ -127,14 +127,14 @@ That the channel's configuration lives in the *service* rather than the repo is 
 a gap: bot name, description, which room, who can see it — all of that differs per team and
 belongs to them. The repo's share is one line and a secret, so swapping channels touches no
 record and no ontology. Adding one is a function plus a dict entry
-([`DEC-008`](decisions/DEC-008-notifier-is-swappable.md)).
+([`DEC-008`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-008-notifier-is-swappable.md)).
 
 We built the other way first and deleted it. Inbound Telegram worked — `/add` filed tasks,
 `/list` returned the board — and it was still a worse version of something already available
 from the same phone: an agent needs no command syntax, no flags, and lands the change on the
 board directly instead of queueing it for a later pull. See
-[`DEC-006`](decisions/DEC-006-telegram-is-notification-only.md) and
-[`DEC-007`](decisions/DEC-007-stray-telegram-messages-are-ignored.md).
+[`DEC-006`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-006-telegram-is-notification-only.md) and
+[`DEC-007`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-007-stray-telegram-messages-are-ignored.md).
 
 The rule generalises past Telegram: **before building an input surface, check whether an agent
 with the repository already does it better.** Slack, email, a web UI — the answer is usually
@@ -249,8 +249,14 @@ notes/_tooling/nm reset --yes   # clears the archive, its history, raw/
 Otherwise you inherit this project's task history and `find` returns the skeleton's work as
 your prior art, which is the amnesia-prevention mechanism working against you. Every `tm add`
 and `tm go` says so until you do. `reset` clears both boards, `history.tsv` and the sidecars;
-it **keeps** the ontology, principles, templates and decision records, because those explain
-why the design is what it is. Run it without `--yes` first to see exactly what goes.
+it **keeps** the ontology, principles, templates and decision records. Run it without `--yes`
+first to see exactly what goes.
+
+Whether to keep the decisions depends on which repo you are becoming. Improving llmeep itself,
+keep them — they explain why the design is what it is. Starting your own project, add `--all`:
+`decisions/` is then yours from `DEC-001`, rather than someone else's twenty-five records with
+your first decision filed behind them. The design is still described by `ontology/`,
+`tasks/ontology.md` and `notes/ontology.md`, which `reset` never touches.
 
 ### Cutting a version
 
@@ -260,32 +266,37 @@ Release branches are **write-once — never merged back**, which is what keeps `
 
 ```sh
 git checkout release
-git rm -rq .                    # or a rename leaves the old paths behind
+git rm -rq .                          # or a rename leaves the old paths behind
 git checkout main -- .
-tasks/_tooling/tm reset --yes   # both subsystems, or the version ships
-notes/_tooling/nm reset --yes   # with this project's records inside it
+tasks/_tooling/tm reset --yes --all   # --all drops this project's decisions too;
+notes/_tooling/nm reset --yes         # a release is nobody's project yet
 git add -A
-git commit -m "v2: clean skeleton" && git tag v2
-git checkout main            # work continues; history intact
+git commit -m "v3: clean skeleton" && git tag v3
+git checkout main                     # work continues; history intact
 ```
+
+**A release cut always takes `--all`.** Whoever clones it is starting their own project, so
+llmeep's decision records would be twenty-five entries of someone else's reasoning sitting in
+front of their first one — the same argument as the task history above, and the reason v2
+shipped wrong.
 
 ## Status
 
 **Taskman is built and in use** — this repo tracks its own work with it.
-[`DEC-001`](decisions/DEC-001-taskman-design.md) (model),
-[`DEC-002`](decisions/DEC-002-task-history-index.md) (history),
-[`DEC-003`](decisions/DEC-003-skills-are-executables.md) (tooling),
-[`DEC-004`](decisions/DEC-004-commits-close-tasks.md) (superseded),
-[`DEC-005`](decisions/DEC-005-agent-mediated-git.md) (git).
+[`DEC-001`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-001-taskman-design.md) (model),
+[`DEC-002`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-002-task-history-index.md) (history),
+[`DEC-003`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-003-skills-are-executables.md) (tooling),
+[`DEC-004`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-004-commits-close-tasks.md) (superseded),
+[`DEC-005`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-005-agent-mediated-git.md) (git).
 
 Not yet done, and honest about it:
 
-- **Telegram** (`PLT-005`) is written and wired into `done`, but has never sent a message.
-  Needs a bot token and an `.env.example`.
-- **`notes/`** is conventions only — no tooling, and its entities still live in
-  `ontology/core.md` rather than a co-located `notes/ontology.md`.
 - **`ontology/domain/`** is correctly empty, which also means nobody has followed its six steps
   end to end.
+- **Adopting into an existing repo** assumes you are starting fresh; a project with its own
+  history has no path in yet (`PLT-7g78`).
+- **Decisions have no `find`.** Twenty-five records and no way to search them, which is the
+  precondition for ever pruning the folder (`PLT-cajd`).
 
 Known limits, which are not bugs:
 

@@ -63,6 +63,26 @@ this; just create the task and say you have.
 Exceptions worth not bothering about: typo fixes, formatting, a one-line config tweak. If you
 would not mention it in standup, it does not need a task.
 
+## A closed task is committed before the next one starts
+
+**Before `tm add` or `tm go`, check `git status` for uncommitted changes to
+`tasks/*/board.md` or `tasks/_tooling/history.tsv`.** Those two files change only when `done`
+runs, so uncommitted changes to them mean the last task was closed and never committed.
+
+When you find them, **ask** — an `AskUserQuestion` with the closed task's id and title, offering
+*commit it now* (recommended) or *start anyway*. Do not commit unasked; a commit is the user's
+call. Do not stay silent either, which is the case this rule exists for.
+
+The cost of not asking is not a tidiness one. `done` writes the board and history rows the
+moment it runs, so a second task closed on top of the first leaves both sets of records in one
+working tree with no way to split them by file. Recovering one commit per task then means
+reverting work by hand to stage it — which is exactly what happened on 2026-08-03, cutting
+llmeep's README title out and back in to keep two trailers honest.
+
+Committing when asked keeps `closes <id>` meaning one commit, which is what `tm find` recovers
+later. Two tasks in one commit is not fatal — two trailers in one message is legal — but the
+link stops being one-to-one and the history gets harder to read back.
+
 ## Titles are handles
 
 **A title is a shell argument, so quote it or use stdin.** A `;`, `&`, `|`, `(` or `)` in what
@@ -145,6 +165,7 @@ on the line.
 - **You classify, the tool does not.** `add` always assumes the platform ledger. Decide from
   the routing rule in `tasks/ontology.md` and pass `-b` yourself (principle 7).
 - **Run `done` before committing**, so the board, history and code land in one commit.
+- **Ask before starting a task on top of an uncommitted one** — see the rule above.
 - **Include `closes <id>`** in the commit message when acceptance is met. That trailer is the
   permanent link between task and commit — nothing else records it.
 - **Listing is reading `tasks/<ledger>/board.md`. Reordering is moving a line in it.**
