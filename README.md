@@ -1,3 +1,5 @@
+![Road Runner](https://static.wikia.nocookie.net/looneytunesshow/images/4/42/Road_Runner.svg/revision/latest/scale-to-width-down/268)
+
 # llmeep
 
 **How work is tracked in this repo.** Tasks, notes and decisions are flat files under version
