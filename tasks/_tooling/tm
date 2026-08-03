@@ -1467,6 +1467,21 @@ def check_generic(name, send=False):
     return 1
 
 
+def print_chats(chats, current):
+    """Group ids are negative and a supergroup's begins -100, which looks like a
+    mistake until you have seen it once. Naming the type says it is not."""
+    for cid, (kind, name) in chats.items():
+        mark = " ← configured" if current is not None and str(cid) == str(current) else ""
+        print(f"    {cid:<16} {kind:<10} {name}{mark}")
+
+
+def print_no_chats(indent=""):
+    print(f"{indent}  add the bot to your group and send /start@yourbotname —")
+    print(f"{indent}  group privacy hides ordinary messages from bots until they")
+    print(f"{indent}  are addressed. Then run this again, within the day: Telegram")
+    print(f"{indent}  drops updates nobody has collected after about 24 hours.")
+
+
 def task_probe():
     return Task("TEST", "taskman is wired up", done_on=date.today().isoformat())
 
@@ -1501,27 +1516,37 @@ def check_telegram(send=False):
 
     chats = {}
     for upd in data.get("result", []):
-        c = (upd.get("message") or upd.get("channel_post") or {}).get("chat")
+        c = ((upd.get("message") or upd.get("channel_post")
+              or upd.get("my_chat_member") or {}).get("chat"))
         if c:
-            chats[c["id"]] = c.get("title") or c.get("username") or c.get("first_name", "?")
+            chats[c["id"]] = (c.get("type", "?"),
+                              c.get("title") or c.get("username") or c.get("first_name", "?"))
 
     if not chat:
         print("  token works. no TELEGRAM_CHAT_ID set yet.\n")
         if chats:
-            print("  chats that have messaged this bot:")
-            for cid, name in chats.items():
-                print(f"    {cid:<16} {name}")
+            print_chats(chats, None)
             print(f"\n  add the one you want to {env}:\n")
             print(f"       TELEGRAM_CHAT_ID={list(chats)[0]}")
         else:
-            print("  no messages seen yet. Add the bot to your group and send")
-            print("  /start@yourbotname — group privacy hides ordinary messages")
-            print("  from bots until they are addressed. Then run this again.")
+            print_no_chats()
         return 1
 
-    where = chats.get(int(chat), chat) if str(chat).lstrip("-").isdigit() else chat
+    where = chats.get(int(chat), ("", chat))[1] if str(chat).lstrip("-").isdigit() else chat
     if not send:
-        print(f"  ✓ telegram configured — {where}. `--send` to post a test message.")
+        print(f"  ✓ telegram configured — {where}")
+        # Always list what else the bot can see. A team group is usually made
+        # after someone has already wired this up alone, and a check that goes
+        # quiet once an id is set leaves them with nowhere to look (`PLT-4hck`).
+        others = {k: v for k, v in chats.items() if str(k) != str(chat)}
+        if others:
+            print("\n  this bot can also see:")
+            print_chats(others, chat)
+            print(f"\n  to move, change TELEGRAM_CHAT_ID in {env}")
+        else:
+            print("\n  no other chats visible. To point this at a group instead,")
+            print_no_chats(indent="  ")
+        print("\n  `--send` to post a test message.")
         return 0
     if notify(task_probe(), "setup"):
         print(f"  ✓ sent a test message to {where}")
