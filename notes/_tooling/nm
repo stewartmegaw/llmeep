@@ -25,7 +25,13 @@ ARCHIVE = os.path.join(ROOT, "notes.md")
 HISTORY = os.path.join(HERE, "history.tsv")
 RAW = os.path.join(ROOT, "raw")
 MARKER = os.path.join(ROOT, "UNADOPTED.md")
-TM = os.path.join(REPO, "taskman", "_tooling", "tm")
+# One name, in one place. The rename from `taskman/` to `tasks/` swept the
+# string `taskman/` and missed every literal written as a path *segment* — so
+# `nm` went on pointing at a directory that no longer existed, and only
+# `promote` said so out loud (`PLT-x9wv`).
+TASKS = os.path.join(REPO, "tasks")
+TM = os.path.join(TASKS, "_tooling", "tm")
+TASK_HISTORY = os.path.join(TASKS, "_tooling", "history.tsv")
 
 WINDOW = 200        # what `prune` narrows notes.md to; nothing else enforces it
 RAW_STALE_DAYS = 30  # a capture unprocessed this long is probably never going to be
@@ -336,10 +342,10 @@ def cmd_promote(args):
 
 
 def shipped_tasks():
-    """Task ids that have completed. Reads taskman's ledger directly — `check`
+    """Task ids that have completed. Reads the task ledger directly — `check`
     already does, and the alternative is taskman calling into notes on `done`,
     which couples the two in the direction that actually matters."""
-    path = os.path.join(REPO, "taskman", "_tooling", "history.tsv")
+    path = TASK_HISTORY
     if not os.path.exists(path):
         return set()
     out = set()
@@ -500,15 +506,23 @@ def cmd_check(args):
     if dates != sorted(dates, reverse=True):
         errors.append("notes.md is not newest-first")
     warnings = []
+    # Notes lifts away from tasks by design, so an absent ledger is legitimate.
+    # A *present* one we cannot see is not: `promote` fails loudly, but `prune`
+    # and the shipped ✓ read an empty set and do nothing at all, which is how a
+    # broken path survived a rename and eleven releases (`PLT-x9wv`).
+    if os.path.isdir(TASKS) and not os.path.exists(TM):
+        errors.append(f"{os.path.relpath(TASKS, REPO)}/ is here but its tooling is not at "
+                      f"{os.path.relpath(TM, REPO)} — promote, prune and shipped-note "
+                      "marking all depend on it")
     if len(archive.notes) > WINDOW:
         warnings.append(f"notes.md holds {len(archive.notes)}, the window is {WINDOW} "
                         "— `nm prune` to narrow it")
     known_tasks = set()
     for ledger in ("platform", "business"):
-        board = os.path.join(REPO, "taskman", ledger, "board.md")
+        board = os.path.join(TASKS, ledger, "board.md")
         if os.path.exists(board):
             known_tasks |= set(re.findall(r"\b(?:PLT|BUS)-\S+", open(board).read()))
-    th = os.path.join(REPO, "taskman", "_tooling", "history.tsv")
+    th = TASK_HISTORY
     if os.path.exists(th):
         known_tasks |= set(re.findall(r"\b(?:PLT|BUS)-\S+", open(th).read()))
     for note in archive.notes:
