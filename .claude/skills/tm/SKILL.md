@@ -7,7 +7,7 @@ description: Task tracking — create, start, complete and search tasks. Use whe
 
 **ADAPTER ONLY — no logic here.** All behaviour lives in `tasks/_tooling/tm`. If you find yourself
 wanting to add rules to this file, they belong in the executable or in
-`tasks/ontology.md`, so that people using other agents get the same system
+`tasks/_tooling/ontology.md`, so that people using other agents get the same system
 (`DEC-003`, principle 3).
 
 Run from the repo root:
@@ -165,14 +165,14 @@ and this gets read on a phone away from the repo. Rendered lists are exempt: the
 on the line.
 
 - **You classify, the tool does not.** `add` always assumes the platform ledger. Decide from
-  the routing rule in `tasks/ontology.md` and pass `-b` yourself (principle 7).
+  the routing rule in `tasks/_tooling/ontology.md` and pass `-b` yourself (principle 7).
 - **Run `done` before committing**, so the board, history and code land in one commit.
 - **Ask before starting a task on top of an uncommitted one** — see the rule above.
 - **Include `closes <id>`** in the commit message when acceptance is met. That trailer is the
   permanent link between task and commit — nothing else records it.
 - **Listing is reading `tasks/<ledger>/board.md`. Reordering is moving a line in it.**
   Neither is a command; do not invent one.
-- **Resolving a board merge conflict** follows the table in `tasks/ontology.md`, not a
+- **Resolving a board merge conflict** follows the table in `tasks/_tooling/ontology.md`, not a
   textual merge.
 - **`tm standup` prints; `tm standup --send` broadcasts.** Nothing in the repo triggers a
   send — a scheduler does. Never add `--send` on your own initiative.

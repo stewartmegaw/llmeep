@@ -1,10 +1,15 @@
 ![Road Runner](https://static.wikia.nocookie.net/looneytunesshow/images/4/42/Road_Runner.svg/revision/latest/scale-to-width-down/268)
 
-# llmeep
+# LLMeep
 
 A project skeleton for a small team working with agents. Tasks, notes and decisions are flat
 files in your repo, driven by two commands and read by whatever agent you point at them —
-no tracker, no bot, no dashboard to keep in sync.
+no tracker, no dashboard, nothing to keep in sync.
+
+The team still hears about it. Closing a task broadcasts it to Telegram, Slack or a webhook,
+and `tm standup` reports what actually shipped this period — read aloud on the call, or posted
+to the channel. Those channels are **outbound only**: anything said back to the bot is ignored,
+because the agent is the input surface.
 
 Most scaffolding assumes a team that cannot hold context in its head, and charges coordination
 overhead for it — a cost a small team shipping fast pays for nothing. The agent already has the
@@ -21,17 +26,9 @@ cd my-project && rm -rf .git && git init
 git config core.hooksPath tasks/_tooling/hooks     # validation on commit
 ```
 
-That is the whole install — two Python 3 files, standard library only, nothing to build. Then
-put your codebase in `platform/` and file the first thing you need to do:
+That is the whole install — two Python 3 files, standard library only, nothing to build.
 
-```sh
-tasks/_tooling/tm add Fix the signup redirect
-tasks/_tooling/tm go                               # start it
-tasks/_tooling/tm done                             # close it, then commit
-git commit -am "Fix the signup redirect. closes PLT-9puy"
-```
-
-**Or just say it to your agent.** "What am I on?", "start PLT-9puy", "that's done, commit it" —
+**Now say to your agent.** "What am I on?", "lets start the next task", "that's done, commit it" —
 the commands below are what it runs for you, and the whole system is designed to be driven that
 way rather than typed. Point your agent at this file.
 
@@ -61,7 +58,7 @@ the message is the permanent link between the two. Listing is reading
 [the board](tasks/platform/board.md); reordering is moving a line in it. Neither needs a
 command.
 
-Full model: [`tasks/ontology.md`](tasks/ontology.md).
+Full model: [`tasks/_tooling/ontology.md`](tasks/_tooling/ontology.md).
 
 ## Capturing work
 
@@ -85,45 +82,34 @@ notes/_tooling/nm prune              # bound raw/ and the archive; dry without -
 notes/_tooling/nm find <term>        # search every note ever captured
 ```
 
-Full model: [`notes/ontology.md`](notes/ontology.md).
+Full model: [`notes/_tooling/ontology.md`](notes/_tooling/ontology.md).
 
 ## What it costs your agent
 
 Nothing here is auto-loaded — no `CLAUDE.md`, no always-on context file. What an agent carries
 is what it chooses to read, so the standing cost is two lines:
 
-| Loaded | When | Roughly |
-| --- | --- | --- |
-| Skill descriptions | always, in every prompt | **~150 tokens** |
-| `tm` skill | when you mention tasks | ~2,500 |
-| `nm` skill | when you mention notes | ~2,000 |
-| A board | when it lists or starts work | ~400 |
-| `tasks/ontology.md` | only when changing the model | ~7,900 |
+| Loaded             | When                         | Roughly         |
+| ------------------ | ---------------------------- | --------------- |
+| Skill descriptions | always, in every prompt      | **~150 tokens** |
+| `tm` skill         | when you mention tasks       | ~2,500          |
+| `nm` skill         | when you mention notes       | ~2,000          |
+| A board            | when it lists or starts work | ~400            |
 
 A working session on tasks costs about **3,000 tokens** of context — the skill plus the board —
 and the board stays that size on purpose: `recent` is capped at 15 and everything older is
 searched with `find` rather than carried. That cap is the whole reason the cost is flat instead
 of growing with the project.
 
-## Layout
-
-| Path        | Committed | Purpose                                                            |
-| ----------- | --------- | ------------------------------------------------------------------ |
-| `ontology/` | yes       | The shared vocabulary. What things are called and how they relate.  |
-| `tasks/`    | yes       | Task boards. `platform/` for build work, `business/` for the rest.  |
-| `notes/`    | yes       | The intake funnel for work. Captures, notes, decisions.             |
-| `.notes/`   | **no**    | Local working memory. Sessions, scratch, inbox. Gitignored.         |
-| `platform/` | yes       | **Your project goes here.** Empty in the skeleton.                  |
-
 ## Start here
 
 1. [`ontology/principles.md`](ontology/principles.md) — the seven rules everything follows from.
 2. [`ontology/core.md`](ontology/core.md) — the entities that cut across subsystems. A
    self-contained subsystem keeps its vocabulary next to itself instead, like
-   [`tasks/ontology.md`](tasks/ontology.md).
-3. [`tasks/ontology.md`](tasks/ontology.md) — how work is tracked. One board file,
+   [`tasks/_tooling/ontology.md`](tasks/_tooling/ontology.md).
+3. [`tasks/_tooling/ontology.md`](tasks/_tooling/ontology.md) — how work is tracked. One board file,
    priority by position.
-4. [`notes/ontology.md`](notes/ontology.md) — how work arrives. Capture, distil, promote,
+4. [`notes/_tooling/ontology.md`](notes/_tooling/ontology.md) — how work arrives. Capture, distil, promote,
    prune.
 5. Describe your own project in [`ontology/domain/`](ontology/domain/README.md) — the
    extension point. You should not need to edit the core ontology.
@@ -134,13 +120,13 @@ of growing with the project.
 **Everything below is about llmeep itself, not about your project.** When you adopt this
 skeleton, delete from this line down and write your own — the sections above are the working
 agreement and are worth keeping. Nothing in the tooling reads this file, so you can cut it
-freely; the model lives in [`tasks/ontology.md`](tasks/ontology.md) and
-[`notes/ontology.md`](notes/ontology.md), which survive any rewrite.
+freely; the model lives in [`tasks/_tooling/ontology.md`](tasks/_tooling/ontology.md) and
+[`notes/_tooling/ontology.md`](notes/_tooling/ontology.md), which survive any rewrite.
 
 ## Why this exists
 
 llmeep is a clonable skeleton for small teams and agents building fast. The name is an LLM and
-a road runner: *meep meep*, and it is already gone.
+a road runner: _meep meep_, and it is already gone.
 
 Most project scaffolding assumes a team that cannot hold context in its head. Jira, PR
 review, sprint ceremony, exhaustive specs — all of it is coordination overhead, and it only
@@ -181,7 +167,7 @@ because every agent reads README. Point yours at this file.
 ### What a note is for
 
 **The transcript is never stored.** An exported call is large and mostly noise, and `notes/raw/`
-is committed — saving one would put "hello how are you" into git *permanently*, because pruning
+is committed — saving one would put "hello how are you" into git _permanently_, because pruning
 clears the working tree but not history, and every clone carries it forever. **The note is the
 artifact; the transcript is scaffolding.**
 
@@ -210,10 +196,10 @@ there too. You speak; it translates:
 and CI must never be blocked — but the board only stays current if the agent is driving.
 
 **Every other channel is notification-only, and swappable.** `done` announces completions to
-whatever `NOTIFY` names — `telegram`, `slack`, `webhook` or `none`. Messages sent *back* to a
+whatever `NOTIFY` names — `telegram`, `slack`, `webhook` or `none`. Messages sent _back_ to a
 channel are ignored; Telegram's BotFather description says so and it advertises no commands.
 
-That the channel's configuration lives in the *service* rather than the repo is the point, not
+That the channel's configuration lives in the _service_ rather than the repo is the point, not
 a gap: bot name, description, which room, who can see it — all of that differs per team and
 belongs to them. The repo's share is one line and a secret, so swapping channels touches no
 record and no ontology. Adding one is a function plus a dict entry
@@ -230,11 +216,11 @@ The rule generalises past Telegram: **before building an input surface, check wh
 with the repository already does it better.** Slack, email, a web UI — the answer is usually
 yes, and the surface you skip is one you never have to keep in sync.
 
-Full model: [`tasks/ontology.md`](tasks/ontology.md).
+Full model: [`tasks/_tooling/ontology.md`](tasks/_tooling/ontology.md).
 
 ### The standup
 
-Completed tasks fall out of `recent` as the window fills, so *what did we actually get done*
+Completed tasks fall out of `recent` as the window fills, so _what did we actually get done_
 is the one question the working tree stops being able to answer. `tm standup` asks git instead.
 
 **Usually it is a person.** Whoever runs the weekly call types it and reads the output out;
@@ -290,11 +276,11 @@ build in `platform/`.
 
 ### Branches
 
-| Branch          | Contains                              | Clone it to…                    |
-| --------------- | ------------------------------------- | ------------------------------- |
-| `release` *(default)* | Latest clean version            | start a project                 |
-| `v1`, `v2`, …   | Pinned versions                       | pin to a specific one           |
-| `main`          | Development, with full task history   | improve the skeleton itself     |
+| Branch                | Contains                            | Clone it to…                |
+| --------------------- | ----------------------------------- | --------------------------- |
+| `release` _(default)_ | Latest clean version                | start a project             |
+| `v1`, `v2`, …         | Pinned versions                     | pin to a specific one       |
+| `main`                | Development, with full task history | improve the skeleton itself |
 
 **If you cloned `main` instead**, an `UNADOPTED.md` sits in both `tasks/` and `notes/` saying
 so, and each tool repeats it until you deal with it. Run **both** resets — adoption is per
@@ -315,7 +301,7 @@ Whether to keep the decisions depends on which repo you are becoming. Improving 
 keep them — they explain why the design is what it is. Starting your own project, add `--all`:
 `decisions/` is then yours from `DEC-001`, rather than someone else's twenty-five records with
 your first decision filed behind them. The design is still described by `ontology/`,
-`tasks/ontology.md` and `notes/ontology.md`, which `reset` never touches.
+`tasks/_tooling/ontology.md` and `notes/_tooling/ontology.md`, which `reset` never touches.
 
 ### Cutting a version
 
@@ -362,7 +348,7 @@ Known limits, which are not bugs:
 - **Validation checks consistency, not truth.** The hooks cannot tell you a task was closed that
   should not have been — this has already happened once here, and is recorded in the history.
 - **Boards conflict on branches.** The resolution procedure in
-  [`tasks/ontology.md`](tasks/ontology.md) exists but has never been run in anger.
+  [`tasks/_tooling/ontology.md`](tasks/_tooling/ontology.md) exists but has never been run in anger.
 - **Telegram fires on `done`, not on push**, so on a branch the team hears about work before
   they can pull it.
 

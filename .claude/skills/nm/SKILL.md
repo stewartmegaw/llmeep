@@ -6,7 +6,7 @@ description: Notes — capture, distil and promote. Use when the user pastes a c
 # nm
 
 **ADAPTER ONLY — no logic here.** All behaviour lives in `notes/_tooling/nm`; the model is
-`notes/ontology.md`. If you want to add rules, they belong in one of those, so people using
+`notes/_tooling/ontology.md`. If you want to add rules, they belong in one of those, so people using
 other agents get the same system (`DEC-003`, principle 3).
 
 Run from the repo root:

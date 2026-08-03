@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""nm — notes. See notes/ontology.md for the model.
+"""nm — notes. See notes/_tooling/ontology.md for the model.
 
 Five commands: add, drop, promote, prune, find.
 
@@ -542,7 +542,7 @@ USAGE = """nm — notes
   nm reset [--yes]                  clear notes when adopting the skeleton
 
 Reading is `cat notes/notes.md`. Distilling is the agent's job, not a command.
-Model: notes/ontology.md"""
+Model: notes/_tooling/ontology.md"""
 
 
 def main():

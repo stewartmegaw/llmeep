@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tm — taskman. See tasks/ontology.md for the model.
+"""tm — taskman. See tasks/_tooling/ontology.md for the model.
 
 Five commands: add, go, park, done, find. Listing is reading the board; reordering is
 moving a line in it. Neither is a command.
@@ -1401,7 +1401,7 @@ USAGE = """tm — taskman
   tm reset [--yes] [--all]      clear task records when adopting the skeleton
 
 Listing is reading the board; reordering is moving a line in it.
-Model: tasks/ontology.md"""
+Model: tasks/_tooling/ontology.md"""
 
 
 def main():
