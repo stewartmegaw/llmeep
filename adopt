@@ -33,6 +33,10 @@ from datetime import date
 # only step that has to be effortless.
 SRC = os.path.dirname(os.path.abspath(__file__))
 
+# Where `--update` fetches from when this file is the installed copy rather than
+# a checkout. Overridable so a fork, or a test, can point somewhere else.
+DEFAULT_URL = "https://github.com/stewartmegaw/llmeep.git"
+
 # The record trees. `platform/` is deliberately absent: an adopting repo already
 # has its code, and it stays where it is.
 TREES = ["tasks", "notes", "decisions", "ontology"]
@@ -211,11 +215,41 @@ def dest_of(rel_path, top, dest_root):
     return os.path.join(top if rel_path.startswith(".claude/") else dest_root, rel_path)
 
 
-def write_manifest(dest_root, top, into, report):
-    """What is installed, and what it looked like when it arrived. The checksums
-    are the whole point: without them an update cannot tell a file it shipped
-    from one the adopter has since edited, and would have to choose between
-    clobbering their work and never updating anything."""
+BEGIN = "# llmeep:manifest — rewritten by --update; do not edit"
+END = "# llmeep:manifest-end"
+
+
+def read_manifest(path):
+    """Parsed out of the file without executing it. A manifest that could only
+    be read by running the script would make inspecting an install and trusting
+    it the same act."""
+    with open(path) as fh:
+        text = fh.read()
+    m = re.search(rf"{re.escape(BEGIN)}\n(.*?)\n{re.escape(END)}", text, re.S)
+    if m:
+        return json.loads("\n".join(l.lstrip("# ") for l in m.group(1).split("\n")))
+    try:
+        # v14–v17 wrote `.llmeep` as plain JSON, before it became the script
+        # itself. Those installs still have to be updatable, and the update that
+        # reads this is the one that replaces the file.
+        return json.loads(text)
+    except json.JSONDecodeError:
+        raise Fail(f"{os.path.basename(path)} carries no manifest — is it a copy of `adopt`?")
+
+
+def render_manifest(doc):
+    body = json.dumps(doc, indent=2, sort_keys=True)
+    return BEGIN + "\n" + "\n".join("# " + l for l in body.split("\n")) + "\n" + END
+
+
+def install_self(top, dest_root, into, report):
+    """`.llmeep` is this script, carrying what it installed as a header. One
+    file in the adopted repo is both the tooling entry point and the record of
+    what is there, and `./.llmeep --update` needs no clone step first.
+
+    Always at the repo root: it is run as `./.llmeep`, and a script you have to
+    find is one nobody runs (`PLT-ty47`).
+    """
     files = {}
     for r in managed(SRC) + AGENT_FILES + [WORKING]:
         d = dest_of(r, top, dest_root)
@@ -223,28 +257,34 @@ def write_manifest(dest_root, top, into, report):
             files[r] = sha(d)
     doc = {"version": version_of(SRC), "on": date.today().isoformat(),
            "into": into, "files": files}
-    path = os.path.join(dest_root, MANIFEST)
+
+    with open(os.path.join(SRC, "adopt")) as fh:
+        script = fh.read()
+    script = re.sub(rf"{re.escape(BEGIN)}\n.*?\n{re.escape(END)}\n", "", script, flags=re.S)
+    marker = '"""\n\nimport json'
+    script = script.replace(marker, '"""\n\n' + render_manifest(doc) + "\n\nimport json", 1)
+
+    path = os.path.join(top, MANIFEST)
     with open(path, "w") as fh:
-        json.dump(doc, fh, indent=2, sort_keys=True)
-        fh.write("\n")
-    report.append(("add", rel(path, top), f"{doc['version']}, {len(files)} managed file(s)"))
+        fh.write(script)
+    os.chmod(path, 0o755)
+    report.append(("add", rel(path, top),
+                   f"{doc['version']}, {len(files)} managed file(s) — `./{MANIFEST} --update`"))
 
 
 def find_install(top):
-    """The manifest marks the install root — at the top, or one level down for a
-    nested one. Searched rather than asked for: the adopter should not have to
-    remember what they called it."""
-    if os.path.exists(os.path.join(top, MANIFEST)):
-        return top, ""
-    for name in sorted(os.listdir(top)):
-        d = os.path.join(top, name)
-        if os.path.isdir(d) and os.path.exists(os.path.join(d, MANIFEST)):
-            return d, name
-    raise Fail(
-        f"no {MANIFEST} here — this repo was not installed by `adopt`, or predates it.\n"
-        "  Copy tasks/_tooling/ and notes/_tooling/ over by hand this once; from the\n"
-        "  next version `update` takes over."
-    )
+    """`.llmeep` sits at the repo root and says in its header whether the trees
+    are nested. Read rather than searched for: the adopter should not have to
+    remember what they called the directory."""
+    path = os.path.join(top, MANIFEST)
+    if not os.path.exists(path):
+        raise Fail(
+            f"no {MANIFEST} here — this repo was not installed by `adopt`, or predates it.\n"
+            "  Copy tasks/_tooling/ and notes/_tooling/ over by hand this once; from the\n"
+            "  next version `--update` takes over."
+        )
+    into = read_manifest(path).get("into", "")
+    return (os.path.join(top, into) if into else top), into
 
 
 def reroot_text(text, into):
@@ -301,6 +341,44 @@ def reset(root, tool, args, report):
     report.append(("reset", tool, "records cleared"))
 
 
+def is_clone(path):
+    """A full llmeep checkout: the trees to copy from, and the installer beside
+    them. An adopted repo has the trees too, which is why the presence of
+    `adopt` is the part that distinguishes them."""
+    return (os.path.isdir(os.path.join(path, "tasks", "_tooling"))
+            and os.path.isfile(os.path.join(path, "adopt")))
+
+
+def installed_copy():
+    """True when running as the `.llmeep` installed in a repo, rather than as
+    `adopt` in a checkout. The filename is the distinction, and it is exact —
+    an adopted repo has `tasks/_tooling` too, so the trees prove nothing."""
+    return os.path.basename(os.path.abspath(__file__)) == MANIFEST
+
+
+def fetch_release(want, report):
+    """Clone the release into a temp directory and hand over to *its* `adopt`.
+
+    The newer version knows how to install itself; this copy only knows how the
+    world looked when it was written. Delegating is why an update can change the
+    update process.
+
+    The first network access in llmeep, so it says what it is fetching, and
+    `--dry-run` never reaches here.
+    """
+    import tempfile
+    url = os.environ.get("LLMEEP_URL") or DEFAULT_URL
+    tmp = tempfile.mkdtemp(prefix="llmeep-")
+    print(f"  fetching {want} from {url}")
+    args = ["clone", "--depth", "1"]
+    if want != "latest":
+        args += ["--branch", want]
+    out = subprocess.run(["git", *args, url, tmp], capture_output=True, text=True)
+    if out.returncode != 0 or not is_clone(tmp):
+        raise Fail(f"could not fetch {url}\n  {out.stderr.strip().splitlines()[-1] if out.stderr.strip() else ''}")
+    return tmp
+
+
 def do_update(top, force, dry):
     """Replace the machinery, never the records.
 
@@ -313,9 +391,22 @@ def do_update(top, force, dry):
     that made nesting work at all (`PLT-wxr5`).
     """
     dest_root, into = find_install(top)
-    with open(os.path.join(dest_root, MANIFEST)) as fh:
-        man = json.load(fh)
-    have, want = man.get("version", "?"), version_of(SRC)
+    man = read_manifest(os.path.join(top, MANIFEST))
+    have = man.get("version", "?")
+
+    # The installed copy has nothing to copy from. Rather than diff against
+    # itself, it fetches the release and lets that version do the work.
+    if installed_copy():
+        if dry:
+            target = os.environ.get("LLMEEP_VERSION", "latest")
+            print(f"\n  installed: {have}")
+            print(f"  would fetch {target} and compare — nothing fetched with --dry-run\n")
+            return 0
+        clone = fetch_release(os.environ.get("LLMEEP_VERSION", "latest"), None)
+        cmd = [sys.executable, os.path.join(clone, "adopt"), "--update"]
+        return subprocess.run(cmd + (["--force"] if force else []), cwd=top).returncode
+
+    want = version_of(SRC)
     if have == want and not force:
         raise Fail(f"already on {have} — `--force` to reinstall it anyway")
     if order(want) is not None and order(have) is not None and order(want) < order(have) \
@@ -370,7 +461,7 @@ def do_update(top, force, dry):
             os.remove(wa)
         working_agreement(top, dest_root, into, report)
 
-    write_manifest(dest_root, top, into, report)
+    install_self(top, dest_root, into, report)
 
     for kind, path, note in report:
         print(f"  {'~' if kind == 'edit' else '+'} {path}  {note}")
@@ -393,11 +484,15 @@ def main(argv):
     dry = "--dry-run" in argv
 
     top = toplevel()
-    if os.path.abspath(SRC) == os.path.abspath(top):
-        raise Fail("run this from the repo you are adopting into, not from llmeep itself")
-
     if "--update" in argv:
         return do_update(top, "--force" in argv, dry)
+    if "--version" in argv:
+        print(f"\n  {read_manifest(os.path.join(top, MANIFEST)).get('version', '?')}\n")
+        return 0
+    # Only meaningful when installing: the installed copy of this script lives
+    # at the root of the repo it manages, so SRC == top is normal for --update.
+    if os.path.abspath(SRC) == os.path.abspath(top):
+        raise Fail("run this from the repo you are adopting into, not from llmeep itself")
 
     dest_root = os.path.join(top, into) if into else top
     prefix = f"{into}/" if into else ""
@@ -440,7 +535,7 @@ def main(argv):
     append_ignores(top, prefix, report)
     reset(dest_root, "tasks", ["--all"], report)
     reset(dest_root, "notes", [], report)
-    write_manifest(dest_root, top, into, report)
+    install_self(top, dest_root, into, report)
 
     hooks = os.path.relpath(os.path.join(dest_root, "tasks", "_tooling", "hooks"), top)
     git("config", "core.hooksPath", hooks, cwd=top)
