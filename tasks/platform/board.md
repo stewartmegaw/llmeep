@@ -10,6 +10,7 @@ PLT-tdb5 The platform nudges never fire in an adopted repo  detail
 
 ## recent
 
+2026-08-03  PLT-jdgz Move adopt to the repo root          @stewart
 2026-08-03  PLT-rhew tm check --release verifies a cut tree before it is committed  @stewart
 2026-08-03  PLT-4yn8 adopt leaves a repo with no entry point  @stewart
 2026-08-03  PLT-7g78 An existing repo should be able to adopt the skeleton without starting over  @stewart
@@ -24,4 +25,3 @@ PLT-tdb5 The platform nudges never fire in an adopted repo  detail
 2026-08-03  PLT-6sqw Fix the version-cutting recipe and the release rationale  @stewart
 2026-08-03  PLT-8u3y Rename the taskman folder to tasks   @stewart
 2026-08-03  PLT-f7ge Name the skeleton llmeep in the README  @stewart
-2026-08-02  PLT-rnqp The 200-note window is too big to read whole; compare with the board's 15  @stewart

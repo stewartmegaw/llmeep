@@ -42,3 +42,4 @@
 2026-08-03	PLT-7g78	platform	An existing repo should be able to adopt the skeleton without starting over	stewart
 2026-08-03	PLT-4yn8	platform	adopt leaves a repo with no entry point	stewart
 2026-08-03	PLT-rhew	platform	tm check --release verifies a cut tree before it is committed	stewart
+2026-08-03	PLT-jdgz	platform	Move adopt to the repo root	stewart
