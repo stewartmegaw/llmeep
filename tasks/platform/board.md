@@ -6,6 +6,7 @@
 ## backlog
 
 PLT-cajd Decisions need a find before they could ever be pruned
+PLT-gxq2 An installed skeleton can update itself to a newer release  detail
 
 ## recent
 
