@@ -30,3 +30,4 @@
 2026-08-02	PLT-rnqp	platform	The 200-note window is too big to read whole; compare with the board's 15	stewart
 2026-08-03	PLT-f7ge	platform	Name the skeleton llmeep in the README	stewart
 2026-08-03	PLT-8u3y	platform	Rename the taskman folder to tasks	stewart
+2026-08-03	PLT-6sqw	platform	Fix the version-cutting recipe and the release rationale	stewart

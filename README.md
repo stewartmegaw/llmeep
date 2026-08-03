@@ -221,9 +221,11 @@ rm -rf .git && git init
 git config core.hooksPath tasks/_tooling/hooks
 ```
 
-The default branch is **`release`** — a clean skeleton with empty boards, ready to use. That is
-deliberately not the development branch: most people cloning want the skeleton, not the
-skeleton's own build history.
+The default branch is **`release`** — a clean skeleton with empty boards, ready to use. It
+exists so the tree arrives adopted: no `UNADOPTED.md`, no records of llmeep's own build to
+reset, nothing to clear before your first task. Clone `main` and you get the same files plus
+this project's boards, history and notes, and two resets to run before they stop being yours
+by accident.
 
 Then work through [`ontology/domain/README.md`](ontology/domain/README.md).
 
@@ -241,15 +243,14 @@ subsystem, because the two are meant to be liftable apart:
 
 ```sh
 tasks/_tooling/tm reset --yes   # clears boards, history, sidecars
-notes/_tooling/nm reset --yes     # clears the archive, its history, raw/
+notes/_tooling/nm reset --yes   # clears the archive, its history, raw/
 ```
 
-Otherwise you inherit this
-project's task history and `find` returns the skeleton's work as your prior art, which is the
-amnesia-prevention mechanism working against you. Every `tm add` and `tm go` says so until you
-do. `reset` clears both boards, `history.tsv` and the sidecars; it **keeps** the ontology,
-principles, templates and decision records, because those explain why the design is what it is.
-Run it without `--yes` first to see exactly what goes.
+Otherwise you inherit this project's task history and `find` returns the skeleton's work as
+your prior art, which is the amnesia-prevention mechanism working against you. Every `tm add`
+and `tm go` says so until you do. `reset` clears both boards, `history.tsv` and the sidecars;
+it **keeps** the ontology, principles, templates and decision records, because those explain
+why the design is what it is. Run it without `--yes` first to see exactly what goes.
 
 ### Cutting a version
 
@@ -259,9 +260,12 @@ Release branches are **write-once — never merged back**, which is what keeps `
 
 ```sh
 git checkout release
+git rm -rq .                    # or a rename leaves the old paths behind
 git checkout main -- .
-tasks/_tooling/tm reset --yes
-git commit -am "v2: clean skeleton" && git tag v2
+tasks/_tooling/tm reset --yes   # both subsystems, or the version ships
+notes/_tooling/nm reset --yes   # with this project's records inside it
+git add -A
+git commit -m "v2: clean skeleton" && git tag v2
 git checkout main            # work continues; history intact
 ```
 
