@@ -587,7 +587,7 @@ def standup_sections(period, today=None):
         sections.append((who if who == "unassigned" else f"@{who}",
                          [f"✓ {r['title']}" for r in by_who[who]]))
     if not done:
-        sections.append(("Nothing completed.", []))
+        sections.append(("...no recent tasks completed", []))
     if live:
         # The point of the standup is not the trophy cabinet. Work that has sat
         # in progress across a period is the part someone should react to.
