@@ -256,7 +256,7 @@ Full model: [`tasks/_tooling/ontology.md`](tasks/_tooling/ontology.md).
 Completed tasks fall out of `recent` as the window fills, so _what did we actually get done_
 is the one question the working tree stops being able to answer. `tm standup` asks git instead.
 
-**Usually it is a person.** Whoever runs the weekly call types it and reads the output out;
+**Usually it is a person.** Whoever runs the call types it and reads the output out;
 `--send` posts it if the team wants it in writing. That needs no infrastructure, and it is the
 case worth optimising for.
 
@@ -265,7 +265,8 @@ tasks/_tooling/tm standup           # what closed this period, and what is still
 tasks/_tooling/tm standup --send    # ...and post it to the team channel
 ```
 
-Set `STANDUP_PERIOD` to `daily`, `workday`, `bidaily` or `weekly` in `.env`.
+Reports the day by default. Set `STANDUP_PERIOD` to `workday`, `bidaily` or `weekly` in
+`.env` for a longer window; `workday` is `daily` that skips weekends and covers them on Monday.
 
 **If you want it unattended**, `tasks/_tooling/blueprints/standup.sh` is a blueprint for an always-on
 machine: it fetches, then reports. Nothing here runs it — `tm standup --cron` prints the line

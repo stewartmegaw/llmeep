@@ -7,10 +7,10 @@
 
 PLT-cajd Decisions need a find before they could ever be pruned
 PLT-3wjv Board could use a per-person filter
-PLT-hfwz Default the standup period to daily
 
 ## recent
 
+2026-08-03  PLT-hfwz Default the standup period to daily  @stewart
 2026-08-03  PLT-ty47 .llmeep is the script and its own manifest  @stewart
 2026-08-03  PLT-ckkd Standup should show what is next and what was captured  @stewart
 2026-08-03  PLT-qbnn An adopted repo is never told how to update  @stewart
@@ -25,4 +25,3 @@ PLT-hfwz Default the standup period to daily
 2026-08-03  PLT-su83 Ontology decision links break on a release cut  @stewart
 2026-08-03  PLT-swrt Reduce the ontology to what is actually referenced  @stewart
 2026-08-03  PLT-fy4e A clean skeleton is missing notes/raw and platform sidecars  @stewart
-2026-08-03  PLT-evwe The README status section claims work that is done  @stewart
