@@ -29,10 +29,9 @@ Then add an `index.md` here linking your files, and link to it from the root `RE
 
 ## Rules
 
-- **Extend, do not modify.** Do not edit `../core.md`, `../principles.md` or
-  `../glossary.md` to fit your project. If a concept feels like it belongs in core, it
-  almost certainly belongs here instead. The exception is a real defect in the core model —
-  fix that and upstream it.
+- **Extend, do not modify.** Do not edit `../core.md` or `../principles.md` to fit your
+  project. If a concept feels like it belongs in core, it almost certainly belongs here
+  instead. The exception is a real defect in the core model — fix that and upstream it.
 - **Reuse core terms verbatim.** If your domain has a concept of "task", either it *is* the
   core Task or it needs a different name. Two meanings for one word is the failure mode this
   whole directory exists to prevent.
@@ -52,7 +51,7 @@ ontology/domain/
   actors.md         # who and what acts on the system
   <entity>.md       # one per entity
   lifecycles.md     # state machines, if not covered per-entity
-  glossary.md       # domain terms, extending ../glossary.md
+  glossary.md       # domain terms, extending ../core.md
 ```
 
 Nothing here is mandatory. Delete what you do not need.

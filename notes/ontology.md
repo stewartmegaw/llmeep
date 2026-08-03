@@ -3,7 +3,7 @@
 The whole of note-keeping: vocabulary, format and operation, in one file.
 
 It lives here rather than in `ontology/core.md` because it describes one subsystem —
-[`ontology/README.md`](../ontology/README.md) explains the convention.
+[`ontology/core.md`](../ontology/core.md) explains the convention.
 
 **Rationale and rejected alternatives:**
 [`DEC-012`](../decisions/DEC-012-notes-is-a-pipeline.md).

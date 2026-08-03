@@ -3,7 +3,7 @@
 The whole of task tracking: vocabulary, format and operation, in one file.
 
 It lives here rather than in `ontology/core.md` because it describes one subsystem —
-[`ontology/README.md`](../ontology/README.md) explains the convention. The project-wide
+[`ontology/core.md`](../ontology/core.md) explains the convention. The project-wide
 ontology holds only what cuts across subsystems.
 
 **Why any of this exists** — Jira friction, PRs with one developer, git as a database — is in
