@@ -2,7 +2,6 @@
 
 ## in progress
 
-PLT-ty47 .llmeep is the script and its own manifest       @stewart  detail
 
 ## backlog
 
@@ -12,6 +11,7 @@ PLT-hfwz Default the standup period to daily
 
 ## recent
 
+2026-08-03  PLT-ty47 .llmeep is the script and its own manifest  @stewart
 2026-08-03  PLT-ckkd Standup should show what is next and what was captured  @stewart
 2026-08-03  PLT-qbnn An adopted repo is never told how to update  @stewart
 2026-08-03  PLT-gxq2 An installed skeleton can update itself to a newer release  @stewart
@@ -26,4 +26,3 @@ PLT-hfwz Default the standup period to daily
 2026-08-03  PLT-swrt Reduce the ontology to what is actually referenced  @stewart
 2026-08-03  PLT-fy4e A clean skeleton is missing notes/raw and platform sidecars  @stewart
 2026-08-03  PLT-evwe The README status section claims work that is done  @stewart
-2026-08-03  PLT-g3qq README decision links break on a release cut  @stewart

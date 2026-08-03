@@ -50,10 +50,10 @@ so it must say what it is about to fetch, and `--dry-run` must not fetch at all.
 
 ## Acceptance
 
-- [ ] `adopt` installs `.llmeep` into the target repo, executable, with a current header
-- [ ] `./.llmeep --update` takes a v16 install to the newest release with no clone step
-- [ ] `--dry-run` performs no network access
-- [ ] `--version` prints what is installed without touching anything
-- [ ] The header is rewritten after an update and matches a fresh checksum pass
-- [ ] Records are byte-identical across an update, both `history.tsv` included
-- [ ] A flat and a nested install both work, and `find_install` agrees with where the file sits
+- [x] `adopt` installs `.llmeep` into the target repo, executable, with a current header
+- [x] `./.llmeep --update` takes a v16 install to the newest release with no clone step
+- [x] `--dry-run` performs no network access
+- [x] `--version` prints what is installed without touching anything
+- [x] The header is rewritten after an update and matches a fresh checksum pass
+- [x] Records are byte-identical across an update, both `history.tsv` included
+- [x] A flat and a nested install both work, and `find_install` agrees with where the file sits

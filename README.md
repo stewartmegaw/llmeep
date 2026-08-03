@@ -117,13 +117,13 @@ of growing with the project.
 
 ## Updating
 
-The tooling here was installed by `adopt`, which recorded the version and a checksum per file
-in `.llmeep`. To take a newer release, clone llmeep and point its `adopt` at this repo:
+`adopt` installed `.llmeep` at the root of this repo. It is the installer itself, carrying the
+version and a checksum per file in its header, so updating needs no clone step:
 
 ```sh
-git clone --depth 1 https://github.com/stewartmegaw/llmeep.git /tmp/llmeep
-/tmp/llmeep/adopt --update --dry-run    # what would change
-/tmp/llmeep/adopt --update
+./.llmeep --version
+./.llmeep --update --dry-run    # what it would fetch; fetches nothing
+./.llmeep --update              # fetches the newest release and applies it
 ```
 
 **Machinery is replaced; records never are.** Boards, notes, captures, decisions, both
@@ -320,6 +320,9 @@ replacing it, installs the hooks, and clears llmeep's own records so you start e
 installed are invisible to the session that ran it. Anything
 already present is skipped and reported, never overwritten. **Your code stays where it is** —
 `platform/` is not created, because an existing repo already has one.
+
+It also copies itself in as `.llmeep`, which is how the repo updates later — see
+[Updating](#updating).
 
 Your README is not touched either, so the working agreement is written to **`LLMEEP.md`**
 (`ops/README.md` for a nested install) — the same sections a fresh clone is told to keep,
