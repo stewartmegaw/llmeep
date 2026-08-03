@@ -20,11 +20,13 @@ That works because `tm` and `nm` derive their roots from where they sit
 (`REPO = dirname(ROOT)`), so a nested install needs no configuration.
 """
 
+import json
 import os
 import re
 import shutil
 import subprocess
 import sys
+from datetime import date
 
 # `adopt` sits at the repo root because it is the one file a stranger runs
 # before any of this exists — pointing them a directory deep is friction on the
@@ -38,6 +40,11 @@ TREES = ["tasks", "notes", "decisions", "ontology"]
 # Agent adapters and the permission allowlist (DEC-003). These stay at the repo
 # root even for a nested install, because that is the only place an agent looks.
 AGENT = [".claude/skills/tm", ".claude/skills/nm", ".claude/settings.json"]
+
+# The same adapters as files, for the manifest and for update — a directory has
+# no checksum, and only these three carry paths that a nested install rewrites.
+AGENT_FILES = [".claude/skills/tm/SKILL.md", ".claude/skills/nm/SKILL.md",
+               ".claude/settings.json"]
 
 # These follow the install instead. `tm` reads `.env` from its own REPO, which
 # for `--into ops` is `ops/` — a root `.env.example` would document a file the
@@ -150,6 +157,91 @@ def working_agreement(top, dest_root, into, report):
     report.append(("add", rel(dst, top), "how the tooling works — link it from your README"))
 
 
+MANIFEST = ".llmeep"
+
+
+def version_of(src):
+    """A clone of the default branch sits on a release tag, so the tag is the
+    version. A clone of `main` is between releases and says so."""
+    v = git("describe", "--tags", "--exact-match", cwd=src)
+    return v or "unreleased"
+
+
+def order(v):
+    """Releases are `v1`, `v2`, … so ordering is one integer. Anything else —
+    `unreleased`, a hand-set string — has no place in the sequence and returns
+    None, which reads as "cannot compare" rather than as zero."""
+    m = re.fullmatch(r"v(\d+)", v or "")
+    return int(m.group(1)) if m else None
+
+
+def sha(path):
+    import hashlib
+    with open(path, "rb") as fh:
+        return hashlib.sha256(fh.read()).hexdigest()[:16]
+
+
+def managed(src):
+    """What an update may replace: machinery, and the templates and model that
+    ship with it. Records are absent by construction, and the one record that
+    lives *inside* machinery — `history.tsv`, the permanent ledger of everything
+    ever completed — is excluded by name in both subsystems.
+
+    Returned relative to the install root, except `.claude/`, which sits at the
+    repo root even for a nested install.
+    """
+    out = []
+    for base in ("tasks/_tooling", "notes/_tooling"):
+        for dirpath, _, names in os.walk(os.path.join(src, base)):
+            for n in sorted(names):
+                if n == "history.tsv":
+                    continue
+                out.append(os.path.relpath(os.path.join(dirpath, n), src))
+    out += ["ontology/principles.md", "ontology/core.md",
+            "ontology/domain/_template.md", "decisions/_template.md", ".env.example"]
+    return sorted(p for p in out if os.path.isfile(os.path.join(src, p)))
+
+
+def dest_of(rel_path, top, dest_root):
+    return os.path.join(top if rel_path.startswith(".claude/") else dest_root, rel_path)
+
+
+def write_manifest(dest_root, top, into, report):
+    """What is installed, and what it looked like when it arrived. The checksums
+    are the whole point: without them an update cannot tell a file it shipped
+    from one the adopter has since edited, and would have to choose between
+    clobbering their work and never updating anything."""
+    files = {}
+    for r in managed(SRC) + AGENT_FILES:
+        d = dest_of(r, top, dest_root)
+        if os.path.isfile(d):
+            files[r] = sha(d)
+    doc = {"version": version_of(SRC), "on": date.today().isoformat(),
+           "into": into, "files": files}
+    path = os.path.join(dest_root, MANIFEST)
+    with open(path, "w") as fh:
+        json.dump(doc, fh, indent=2, sort_keys=True)
+        fh.write("\n")
+    report.append(("add", rel(path, top), f"{doc['version']}, {len(files)} managed file(s)"))
+
+
+def find_install(top):
+    """The manifest marks the install root — at the top, or one level down for a
+    nested one. Searched rather than asked for: the adopter should not have to
+    remember what they called it."""
+    if os.path.exists(os.path.join(top, MANIFEST)):
+        return top, ""
+    for name in sorted(os.listdir(top)):
+        d = os.path.join(top, name)
+        if os.path.isdir(d) and os.path.exists(os.path.join(d, MANIFEST)):
+            return d, name
+    raise Fail(
+        f"no {MANIFEST} here — this repo was not installed by `adopt`, or predates it.\n"
+        "  Copy tasks/_tooling/ and notes/_tooling/ over by hand this once; from the\n"
+        "  next version `update` takes over."
+    )
+
+
 def reroot(top, into, report):
     """Everything llmeep ships writes its own paths from the repo root, because
     that is where they normally are. Nested, every one of them is wrong:
@@ -197,6 +289,75 @@ def reset(root, tool, args, report):
     report.append(("reset", tool, "records cleared"))
 
 
+def do_update(top, force, dry):
+    """Replace the machinery, never the records.
+
+    Three things make this trustworthy rather than merely convenient. The
+    manifest's checksums separate a file we shipped from one the adopter has
+    since edited, so local work is reported and skipped instead of clobbered.
+    `history.tsv` is excluded by name in both subsystems, because it is a record
+    living inside machinery and losing it would be unrecoverable. And a nested
+    install is rerooted again afterwards, or the update quietly undoes the fix
+    that made nesting work at all (`PLT-wxr5`).
+    """
+    dest_root, into = find_install(top)
+    with open(os.path.join(dest_root, MANIFEST)) as fh:
+        man = json.load(fh)
+    have, want = man.get("version", "?"), version_of(SRC)
+    if have == want and not force:
+        raise Fail(f"already on {have} — `--force` to reinstall it anyway")
+    if order(want) is not None and order(have) is not None and order(want) < order(have) \
+            and not force:
+        raise Fail(f"{want} is older than the installed {have} — `--force` to go back anyway")
+    # An unreleased clone is somewhere between versions and cannot be placed in
+    # the sequence. Onto a released install that is a step sideways at best, and
+    # it would rewrite the manifest so the install no longer knows what it is.
+    if order(want) is None and order(have) is not None and not force:
+        raise Fail(
+            f"this clone is {want}; the install is on {have}. Check out a release tag\n"
+            "  in the clone, or `--force` if you mean to run unreleased code."
+        )
+
+    recorded = man.get("files", {})
+    fresh, modified, added = [], [], []
+    for r in managed(SRC) + AGENT_FILES:
+        d = dest_of(r, top, dest_root)
+        if not os.path.isfile(d):
+            added.append(r)
+        elif r in recorded and sha(d) != recorded[r]:
+            modified.append(r)
+        else:
+            fresh.append(r)
+
+    print(f"\n  {have} → {want}\n")
+    for r in sorted(added):
+        print(f"  + {r}")
+    for r in sorted(modified):
+        print(f"  ! {r}  changed since install — {'replacing' if force else 'kept'}")
+    print(f"  ~ {len(fresh)} unmodified file(s) replaced")
+    if dry:
+        print("\n  dry run. drop --dry-run to apply.")
+        return 0
+
+    report = []
+    for r in fresh + added + (modified if force else []):
+        d = dest_of(r, top, dest_root)
+        os.makedirs(os.path.dirname(d), exist_ok=True)
+        shutil.copy2(os.path.join(SRC, r), d)
+    if into:
+        reroot(top, into, report)
+    write_manifest(dest_root, top, into, report)
+
+    for kind, path, note in report:
+        print(f"  {'~' if kind == 'edit' else '+'} {path}  {note}")
+    print(f"\n  ✓ updated to {want}. Records untouched — boards, notes, history, decisions.")
+    if modified and not force:
+        print(f"    {len(modified)} file(s) you had changed were kept. Diff them against")
+        print(f"    {SRC} and re-run with --force when you are ready.")
+    print("    Restart your agent session so it re-reads the skills.")
+    return 0
+
+
 def main(argv):
     into = ""
     if "--into" in argv:
@@ -210,6 +371,9 @@ def main(argv):
     top = toplevel()
     if os.path.abspath(SRC) == os.path.abspath(top):
         raise Fail("run this from the repo you are adopting into, not from llmeep itself")
+
+    if "--update" in argv:
+        return do_update(top, "--force" in argv, dry)
 
     dest_root = os.path.join(top, into) if into else top
     prefix = f"{into}/" if into else ""
@@ -252,6 +416,7 @@ def main(argv):
     append_ignores(top, prefix, report)
     reset(dest_root, "tasks", ["--all"], report)
     reset(dest_root, "notes", [], report)
+    write_manifest(dest_root, top, into, report)
 
     hooks = os.path.relpath(os.path.join(dest_root, "tasks", "_tooling", "hooks"), top)
     git("config", "core.hooksPath", hooks, cwd=top)
