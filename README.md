@@ -28,6 +28,18 @@ git config core.hooksPath tasks/_tooling/hooks     # validation on commit
 
 That is the whole install — two Python 3 files, standard library only, nothing to build.
 
+**Already have a repo?** Run `adopt` from inside it instead. Your code, history and README are
+untouched; it adds the record trees beside them and starts you with empty boards:
+
+```sh
+git clone --depth 1 https://github.com/stewartmegaw/llmeep.git /tmp/llmeep
+cd my-project
+/tmp/llmeep/_tooling/adopt --dry-run    # then again without --dry-run
+```
+
+If your repo already has a `tasks/`, `notes/`, `decisions/` or `ontology/`, it stops and tells
+you to nest instead — `--into ops`. [More on adopting](#adopting-into-a-repo-that-already-exists).
+
 **Now say to your agent.** "What am I on?", "lets start the next task", "that's done, commit it" —
 the commands below are what it runs for you, and the whole system is designed to be driven that
 way rather than typed. Point your agent at this file.
