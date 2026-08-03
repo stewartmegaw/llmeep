@@ -6,6 +6,7 @@
 ## backlog
 
 PLT-cajd Decisions need a find before they could ever be pruned
+PLT-tdb5 The platform nudges never fire in an adopted repo  detail
 
 ## recent
 
