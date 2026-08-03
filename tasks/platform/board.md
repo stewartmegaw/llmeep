@@ -2,7 +2,6 @@
 
 ## in progress
 
-PLT-rhew tm check --release verifies a cut tree before it is committed  @stewart  detail
 
 ## backlog
 
@@ -10,6 +9,7 @@ PLT-cajd Decisions need a find before they could ever be pruned
 
 ## recent
 
+2026-08-03  PLT-rhew tm check --release verifies a cut tree before it is committed  @stewart
 2026-08-03  PLT-4yn8 adopt leaves a repo with no entry point  @stewart
 2026-08-03  PLT-7g78 An existing repo should be able to adopt the skeleton without starting over  @stewart
 2026-08-03  PLT-su83 Ontology decision links break on a release cut  @stewart
@@ -24,4 +24,3 @@ PLT-cajd Decisions need a find before they could ever be pruned
 2026-08-03  PLT-8u3y Rename the taskman folder to tasks   @stewart
 2026-08-03  PLT-f7ge Name the skeleton llmeep in the README  @stewart
 2026-08-02  PLT-rnqp The 200-note window is too big to read whole; compare with the board's 15  @stewart
-2026-08-02  PLT-9c84 nm cannot remove an archived note, and drop already means something else  @stewart

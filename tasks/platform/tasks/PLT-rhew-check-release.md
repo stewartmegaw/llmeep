@@ -32,10 +32,10 @@ Run inside a cut tree, after both resets and before the commit:
 
 ## Acceptance
 
-- [ ] `tm check --release` passes on a correctly cut tree
-- [ ] It fails on each of the three defects above, reproduced from the v2 and v3 trees
-- [ ] The cutting recipe in `README.md` includes it as a step before `git commit`
-- [ ] It is not wired into any hook — a release cut is deliberate and rare, and `check` must
+- [x] `tm check --release` passes on a correctly cut tree
+- [x] It fails on each of the three defects above, reproduced from the v2 and v3 trees
+- [x] The cutting recipe in `README.md` includes it as a step before `git commit`
+- [x] It is not wired into any hook — a release cut is deliberate and rare, and `check` must
       keep its no-side-effects contract (`DEC-009`)
 
 ## Open
