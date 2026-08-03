@@ -1,9 +1,146 @@
+![Road Runner](https://static.wikia.nocookie.net/looneytunesshow/images/4/42/Road_Runner.svg/revision/latest/scale-to-width-down/268)
+
 # llmeep
 
-A clonable skeleton for small teams and agents building fast. The name is an LLM and a road
-runner: *meep meep*, and it is already gone.
+A project skeleton for a small team working with agents. Tasks, notes and decisions are flat
+files in your repo, driven by two commands and read by whatever agent you point at them —
+no tracker, no bot, no dashboard to keep in sync.
+
+Most scaffolding assumes a team that cannot hold context in its head, and charges coordination
+overhead for it — a cost a small team shipping fast pays for nothing. The agent already has the
+whole repository, so a tracker living anywhere else is a second, worse copy that someone keeps
+in sync by hand. Delete all of that and three things are left worth keeping: **a shared
+vocabulary**, **an ordered list of what is next**, and **a durable record of why**. That is
+what this is. [The longer argument](#why-this-exists) is at the bottom.
+
+## Get started
+
+```sh
+git clone --depth 1 https://github.com/stewartmegaw/llmeep.git my-project
+cd my-project && rm -rf .git && git init
+git config core.hooksPath tasks/_tooling/hooks     # validation on commit
+```
+
+That is the whole install — two Python 3 files, standard library only, nothing to build. Then
+put your codebase in `platform/` and file the first thing you need to do:
+
+```sh
+tasks/_tooling/tm add Fix the signup redirect
+tasks/_tooling/tm go                               # start it
+tasks/_tooling/tm done                             # close it, then commit
+git commit -am "Fix the signup redirect. closes PLT-9puy"
+```
+
+**Or just say it to your agent.** "What am I on?", "start PLT-9puy", "that's done, commit it" —
+the commands below are what it runs for you, and the whole system is designed to be driven that
+way rather than typed. Point your agent at this file.
+
+The hooks block a commit on inconsistent records and warn on drift; `tm check` runs the same
+checks standalone, so CI needs no separate configuration. Agent permissions are committed in
+`.claude/settings.json`, so a clone stops prompting for the daily commands immediately — the
+three that change something you cannot take back (`tm reset`, `tm check --notify --send`,
+`nm prune --yes`) deliberately still ask.
+
+## Tracking work
+
+```sh
+tasks/_tooling/tm add Fix flaky auth test   # create; -b for business, -n for top of the order
+tasks/_tooling/tm go                        # start the next task, or show the one in progress
+tasks/_tooling/tm park                      # put it back; unassigns it
+tasks/_tooling/tm done                      # complete the current task
+tasks/_tooling/tm find auth                 # search everything ever completed
+tasks/_tooling/tm standup                   # what closed this period; --send posts it
+```
+
+Defaults do the work: `add` assumes platform, `go` and `done` assume the current task. Nothing
+inferable from state has to be typed — including **who you are**: `go` assigns a task to you
+from your git config, and `done` records it.
+
+**Close the task, then commit** — code, board and history land together, and `closes <id>` in
+the message is the permanent link between the two. Listing is reading
+[the board](tasks/platform/board.md); reordering is moving a line in it. Neither needs a
+command.
+
+Full model: [`tasks/ontology.md`](tasks/ontology.md).
+
+## Capturing work
+
+`notes/` is not a filing cabinet — it is the funnel that feeds the board.
+
+```
+capture              distil               promote            prune
+notes/raw/*.md  ──▶  notes/notes.md  ──▶  tasks board    ──▶  git
+   (inbox)           (archive)                                 (archive)
+                          └──▶ or stays as context, never promoted
+```
+
+Paste a call transcript into your agent and it captures what survives; the note is the
+artifact, and the transcript is scaffolding that never gets committed.
+
+```sh
+notes/_tooling/nm add --from acme-call "Acme want SSO before they will renew"
+notes/_tooling/nm promote NTE-shmy   # a note becomes a task, linked both ways
+notes/_tooling/nm drop <file>        # a capture in notes/raw/ is processed; git keeps it
+notes/_tooling/nm prune              # bound raw/ and the archive; dry without --yes
+notes/_tooling/nm find <term>        # search every note ever captured
+```
+
+Full model: [`notes/ontology.md`](notes/ontology.md).
+
+## What it costs your agent
+
+Nothing here is auto-loaded — no `CLAUDE.md`, no always-on context file. What an agent carries
+is what it chooses to read, so the standing cost is two lines:
+
+| Loaded | When | Roughly |
+| --- | --- | --- |
+| Skill descriptions | always, in every prompt | **~150 tokens** |
+| `tm` skill | when you mention tasks | ~2,500 |
+| `nm` skill | when you mention notes | ~2,000 |
+| A board | when it lists or starts work | ~400 |
+| `tasks/ontology.md` | only when changing the model | ~7,900 |
+
+A working session on tasks costs about **3,000 tokens** of context — the skill plus the board —
+and the board stays that size on purpose: `recent` is capped at 15 and everything older is
+searched with `find` rather than carried. That cap is the whole reason the cost is flat instead
+of growing with the project.
+
+## Layout
+
+| Path        | Committed | Purpose                                                            |
+| ----------- | --------- | ------------------------------------------------------------------ |
+| `ontology/` | yes       | The shared vocabulary. What things are called and how they relate.  |
+| `tasks/`    | yes       | Task boards. `platform/` for build work, `business/` for the rest.  |
+| `notes/`    | yes       | The intake funnel for work. Captures, notes, decisions.             |
+| `.notes/`   | **no**    | Local working memory. Sessions, scratch, inbox. Gitignored.         |
+| `platform/` | yes       | **Your project goes here.** Empty in the skeleton.                  |
+
+## Start here
+
+1. [`ontology/principles.md`](ontology/principles.md) — the seven rules everything follows from.
+2. [`ontology/core.md`](ontology/core.md) — the entities that cut across subsystems. A
+   self-contained subsystem keeps its vocabulary next to itself instead, like
+   [`tasks/ontology.md`](tasks/ontology.md).
+3. [`tasks/ontology.md`](tasks/ontology.md) — how work is tracked. One board file,
+   priority by position.
+4. [`notes/ontology.md`](notes/ontology.md) — how work arrives. Capture, distil, promote,
+   prune.
+5. Describe your own project in [`ontology/domain/`](ontology/domain/README.md) — the
+   extension point. You should not need to edit the core ontology.
+6. Put your codebase in [`platform/`](platform/README.md).
+
+---
+
+**Everything below is about llmeep itself, not about your project.** When you adopt this
+skeleton, delete from this line down and write your own — the sections above are the working
+agreement and are worth keeping. Nothing in the tooling reads this file, so you can cut it
+freely; the model lives in [`tasks/ontology.md`](tasks/ontology.md) and
+[`notes/ontology.md`](notes/ontology.md), which survive any rewrite.
 
 ## Why this exists
+
+llmeep is a clonable skeleton for small teams and agents building fast. The name is an LLM and
+a road runner: *meep meep*, and it is already gone.
 
 Most project scaffolding assumes a team that cannot hold context in its head. Jira, PR
 review, sprint ceremony, exhaustive specs — all of it is coordination overhead, and it only
@@ -39,69 +176,22 @@ Go or TypeScript, nothing assumes a monolith or microservices, and nothing here 
 a model provider — the agent contract lives in `README.md`, not `CLAUDE.md` or `AGENTS.md`,
 because every agent reads README. Point yours at this file.
 
-## Layout
+## Design notes
 
-| Path        | Committed | Purpose                                                            |
-| ----------- | --------- | ------------------------------------------------------------------ |
-| `ontology/` | yes       | The shared vocabulary. What things are called and how they relate.  |
-| `tasks/`    | yes       | Task boards. `platform/` for build work, `business/` for the rest.  |
-| `notes/`    | yes       | The intake funnel for work. Captures, notes, decisions.             |
-| `.notes/`   | **no**    | Local working memory. Sessions, scratch, inbox. Gitignored.         |
-| `platform/` | yes       | **Your project goes here.** Empty in the skeleton.                  |
+### What a note is for
 
-## Tracking work
+**The transcript is never stored.** An exported call is large and mostly noise, and `notes/raw/`
+is committed — saving one would put "hello how are you" into git *permanently*, because pruning
+clears the working tree but not history, and every clone carries it forever. **The note is the
+artifact; the transcript is scaffolding.**
 
-Six commands. No install step — one Python 3 file, standard library only.
+**Distilling is the agent's job, not a command.** Deciding what in a conversation mattered is
+judgement, so there is no `nm process`. The agent reads, calls `nm add` for what survives, and
+`nm drop` for the file. `nm` never parses a transcript — the same split as everywhere else in
+this project: mechanism in the tool, judgement in the agent.
 
-```sh
-tasks/_tooling/tm add Fix flaky auth test   # create; -b for business, -n for top of the order
-tasks/_tooling/tm go                        # start the next task, or show the one in progress
-tasks/_tooling/tm park                      # put it back; unassigns it
-tasks/_tooling/tm done                      # complete the current task
-tasks/_tooling/tm find auth                 # search everything ever completed
-tasks/_tooling/tm standup                   # what closed this period; --send posts it
-```
-
-Defaults do the work: `add` assumes platform, `go` and `done` assume the current task. Nothing
-inferable from state has to be typed — including **who you are**: `go` assigns a task to you,
-derived from your git config, and `done` records it. With more than one developer, the board
-answers *who is doing what next* without anyone maintaining it
-([`DEC-010`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-010-tasks-carry-an-assignee.md)).
-
-### The standup
-
-Completed tasks fall out of `recent` as the window fills, so *what did we actually get done*
-is the one question the working tree stops being able to answer. `tm standup` asks git instead.
-
-**Usually it is a person.** Whoever runs the weekly call types it and reads the output out;
-`--send` posts it if the team wants it in writing. That needs no infrastructure, and it is the
-case worth optimising for.
-
-```sh
-tasks/_tooling/tm standup           # what closed this period, and what is still open
-tasks/_tooling/tm standup --send    # ...and post it to the team channel
-```
-
-Set `STANDUP_PERIOD` to `daily`, `workday`, `bidaily` or `weekly` in `.env`.
-
-**If you want it unattended**, `tasks/_tooling/blueprints/standup.sh` is a blueprint for an always-on
-machine: it fetches, then reports. Nothing here runs it — `tm standup --cron` prints the line
-that would (at `STANDUP_AT`, default `09:00`), and you decide whether to schedule it
-([`DEC-017`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-017-the-standup-is-usually-a-person.md)).
-
-**Close the task, then commit** — code, board and history land together:
-
-```sh
-tasks/_tooling/tm done PLT-007
-git commit -m "Fix flaky auth test. closes PLT-007"
-```
-
-The trailer makes the commit self-identifying, so `find` can recover it later and no SHA is
-stored anywhere.
-
-Listing is reading [the board](tasks/platform/board.md); reordering is moving a line in it.
-Neither needs a command. `add` and `go` search history automatically, so work that was already
-attempted surfaces without anyone deciding to look.
+The test for a line earning its place: **would someone act differently for having read it?**
+A note that fails that is noise wearing a summary's clothes.
 
 ### The agent is the interface
 
@@ -140,78 +230,42 @@ The rule generalises past Telegram: **before building an input surface, check wh
 with the repository already does it better.** Slack, email, a web UI — the answer is usually
 yes, and the surface you skip is one you never have to keep in sync.
 
-## Capturing work
-
-`notes/` is not a filing cabinet — it is the funnel that feeds the board.
-
-```
-capture              distil               promote            prune
-notes/raw/*.md  ──▶  notes/notes.md  ──▶  taskman board  ──▶  git
-   (inbox)           (archive)                                 (archive)
-                          └──▶ or stays as context, never promoted
-```
-
-The commonest path never touches the filesystem: paste an exported call transcript into the
-agent and it captures what survives.
-
-```sh
-notes/_tooling/nm add --from acme-call <<'EOF'
-Acme want SSO before they will renew
-Sam owns the Stripe migration end to end
-EOF
-
-notes/_tooling/nm promote NTE-shmy    # a note becomes a task, linked both ways
-```
-
-**The transcript is never stored.** An exported call is large and mostly noise, and `notes/raw/`
-is committed — saving one would put "hello how are you" into git *permanently*, because pruning
-clears the working tree but not history, and every clone carries it forever. **The note is the
-artifact; the transcript is scaffolding.**
-
-**Distilling is the agent's job, not a command.** Deciding what in a conversation mattered is
-judgement, so there is no `nm process`. The agent reads, calls `nm add` for what survives, and
-`nm drop` for the file. `nm` never parses a transcript — the same split as everywhere else in
-this project: mechanism in the tool, judgement in the agent.
-
-The test for a line earning its place: **would someone act differently for having read it?**
-A note that fails that is noise wearing a summary's clothes.
-
-```sh
-notes/_tooling/nm drop <file>     # a capture in notes/raw/ is processed; git keeps it
-notes/_tooling/nm prune           # bound raw/ and the archive; dry without --yes
-notes/_tooling/nm find <term>     # search every note ever captured
-```
-
-Full model: [`notes/ontology.md`](notes/ontology.md).
-
-**Install the validation hooks** — one step, because `.git/hooks` is not committed:
-
-```sh
-git config core.hooksPath tasks/_tooling/hooks
-```
-
-Agent permissions are committed in `.claude/settings.json`, so a clone stops prompting for the
-daily commands immediately. The three that change something you cannot take back — `tm reset`,
-`tm check --notify --send`, `nm prune --yes` — deliberately still ask.
-
-They block on inconsistent records and warn on drift. `tm check` runs the same checks
-standalone, so CI needs no separate configuration.
-
 Full model: [`tasks/ontology.md`](tasks/ontology.md).
 
-## Start here
+### The standup
 
-1. [`ontology/principles.md`](ontology/principles.md) — the seven rules everything follows from.
-2. [`ontology/core.md`](ontology/core.md) — the entities that cut across subsystems. A
-   self-contained subsystem keeps its vocabulary next to itself instead, like
-   [`tasks/ontology.md`](tasks/ontology.md).
-3. [`tasks/ontology.md`](tasks/ontology.md) — how work is tracked. One board file,
-   priority by position.
-4. [`notes/ontology.md`](notes/ontology.md) — how work arrives. Capture, distil, promote,
-   prune.
-5. Describe your own project in [`ontology/domain/`](ontology/domain/README.md) — the
-   extension point. You should not need to edit the core ontology.
-6. Put your codebase in [`platform/`](platform/README.md).
+Completed tasks fall out of `recent` as the window fills, so *what did we actually get done*
+is the one question the working tree stops being able to answer. `tm standup` asks git instead.
+
+**Usually it is a person.** Whoever runs the weekly call types it and reads the output out;
+`--send` posts it if the team wants it in writing. That needs no infrastructure, and it is the
+case worth optimising for.
+
+```sh
+tasks/_tooling/tm standup           # what closed this period, and what is still open
+tasks/_tooling/tm standup --send    # ...and post it to the team channel
+```
+
+Set `STANDUP_PERIOD` to `daily`, `workday`, `bidaily` or `weekly` in `.env`.
+
+**If you want it unattended**, `tasks/_tooling/blueprints/standup.sh` is a blueprint for an always-on
+machine: it fetches, then reports. Nothing here runs it — `tm standup --cron` prints the line
+that would (at `STANDUP_AT`, default `09:00`), and you decide whether to schedule it
+([`DEC-017`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-017-the-standup-is-usually-a-person.md)).
+
+**Close the task, then commit** — code, board and history land together:
+
+```sh
+tasks/_tooling/tm done PLT-007
+git commit -m "Fix flaky auth test. closes PLT-007"
+```
+
+The trailer makes the commit self-identifying, so `find` can recover it later and no SHA is
+stored anywhere.
+
+Listing is reading [the board](tasks/platform/board.md); reordering is moving a line in it.
+Neither needs a command. `add` and `go` search history automatically, so work that was already
+attempted surfaces without anyone deciding to look.
 
 ## Adopting this skeleton
 
@@ -228,6 +282,11 @@ this project's boards, history and notes, and two resets to run before they stop
 by accident.
 
 Then work through [`ontology/domain/README.md`](ontology/domain/README.md).
+
+**And cut this README back.** Everything from the `---` above down is about llmeep, not about
+your project — delete it and write your own introduction in its place. Keep the sections above
+the line: they describe how the tooling in this repo is driven, and they stay true whatever you
+build in `platform/`.
 
 ### Branches
 

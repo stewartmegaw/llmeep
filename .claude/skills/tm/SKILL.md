@@ -66,8 +66,10 @@ would not mention it in standup, it does not need a task.
 ## A closed task is committed before the next one starts
 
 **Before `tm add` or `tm go`, check `git status` for uncommitted changes to
-`tasks/*/board.md` or `tasks/_tooling/history.tsv`.** Those two files change only when `done`
-runs, so uncommitted changes to them mean the last task was closed and never committed.
+`tasks/_tooling/history.tsv`.** `done` is the only command that writes a row there, so an
+uncommitted change to it means the last task was closed and never committed. Do not key on
+`board.md` — `add`, `go` and `park` all write it, and a task merely filed is not a task
+waiting on a commit.
 
 When you find them, **ask** — an `AskUserQuestion` with the closed task's id and title, offering
 *commit it now* (recommended) or *start anyway*. Do not commit unasked; a commit is the user's

@@ -1,6 +1,6 @@
 # platform — your project goes here
 
-This directory is intentionally empty. It is a hole, not a scaffold.
+This directory is intentionally empty.
 
 The skeleton makes **no assumption** about what fills it: language, framework, architecture,
 build system, deployment target, monorepo or single service. Per
@@ -9,17 +9,11 @@ choices.
 
 ## What to do
 
-Put your codebase here — `src/`, `services/`, `infra/`, whatever shape it takes. Then:
-
-1. Replace this file with your platform's own README: what it is, how to build it, how to
-   run it, how to test it.
-2. Describe its domain in [`ontology/domain/`](../ontology/domain/README.md).
-3. Add platform-specific ignores to a `.gitignore` **in this directory**, not the root one —
-   the root ignores stay language-agnostic so the skeleton remains mergeable.
+Put your codebase here — `src/`, `services/`, `infra/`, whatever shape it takes.
 
 ## The boundary
 
-Everything above this directory — `ontology/`, `tasks/`, `notes/` — is about the project.
+Everything above this directory — `ontology/`, `tasks/`, `notes/`, `decisions/` — is about the project.
 Everything inside it is the project.
 
 Keep the boundary clean:

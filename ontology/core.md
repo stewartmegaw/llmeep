@@ -1,58 +1,39 @@
-# Core entities
+# Core
 
-The entities the skeleton itself defines. These are the same in every clone. Your project's
-entities go in [`domain/`](domain/README.md).
+The shared vocabulary: what things are called, and where each one is defined. It exists so that
+a human and an agent, reading the same word, resolve it to the same thing.
 
-Each entry states: what it is, what identifies it, what it relates to, where it lives.
+It is **descriptive, not aspirational**. If this file and reality disagree, one of them is a
+bug; say which.
 
----
+**Extend, do not modify.** Your project's entities go in [`domain/`](domain/README.md), which
+starts empty. If you find yourself editing this file to fit your project, that is the signal
+the concept belongs there instead — the exception being a genuine defect in the core model.
 
-## Platform
+## Where things are defined
 
-The system being built — code, infrastructure, configuration, and whatever else ships.
+A self-contained subsystem keeps its vocabulary **next to itself**, so it stays liftable and so
+it sits where someone working on it will see it. Only what is referenced from outside a
+subsystem is named here.
 
-- **Identity:** singular. There is one platform per project.
-- **Lives in:** `platform/`
-- **Relates to:** subject of every task in [Ledger](#ledger) `platform`.
-- **Notes:** the skeleton is agnostic to its language and architecture. `platform/` is a
-  deliberate hole; the skeleton does not scaffold it or constrain it.
+| Term          | Defined in                                        |
+| ------------- | ------------------------------------------------- |
+| **task**      | [`tasks/ontology.md`](../tasks/ontology.md) — with ledger, board, sidecar, window, history |
+| **note**      | [`notes/ontology.md`](../notes/ontology.md) — with capture, archive, distil, promote, prune |
+| **decision**  | below — it belongs to the project, not to a subsystem |
+| **scratch**   | [`.notes/README.md`](../.notes/README.md) — local, disposable, never a source of truth |
+| **platform**  | The system being built. One per project, in `platform/`. Never "the app" or "the product". |
+| **business**  | Everything that is not the platform. Subject of `tasks/business/`. |
 
-## Business
-
-Everything about the project that is not the platform: customers, positioning, pricing,
-operations, finance, legal, hiring.
-
-- **Identity:** singular, like Platform.
-- **Lives in:** no dedicated tree — it is the subject matter of `tasks/business/` and of
-  much of `notes/`.
-- **Relates to:** subject of every task in [Ledger](#ledger) `business`.
-
-## Task
-
-A unit of intended change — the thing the project actually tracks.
-
-- **Defined in:** [`tasks/ontology.md`](../tasks/ontology.md), along with Ledger, Board,
-  Sidecar, Window and History.
-- **Notes:** taskman's vocabulary is co-located with taskman. Only the pointer lives here,
-  because a Task is referenced from outside the subsystem — a [Note](#note) or a commit
-  message may cite one by ID.
-
-## Note
-
-Durable knowledge captured from a conversation, a call, or a thought — and the intake funnel
-that feeds the board.
-
-- **Defined in:** [`notes/ontology.md`](../notes/ontology.md), along with Capture, Archive and
-  the distil/promote/prune lifecycle.
-- **Notes:** only the pointer lives here, because a Note is referenced from outside the
-  subsystem — a task can name the note it came from.
+The test for whether something belongs here or in a subsystem: **is it referenced by more than
+one subsystem?** Task is defined in `tasks/` because only that subsystem defines it, even
+though commits and notes cite task ids. Principles live here because everything obeys them.
 
 ## Decision
 
 A record of a choice made, the alternatives rejected, and why — a claim the project stands
-behind, written deliberately. It belongs to the project rather than to any subsystem, which is
-why it sits at the top level (`DEC-021`). A [Note](#note) is something someone said on a
-Tuesday; the two are unrelated.
+behind, written deliberately. It sits at the top level rather than inside a subsystem
+(`DEC-021`). A note is something someone said on a Tuesday; the two are unrelated.
 
 - **Identity:** `DEC-###`, sequential, never reused.
 - **Lives in:** `decisions/DEC-###-<slug>.md`
@@ -63,40 +44,27 @@ Tuesday; the two are unrelated.
   that disagrees with `superseded_by`, a dangling reference and a duplicate id. Nobody can hold
   that graph in their head, so nobody is asked to.
 
-## Scratch
+## Words we avoid
 
-Local, disposable working material: session logs, intermediate reasoning, anything not yet worth
-committing.
+Not style policing — each of these has caused a real ambiguity.
 
-- **Identity:** none guaranteed. Nothing may reference Scratch as a source of truth.
-- **Lives in:** `.notes/` — gitignored.
-- **Relates to:** may be **promoted** into a [Note](#note) or a Task. Promotion is explicit and
-  one-directional; see principle 4.
+| Avoid                | Because                                                          | Use instead                    |
+| -------------------- | ---------------------------------------------------------------- | ------------------------------ |
+| doc, documentation   | Conflates committed notes with generated API docs.               | **note**, or name the artifact |
+| the app, the product | Ambiguous between platform and business framing.                 | **platform**                   |
+| TODO (as a tracker)  | Untracked work with no ID. Fine in code, not as a unit of work.  | a **task**                     |
+| archive (as a verb)  | Ambiguous: deleted, or done, or superseded?                      | `done`, `dropped`, `superseded` |
 
-## Ontology
+Tasks has its own avoid-list — see [`tasks/ontology.md`](../tasks/ontology.md).
 
-This vocabulary. Self-describing, and an entity in its own right because tooling and agents
-are expected to read it.
+## Naming conventions
 
-- **Lives in:** `ontology/`, split into core (stable, shared) and `domain/` (yours).
-- **Relates to:** defines the terms used by every other entity.
-
-## Skill
-
-A packaged, named procedure an agent invokes — the sanctioned way to mutate or query
-records under principle 2.
-
-- **Identity:** its name.
-- **Lives in:** not yet decided. Location and implementation language are open questions;
-  see `README.md` → Open decisions.
-- **Notes:** whatever form Skills take, they must be invokable without a specific vendor's
-  agent runtime. A Skill that only one provider's tooling can run violates principle 3.
-
-## Automation
-
-An unattended process — a hook, a scheduled job, a CI step — that performs the same kind of
-mutation a Skill does, without a human or agent in the loop.
-
-- **Relates to:** shares the invariants and, ideally, the implementation of [Skills](#skill).
-- **Notes:** Skills and Automations are the only two legitimate writers to `tasks/` and
-  `notes/`.
+- **Task IDs:** `PLT-9puy`, `BUS-hg7f`. Randomly allocated so branches cannot collide. Never
+  reused, never renumbered.
+- **Decision IDs:** `DEC-001`. Same rules.
+- **Filenames:** `<ID>-<kebab-case-slug>.md`. The slug is a convenience; the ID is identity.
+- **Dates:** always absolute and ISO-8601 (`2026-07-31`). Never "yesterday", "last sprint",
+  "recently" — a relative date is unresolvable to a reader arriving later.
+- **References:** always by ID (`PLT-004`), never by title. Titles change.
+- **Terms are used verbatim** everywhere: task titles, note headings, commit messages, code
+  identifiers. Consistency of naming is the entire point.
