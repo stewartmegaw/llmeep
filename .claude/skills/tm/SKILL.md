@@ -13,9 +13,10 @@ wanting to add rules to this file, they belong in the executable or in
 Run from the repo root:
 
 ```sh
-tasks/_tooling/tm add [-b] [-n] <title...>   # -b business ledger, -n top of the order
+tasks/_tooling/tm add [-b] [-n] <title...>   # -b business ledger, -n prioritise it
 tasks/_tooling/tm go [id]                    # show the current task, or start the next one
-tasks/_tooling/tm park [id] [-n]             # return it to the backlog, unassigned
+tasks/_tooling/tm prioritise <id> [-n]       # backlog → prioritised, -n for the top
+tasks/_tooling/tm park [id] [-n]             # return it to prioritised, unassigned
 tasks/_tooling/tm done [id] [--force]        # complete it
 tasks/_tooling/tm find <term>                # search every task ever completed
 tasks/_tooling/tm standup [--send]           # the period's work; --send posts it
@@ -34,7 +35,8 @@ tasks/_tooling/tm reset [--yes]              # clear task records when adopting 
 | "what's next" / "what am I on" | `tm go` |
 | "let's start PLT-9puy" | `tm go PLT-9puy` |
 | "add a task for X" | `tm add X` — pass `-b` if the done-state is a business outcome |
-| "park that" / "I'm blocked on this" | `tm park` — returns it to the `backlog`, unassigned |
+| "that's the next thing" / "move X up" | `tm prioritise <id>`, `-n` for the top |
+| "park that" / "I'm blocked on this" | `tm park` — returns it to `prioritised`, unassigned |
 | "what is sam working on" | `grep @sam tasks/*/board.md` |
 | "give this to sam" | `tm add -f sam <title>`, or `tm go <id> -f sam` |
 | "commit task" / "that's done" | `tm done`, then `git commit` with `closes <id>` in the message |
@@ -115,7 +117,7 @@ receives are the same report.
     **@stew**
     ✓ Fix flaky auth test
 
-    **Next up**
+    **Priority**
     · Migrate config loader
     · Upgrade toolchain
 
@@ -153,20 +155,28 @@ over Remote Control — tested 2026-08-01. Plain bold ids only.
 
     **PLT-9puy**  Fix flaky auth test — @stew
 
-    ### backlog
+    ### prioritised
     ---
 
     **PLT-k3f9**  Migrate config loader — @sam
 
     **PLT-2m4x**  Upgrade toolchain — blocked by PLT-9puy
 
+    ### backlog
+    ---
+
     **PLT-7t1p**  Drop legacy endpoint — *unassigned*
 
     ---
 
-    *start · done · park · drop · discuss*
+    *start · prioritise · done · park · drop · discuss*
 
 Omit empty sections. Omit `recent` unless asked.
+
+**`prioritised` is ordered and `backlog` is not.** Render them in that order and never
+reorder either one yourself. Position in `prioritised` is priority, so it is information;
+position in `backlog` is an accident of when something was filed, so reading it as a ranking —
+or telling the user what is "top of the backlog" — invents a decision nobody made.
 
 **End with the hint line** whenever the board is not empty — one italic line, no prompt, no
 blocking. The verbs already work in conversation; the hint exists because someone who did not
@@ -194,7 +204,11 @@ on the line.
 - **Include `closes <id>`** in the commit message when acceptance is met. That trailer is the
   permanent link between task and commit — nothing else records it.
 - **Listing is reading `tasks/<ledger>/board.md`. Reordering is moving a line in it.**
-  Neither is a command; do not invent one.
+  Neither is a command; do not invent one. `prioritise` is the exception, and only for
+  `backlog` → `prioritised` — reordering *within* `prioritised` is still a hand edit.
+- **`tm add` files into the pool, not the queue.** A bare `tm go` will not pick it up. If the
+  user says the thing they just filed is what they are doing next, that is `tm add -n` or a
+  following `tm prioritise` — say which you used.
 - **Resolving a board merge conflict** follows the table in `tasks/_tooling/ontology.md`, not a
   textual merge.
 - **`tm standup` prints; `tm standup --send` broadcasts.** Nothing in the repo triggers a

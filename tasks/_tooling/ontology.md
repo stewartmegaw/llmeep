@@ -72,11 +72,16 @@ being worked on, and what was recently completed.
 PLT-004  Add request tracing              @stew
 PLT-011  Migrate config loader            @sam
 
-## backlog
+## prioritised
 
 PLT-007  Fix flaky auth test
 PLT-002  Rework the retry policy          @sam  blocked:PLT-007  detail
 PLT-009  Upgrade toolchain
+
+## backlog
+
+PLT-014  Replace the fixture loader
+PLT-021  Audit the retry timeouts
 
 ## recent
 
@@ -84,9 +89,13 @@ PLT-009  Upgrade toolchain
 2026-07-29  PLT-003  Drop legacy endpoint
 ```
 
-- **Priority is position.** No P0/P1/P2. The question is never "is this a P1?" — it is "is
-  this above or below that?", which is answerable. Labels inflate until everything is P1;
-  positions cannot.
+- **Priority is position — inside `prioritised`.** No P0/P1/P2. The question is never "is this
+  a P1?" — it is "is this above or below that?", which is answerable. Labels inflate until
+  everything is P1; positions cannot.
+- **`backlog` is a pool, and has no order to read.** Everything `add` files lands there.
+  Ranking is a separate, deliberate act, so filing a thought costs nothing and the queue stays
+  a statement someone actually made. A line's position in the pool means nothing; do not read
+  it as priority, and do not spend effort arranging it.
 - **Status is section.** `in progress` holds at most one task **per assignee**.
 - **First token is the task's own ID.** Everything after the title is a labelled tag.
 - **`blocked:PLT-007`** — cannot start until that task is done.
@@ -120,10 +129,11 @@ A unit of intended change. **One line on a [Board](#board).**
 - **Lifecycle:**
 
   ```
-  backlog → in progress → done
-  backlog → done       (small tasks; go/done pairs are friction at MVP pace)
-  backlog → dropped    (delete the line; git keeps it)
-  in progress → backlog  (returned; no ceremony)
+  backlog → prioritised → in progress → done
+  backlog → in progress            (`go <id>` — naming it is the decision)
+  backlog → dropped                (delete the line; git keeps it)
+  prioritised → backlog            (deprioritised; a hand edit)
+  in progress → prioritised        (returned; no ceremony)
   ```
 
 - **No review state**, deliberately. With one developer, or with AI-generated changes at
@@ -240,9 +250,10 @@ step. See [`DEC-003`](https://github.com/stewartmegaw/llmeep/blob/main/decisions
 
 | Skill  | Invocation           | Does                                                            |
 | ------ | -------------------- | --------------------------------------------------------------- |
-| `add`  | `tm add <title…>`    | Allocates the ID, appends to the `backlog`. `-f <name>` assigns. **Searches History.** |
-| `go`   | `tm go [id]`         | No id: shows what is in progress, or starts the top of `open` if nothing is. With an id: starts that one. **Searches History.** |
-| `park` | `tm park [id] [-n]`  | `in progress` → `backlog`, at the bottom (`-n` for the top). Unassigns it. |
+| `add`  | `tm add <title…>`    | Allocates the ID, files it in the `backlog` pool. `-n` prioritises it instead; `-f <name>` assigns. **Searches History.** |
+| `go`   | `tm go [id]`         | No id: shows what is in progress, or starts the top of `prioritised` if nothing is. With an id: starts that one, from either open section. **Searches History.** |
+| `prioritise` | `tm prioritise <id> [-n]` | `backlog` → `prioritised`, at the bottom (`-n` for the top). |
+| `park` | `tm park [id] [-n]`  | `in progress` → `prioritised`, at the bottom (`-n` for the top). Unassigns it. |
 | `done` | `tm done [id]`       | Defaults to whatever is in progress. Moves to `recent`, prunes, appends to History, notifies. Run **before** committing. |
 | `find` | `tm find <term>`     | Greps History explicitly.                                        |
 | `standup` | `tm standup [--send]` | Reports the period's completions and what is still in progress. Prints; `--send` posts. Run by a person; `_tooling/blueprints/standup.sh` is there if you want it unattended. |
@@ -250,9 +261,10 @@ step. See [`DEC-003`](https://github.com/stewartmegaw/llmeep/blob/main/decisions
 ```sh
 tm add Fix flaky auth test        # title needs no quotes; everything after the flags is the title
 tm add -b Call three customers    # -b for the business ledger
-tm add -n Fix the build           # -n puts it on top of the order
-tm go                             # "what should I be doing?"
-tm go PLT-007                     # start that one specifically
+tm add -n Fix the build           # -n prioritises it, on top of the order
+tm prioritise PLT-014             # pool → the bottom of the queue
+tm go                             # "what should I be doing?" — top of prioritised
+tm go PLT-007                     # start that one specifically, pool or queue
 tm park                           # put it back; the next `go` picks something else
 tm done                           # complete the current task
 tm standup                        # what got finished this period; --send posts it
@@ -263,19 +275,34 @@ tm standup --cron                 # the line to schedule, if you want it unatten
 assume the current task, since WIP-1 means there is only ever one. Nothing that can be
 inferred from state has to be typed.
 
-> **`add` appends to the bottom; `go` takes from the top.** So `tm add X` followed by bare
-> `tm go` starts whatever was already highest-priority, **not** X. That is correct — priority is
-> position, and a new task has not earned the top — but it surprises people, and scripting the
-> pair has closed the wrong task in practice. Use `tm add -n` if it really is next, or name it:
-> `tm go <id>`.
+> **`add` files into the pool; `go` takes from the queue.** So `tm add X` followed by bare
+> `tm go` starts whatever was already highest-priority, **not** X — and if nothing is
+> prioritised, it starts nothing at all and says so. That is correct: a new task has not earned
+> the top, and an unranked pool is not a plan the tool should pick from. But it surprises
+> people, and scripting the pair has closed the wrong task in practice. Use `tm add -n` if it
+> really is next, or name it: `tm go <id>`.
 
 `go` is the one that beats a tracker: with no argument it is a **context loader**, not a state
 change. It answers "what am I doing?" and "what's next?" with the same command, and puts the
 task, its sidecar, its blockers and any linked decisions in front of the agent.
 
+### Why `prioritise` is a command when reordering is not
+
+It fails the test below — moving a line from `backlog` to `prioritised` breaks no invariant,
+and `go <id>` starts anything from either section, so the tool never traps you into needing it.
+It exists anyway, and that is worth being honest about rather than retrofitting a principle.
+
+The case for it is **volume**. Triage is the one board edit that happens in bulk: a week's
+filings, ranked in one sitting. Hand-editing that many lines is where one lands in `recent`
+without a date or loses its `blocked:` tag — `check` catches both, but after the fact and out of
+context. Every other hand edit moves one line at a time.
+
+**Hand editing remains entirely valid**, and is still the right tool for reordering *within*
+`prioritised`, which has no command and needs none.
+
 ### Why `park` is a command when reordering is not
 
-Moving a line between `in progress` and `backlog` breaks no invariant, so by the
+Moving a line between `in progress` and `prioritised` breaks no invariant, so by the
 [reordering exemption](#reordering-is-a-hand-edit) it could be a hand edit. It is a command
 because **WIP-1 creates the need**: `go` refuses while something is in progress, so anyone switching
 tasks is pushed by the tool's own guard into editing the board — precisely what
@@ -285,9 +312,10 @@ own rule has to provide the way out.
 Nothing in `tm` blocks deleting a line, so **dropping stays a hand edit**. The test is not "is
 it a status transition?" but "does the tool leave you any other way?"
 
-`park` returns a task to the **bottom** of the `backlog` by default. A parked task is usually one you
-could not continue; putting it back on top means the next bare `go` restarts it immediately.
-`-n` for the case where it genuinely is still next.
+`park` returns a task to the **bottom of `prioritised`**, not to the pool. Something you started
+was decided work; parking says "not now", not "never ranked this". Bottom by default — a parked
+task is usually one you could not continue, and putting it back on top means the next bare `go`
+restarts it immediately. `-n` for the case where it genuinely is still next.
 
 ### The tool does not classify
 
@@ -465,9 +493,11 @@ each time. Apply these in order:
 
 | Element        | Rule                                                                       |
 | -------------- | -------------------------------------------------------------------------- |
-| `backlog` lines | **Union both sides.** A task added on either branch exists.                 |
-| Ordering       | No correct answer. Keep the target branch's order; append the incoming branch's tasks below, preserving their relative order. Reprioritise afterwards if it matters. |
-| `in progress`  | If both sides have one, that breaks WIP-1. Keep whichever one's work is in the merge; return the other to the top of the `backlog`. |
+| `backlog` lines | **Union both sides.** A task added on either branch exists. The pool has no order, so there is nothing else to resolve — this is the cheap case, and most conflicts are now this one. |
+| `prioritised` lines | **Union both sides**, then see Ordering. A task prioritised on either branch stays prioritised; nobody's ranking decision is silently dropped. |
+| Ordering       | Only `prioritised` has one. No correct answer: keep the target branch's order; append the incoming branch's tasks below, preserving their relative order. Reprioritise afterwards if it matters. |
+| Same task, both sections | Someone prioritised it while someone else did not. **Keep `prioritised`** — an explicit ranking outranks the absence of one. |
+| `in progress`  | If both sides have one, that breaks WIP-1. Keep whichever one's work is in the merge; return the other to the top of `prioritised`. |
 | `recent`       | Union, sort by date descending, prune to 15.                                |
 | `history.tsv`  | Append-only, so both sides appended at EOF. Keep both lines, sort by date. Never drop one. |
 
@@ -549,7 +579,9 @@ The underscore says *not a record* — the same signal `_template.md` already ca
 
 | Term         | Means                                                                   |
 | ------------ | ----------------------------------------------------------------------- |
-| **backlog**  | The ordered section of tasks not yet started. Position is priority.     |
+| **backlog**  | The unordered pool of filed tasks. Position means nothing.              |
+| **prioritised** | The ordered queue of tasks decided on. Position is priority.         |
+| **open**     | Both together — everything not started and not finished.                |
 | **board**    | The one file holding a ledger's live state.                             |
 | **ledger**   | One of the two streams: `platform` or `business`.                       |
 | **task**     | A unit of intended change. One line. Not "ticket", "issue", "story".    |
@@ -557,14 +589,14 @@ The underscore says *not a record* — the same signal `_template.md` already ca
 | **window**   | The `recent` section — last 15 completed.                               |
 | **prune**    | Drop an entry off the end of the window, out of the working tree.       |
 | **history**  | `tasks/_tooling/history.tsv`. Grep-only, never loaded.                   |
-| **position** | A task's place in the `open` order. **This is its priority.**           |
+| **position** | A task's place in the `prioritised` order. **This is its priority.**    |
 
 ### Words we avoid
 
 | Avoid                      | Because                                                          | Use instead              |
 | -------------------------- | ---------------------------------------------------------------- | ------------------------ |
 | ticket, issue, story, card | Imply an external tracker's semantics we do not implement.       | **task**                 |
-| backlog                    | Vague about ordering; the board defines a strict one.            | the `backlog` section       |
+| queue, todo, icebox        | Imply an ordering, or a fate, that the pool does not have.       | the `backlog` section    |
 | priority (as a label)      | P0/P1/P2 inflate until everything is P1.                         | "above/below `PLT-004`"  |
 | archive                    | There is no archive. Completed work leaves the tree.             | **history**, via `find`  |
 | WIP                        | Not a status.                                                    | `in progress`            |
