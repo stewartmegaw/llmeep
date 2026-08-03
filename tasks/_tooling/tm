@@ -678,24 +678,43 @@ def standup_next():
     Both ledgers share one list, tagged per line rather than split under two
     headings. The ordering across them is still a judgement someone made, and
     two sections would either duplicate the eight-line budget or force an
-    arbitrary split of it."""
-    queued, pooled = [], 0
+    arbitrary split of it.
+
+    The pool follows under its own heading. Listing it *as the queue* would
+    present arbitrary lines as a plan, which is what `DEC-027` refused; listing
+    it under `BACKLOG` claims nothing about order and answers the question the
+    queue cannot — what else is there? Each heading carries its full count, so
+    a truncated section still says how much it is standing in for."""
+    queued, pooled = [], []
     for ledger in LEDGERS:
         try:
             board = Board(ledger)
         except Fail:
             continue
         queued.extend(board.prioritised)
-        pooled += len(board.backlog)
-    if not queued:
-        if pooled:
-            return [("PRIORITY", [f"· nothing prioritised — {pooled} waiting in the backlog"])]
-        return []
+        pooled.extend(board.backlog)
+    out = []
+    if queued:
+        out.append((f"PRIORITY ({len(queued)})", standup_lines(queued)))
+    elif pooled:
+        # An empty queue behind a full pool is the most actionable thing a
+        # standup can say, so it gets a heading of its own rather than being
+        # inferred from the absence of one.
+        out.append(("PRIORITY (0)", ["· nothing prioritised"]))
+    if pooled:
+        out.append((f"BACKLOG ({len(pooled)})", standup_lines(pooled)))
+    return out
+
+
+def standup_lines(tasks):
+    """Body lines for one list of tasks — capped, tagged, and honest about what
+    the cap hid. The heading carries the full count, so the trailing "…and N
+    more" is what makes the truncation visible in the lines themselves."""
     body = [f"{ledger_tag(t)}  {t.title}" + (f" — @{t.assignee}" if t.assignee else "")
-            for t in queued[:STANDUP_LIST]]
-    if len(queued) > STANDUP_LIST:
-        body.append(f"…and {len(queued) - STANDUP_LIST} more")
-    return [("PRIORITY", body)]
+            for t in tasks[:STANDUP_LIST]]
+    if len(tasks) > STANDUP_LIST:
+        body.append(f"…and {len(tasks) - STANDUP_LIST} more")
+    return body
 
 
 def standup_notes():

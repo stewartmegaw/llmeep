@@ -120,9 +120,14 @@ receives are the same report.
     **In progress**
     PLT  Migrate config loader — @sam
 
-    **Priority**
+    **Priority (2)**
     PLT  Upgrade toolchain
     BUS  Renew the Acme contract
+
+    **Backlog (11)**
+    PLT  Replace the fixture loader
+    PLT  Audit the retry timeouts
+    …and 9 more
 
     **Captured, not yet work**
     · Acme want SSO before they will renew
@@ -130,6 +135,11 @@ receives are the same report.
 **`PLT` and `BUS` are the tool's, not yours.** Both ledgers share one list, so the tag is the
 only thing saying which is which — keep it, keep the two-space gap, and never add one to a line
 the tool did not tag. Captured notes have no ledger and keep their `·`.
+
+**The bracketed counts are the full sections, not what is shown.** `Backlog (11)` above eight
+lines is not a contradiction — reproduce both the count and the `…and N more` line exactly, and
+never recount from the lines you can see. `Priority (0)` appears only when nothing is ranked and
+the pool is not empty, which is the one state a standup most needs to say out loud.
 
 Same constraints as the board: **never a code block** — it scrolls sideways on a phone — and a
 blank line after any `---`. No hint line; a standup is a report, not a menu.
