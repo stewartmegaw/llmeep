@@ -545,7 +545,11 @@ def standup_text(period, today=None):
         except Fail:
             continue
         live.extend(board.in_progress)
-    if not done and not live:
+    # Computed before the emptiness test: a period with nothing closed and
+    # nothing running still has a standup worth holding if there is a queue or
+    # anything captured. Silence is for a repo with no state at all.
+    extras = standup_next() + standup_notes()
+    if not done and not live and not extras:
         return None
 
     lines = [f"Standup · {start.isoformat()} → {today.isoformat()}"]
@@ -563,7 +567,62 @@ def standup_text(period, today=None):
         lines += ["", "Still in progress"]
         lines += [f"  · {t.title} — {'@' + t.assignee if t.assignee else 'unassigned'}"
                   for t in live]
+    lines += extras
     return "\n".join(lines)
+
+
+STANDUP_LIST = 8   # a standup is read aloud or on a phone; a full board is neither
+
+
+def standup_next():
+    """What the meeting is actually for. Completed work answers "what happened";
+    the top of the backlog is the part anyone can still change their mind about,
+    and it was the one thing a standup could not show."""
+    queued = []
+    for ledger in LEDGERS:
+        try:
+            queued.extend(Board(ledger).backlog)
+        except Fail:
+            continue
+    if not queued:
+        return []
+    out = ["", "Next up"]
+    out += [f"  · {t.title}" + (f" — @{t.assignee}" if t.assignee else "")
+            for t in queued[:STANDUP_LIST]]
+    if len(queued) > STANDUP_LIST:
+        out.append(f"  …and {len(queued) - STANDUP_LIST} more")
+    return out
+
+
+def standup_notes():
+    """Captured but not yet acted on — the material a standup exists to turn
+    into decisions.
+
+    Reads `notes/` directly and shrugs when it is absent, the same way `nm`
+    reads this ledger (`DEC-022`). The two subsystems stay liftable apart:
+    neither requires the other, and each is better when both are there.
+    """
+    path = os.path.join(REPO, "notes", "notes.md")
+    if not os.path.exists(path):
+        return []
+    notes = []
+    with open(path) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line.startswith("NTE-"):
+                continue
+            body = line.split(None, 1)[1] if " " in line else ""
+            body = re.sub(r"\s{2,}(src|task):\S+", "", body).strip()
+            promoted = "task:" in line
+            notes.append((body, promoted))
+    unpromoted = [n for n in notes if not n[1]]
+    if not unpromoted:
+        return []
+    out = ["", "Captured, not yet work"]
+    out += [f"  · {body}" for body, _ in unpromoted[:STANDUP_LIST]]
+    if len(unpromoted) > STANDUP_LIST:
+        out.append(f"  …and {len(unpromoted) - STANDUP_LIST} more")
+    return out
 
 
 def standup_cron(period):
