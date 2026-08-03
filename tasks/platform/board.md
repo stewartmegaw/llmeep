@@ -7,9 +7,11 @@
 
 PLT-cajd Decisions need a find before they could ever be pruned
 PLT-gxq2 An installed skeleton can update itself to a newer release  detail
+PLT-3wjv Board could use a per-person filter
 
 ## recent
 
+2026-08-03  PLT-x9wv nm still points at taskman, so promote and prune are broken  @stewart
 2026-08-03  PLT-wxr5 A nested adopt leaves root-relative paths everywhere  @stewart
 2026-08-03  PLT-tdb5 The platform nudges never fire in an adopted repo  @stewart
 2026-08-03  PLT-jdgz Move adopt to the repo root          @stewart
@@ -24,4 +26,3 @@ PLT-gxq2 An installed skeleton can update itself to a newer release  detail
 2026-08-03  PLT-44pv A released skeleton should not carry llmeep decisions  @stewart
 2026-08-03  PLT-7fyv Offer to commit a closed task before starting the next one  @stewart
 2026-08-03  PLT-f8u9 tm reset leaves folder sidecars behind  @stewart
-2026-08-03  PLT-6sqw Fix the version-cutting recipe and the release rationale  @stewart
