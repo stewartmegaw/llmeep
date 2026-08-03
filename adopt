@@ -35,14 +35,14 @@ SRC = os.path.dirname(os.path.abspath(__file__))
 # has its code, and it stays where it is.
 TREES = ["tasks", "notes", "decisions", "ontology"]
 
-# Agent adapters and the permission allowlist (DEC-003). Copied to the same
-# paths, since an existing repo's .claude/ may already hold other skills.
-AGENT = [".claude/skills/tm", ".claude/skills/nm", ".claude/settings.json", ".env.example"]
+# Agent adapters and the permission allowlist (DEC-003). These stay at the repo
+# root even for a nested install, because that is the only place an agent looks.
+AGENT = [".claude/skills/tm", ".claude/skills/nm", ".claude/settings.json"]
 
-# `.notes/` is gitignored except its README, which states the contract the rest
-# of the ontology points at. Appending that carve-out to .gitignore without
-# shipping the file it names leaves a dead link in ontology/core.md.
-SCRATCH = ".notes/README.md"
+# These follow the install instead. `tm` reads `.env` from its own REPO, which
+# for `--into ops` is `ops/` — a root `.env.example` would document a file the
+# tool never opens.
+BESIDE = [".env.example", ".notes/README.md"]
 
 IGNORES = [
     "# llmeep — local working memory, never committed except its contract.",
@@ -150,6 +150,42 @@ def working_agreement(top, dest_root, into, report):
     report.append(("add", rel(dst, top), "how the tooling works — link it from your README"))
 
 
+def reroot(top, into, report):
+    """Everything llmeep ships writes its own paths from the repo root, because
+    that is where they normally are. Nested, every one of them is wrong:
+
+    - `settings.json` allowlists `Bash(./tasks/_tooling/tm …)`, which matches
+      nothing, so an adopter is prompted for every command they were meant to
+      stop being prompted for.
+    - both `SKILL.md` files tell an agent to run `tasks/_tooling/tm`, which is
+      not there — the agent follows the instructions and the command fails.
+
+    Reported by a repo that adopted with `--into ops` and had to fix all three
+    by hand (`PLT-wxr5`).
+    """
+    trees = "tasks|notes|decisions|ontology"
+    files = [os.path.join(top, ".claude", "settings.json"),
+             os.path.join(top, ".claude", "skills", "tm", "SKILL.md"),
+             os.path.join(top, ".claude", "skills", "nm", "SKILL.md")]
+    for path in files:
+        if not os.path.exists(path):
+            continue
+        with open(path) as fh:
+            text = fh.read()
+        before = text
+        # `./tasks/…` first — the general pattern below refuses to match after a
+        # dot, which is what keeps it off `.notes/` and off already-rooted paths.
+        text = re.sub(rf"\./({trees})/", rf"./{into}/\1/", text)
+        text = re.sub(rf"(?<![\w./-])({trees})/", rf"{into}/\1/", text)
+        text = re.sub(r"(?<![\w/-])\.notes/", f"{into}/.notes/", text)
+        if text == before:
+            continue
+        with open(path, "w") as fh:
+            fh.write(text)
+        n = sum(1 for a, b in zip(before.split("\n"), text.split("\n")) if a != b)
+        report.append(("edit", rel(path, top), f"{n} line(s) rerooted under {into}/"))
+
+
 def reset(root, tool, args, report):
     """A clone carries llmeep's own records. Clearing them here means an adopter
     never sees someone else's board, and never has to know `reset` exists."""
@@ -194,7 +230,8 @@ def main(argv):
             print(f"    + {prefix}{t}/")
         for a in AGENT:
             print(f"    + {a}")
-        print(f"    + {prefix}{SCRATCH}")
+        for b in BESIDE:
+            print(f"    + {prefix}{b}")
         print(f"    + {prefix + 'README.md' if into else 'LLMEEP.md'}  (how the tooling works)")
         print("    ~ .gitignore, git config core.hooksPath")
         return 0
@@ -207,7 +244,10 @@ def main(argv):
         if os.path.exists(src):
             copy(src, os.path.join(top, a), report, top)
 
-    copy(os.path.join(SRC, SCRATCH), os.path.join(dest_root, SCRATCH), report, top)
+    for b in BESIDE:
+        copy(os.path.join(SRC, b), os.path.join(dest_root, b), report, top)
+    if into:
+        reroot(top, into, report)
     working_agreement(top, dest_root, into, report)
     append_ignores(top, prefix, report)
     reset(dest_root, "tasks", ["--all"], report)
