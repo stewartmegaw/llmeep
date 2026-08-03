@@ -325,10 +325,11 @@ already present is skipped and reported, never overwritten. **Your code stays wh
 It also copies itself in as `.llmeep`, which is how the repo updates later — see
 [Updating](#updating).
 
-Your README is not touched either, so the working agreement is written to **`LLMEEP.md`**
-(`ops/README.md` for a nested install) — the same sections a fresh clone is told to keep,
-extracted from the region between the `adopt:` markers in this file. Link to it from your own
-README. It is generated at adopt time rather than maintained separately, so it cannot drift.
+Your README is not touched either, so the working agreement is written beside the install: it
+is **`ops/README.md`** when nested, and **`LLMEEP.md`** at the root when not — a flat install
+has no directory of its own, and `README.md` there is yours. Either way it holds the sections a
+fresh clone is told to keep, extracted from the region between the `adopt:` markers in this
+file, so it cannot drift. Link to it from your own README.
 
 `tasks`, `notes`, `decisions` and `ontology` are ordinary words, so if your repo already uses
 one, `adopt` stops rather than merging into it:

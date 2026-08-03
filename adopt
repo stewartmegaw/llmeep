@@ -154,9 +154,13 @@ def working_agreement(top, dest_root, into, report):
         "`README.md`, and what it is made of belongs in `ontology/domain/`.\n"
     )
 
-    if into:                 # it documents paths, like everything else here
-        body = reroot_text(body, into)
-    dst = os.path.join(top, WORKING)
+    if into:
+        # Only the commands. Inside the install, a markdown link is relative to
+        # this file and already correct, while a shell command is run from the
+        # repo root and is not. Rerooting both is what broke every link last
+        # time (`PLT-yftg`).
+        body = reroot_code(body, into)
+    dst = os.path.join(dest_root, working_name(into))
     if os.path.exists(dst):
         report.append(("skip", rel(dst, top), "exists"))
         return
@@ -166,7 +170,12 @@ def working_agreement(top, dest_root, into, report):
 
 
 MANIFEST = ".llmeep"
-WORKING = "LLMEEP.md"     # generated, but managed: an update must refresh it
+def working_name(into):
+    """The working agreement lives with the install — `ops/README.md` for a
+    nested one, which is where anyone opening `ops/` looks. A flat install has
+    no directory of its own, and the repo root already has a README that belongs
+    to the adopter, so there it needs a name of its own (`PLT-h6fq`)."""
+    return "README.md" if into else "LLMEEP.md"
 
 
 def version_of(src):
@@ -251,7 +260,7 @@ def install_self(top, dest_root, into, report):
     find is one nobody runs (`PLT-ty47`).
     """
     files = {}
-    for r in managed(SRC) + AGENT_FILES + [WORKING]:
+    for r in managed(SRC) + AGENT_FILES + [working_name(into)]:
         d = dest_of(r, top, dest_root)
         if os.path.isfile(d):
             files[r] = sha(d)
@@ -285,6 +294,20 @@ def find_install(top):
         )
     into = read_manifest(path).get("into", "")
     return (os.path.join(top, into) if into else top), into
+
+
+def reroot_code(text, into):
+    """Rewrite paths inside fenced code blocks only. Everything a reader clicks
+    stays relative to the file it is in; everything they paste into a shell gets
+    the install prefix."""
+    out, fenced = [], False
+    for line in text.split("\n"):
+        if line.startswith("```"):
+            fenced = not fenced
+            out.append(line)
+            continue
+        out.append(reroot_text(line, into) if fenced else line)
+    return "\n".join(out)
 
 
 def reroot_text(text, into):
@@ -453,9 +476,10 @@ def do_update(top, force, dry):
     # Generated, so it cannot be copied — but it carries the commands and the
     # update instructions, and an install that never refreshes it keeps whatever
     # the version it adopted happened to say (`PLT-yftg`).
-    wa, rec = os.path.join(top, WORKING), recorded.get(WORKING)
+    name = working_name(into)
+    wa, rec = os.path.join(dest_root, name), recorded.get(name)
     if os.path.isfile(wa) and rec and sha(wa) != rec and not force:
-        print(f"  ! {WORKING}  changed since install — kept")
+        print(f"  ! {name}  changed since install — kept")
     else:
         if os.path.isfile(wa):
             os.remove(wa)
