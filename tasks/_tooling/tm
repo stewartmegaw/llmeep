@@ -579,7 +579,7 @@ def standup_sections(period, today=None):
     # this is read on a terminal, in Telegram and in Slack, and each wants its
     # own emphasis — the notifier is swappable and the standup must not care
     # which one it is talking to (`DEC-008`, `PLT-2mv7`).
-    sections = [("STANDUP", [f"{start.isoformat()} → {today.isoformat()}"])]
+    sections = [(f"{start.isoformat()} → {today.isoformat()}", [])]
     by_who = {}
     for row in done:
         by_who.setdefault(row.get("who") or "unassigned", []).append(row)
