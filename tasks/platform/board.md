@@ -13,6 +13,7 @@ PLT-3wjv Board could use a per-person filter
 
 ## recent
 
+2026-08-03  PLT-hu8m Standup should show the backlog, with counts in both headers  @stewart
 2026-08-03  PLT-99e2 Tag each standup line with its ledger  @stewart
 2026-08-03  PLT-97n3 Split the backlog into a prioritised section and an unordered pool  @stewart
 2026-08-03  PLT-4hck check --notify cannot help you change an already-set chat  @stewart
@@ -27,4 +28,3 @@ PLT-3wjv Board could use a per-person filter
 2026-08-03  PLT-wxr5 A nested adopt leaves root-relative paths everywhere  @stewart
 2026-08-03  PLT-tdb5 The platform nudges never fire in an adopted repo  @stewart
 2026-08-03  PLT-jdgz Move adopt to the repo root          @stewart
-2026-08-03  PLT-rhew tm check --release verifies a cut tree before it is committed  @stewart
