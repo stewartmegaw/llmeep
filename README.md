@@ -364,6 +364,7 @@ git checkout main -- .
 tasks/_tooling/tm reset --yes --all   # --all drops this project's decisions too;
 notes/_tooling/nm reset --yes         # a release is nobody's project yet
 git add -A
+tasks/_tooling/tm check --release     # the checks a cut tree needs and main cannot run
 git commit -m "v3: clean skeleton" && git tag v3
 git checkout main                     # work continues; history intact
 ```

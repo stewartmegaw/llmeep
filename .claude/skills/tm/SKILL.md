@@ -23,6 +23,7 @@ tasks/_tooling/tm standup --cron             # the crontab line, if scheduling i
 
 tasks/_tooling/tm check                      # validate records (hooks and CI call this)
 tasks/_tooling/tm check --notify [--send]    # verify the notification channel
+tasks/_tooling/tm check --release            # validate a cut tree before committing a version
 tasks/_tooling/tm reset [--yes]              # clear task records when adopting the skeleton
 ```
 
@@ -178,5 +179,8 @@ on the line.
   send — a scheduler does. Never add `--send` on your own initiative.
 - **The standup is usually read aloud, not automated.** `--cron` prints a line for an
   always-on machine; scheduling it is the user's call, and nothing here does it for them.
+- **`tm check --release` runs inside a cut tree**, not here. It asserts what a release must be
+  — empty records, no `UNADOPTED.md`, decisions cleared, the directories git cannot carry, no
+  dead relative links — and every one of those was a defect that shipped before it existed.
 - **`check` never sends anything.** `--notify` reports configuration; only `--send` posts, and
   that reaches a whole team. Do not add it casually.

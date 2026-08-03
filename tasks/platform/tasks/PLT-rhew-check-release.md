@@ -27,8 +27,8 @@ Run inside a cut tree, after both resets and before the commit:
 - **Decisions are cleared** but `decisions/_template.md` survives, which is the `--all` contract.
 - **Documented directories exist.** Every directory drawn in `tasks/_tooling/ontology.md` and
   `notes/_tooling/ontology.md` is present in the tree, which is what catches an empty one git dropped.
-- **No dead relative links.** Every `](path)` in a committed `.md` resolves. This is the check
-  that would have caught v3, and it is worth running on `main` too.
+- **No dead relative links.** Every relative markdown link in a committed `.md` resolves. This
+  is the check that would have caught v3, and it is worth running on `main` too.
 
 ## Acceptance
 

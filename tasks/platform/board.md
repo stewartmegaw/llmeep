@@ -2,11 +2,11 @@
 
 ## in progress
 
+PLT-rhew tm check --release verifies a cut tree before it is committed  @stewart  detail
 
 ## backlog
 
 PLT-cajd Decisions need a find before they could ever be pruned
-PLT-rhew tm check --release verifies a cut tree before it is committed  detail
 
 ## recent
 
