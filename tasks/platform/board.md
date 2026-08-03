@@ -10,6 +10,7 @@ PLT-cajd Decisions need a find before they could ever be pruned
 
 ## recent
 
+2026-08-03  PLT-g3qq README decision links break on a release cut  @stewart
 2026-08-03  PLT-44pv A released skeleton should not carry llmeep decisions  @stewart
 2026-08-03  PLT-7fyv Offer to commit a closed task before starting the next one  @stewart
 2026-08-03  PLT-f8u9 tm reset leaves folder sidecars behind  @stewart
@@ -24,4 +25,3 @@ PLT-cajd Decisions need a find before they could ever be pruned
 2026-08-02  PLT-xw2q Give notes its own reset and adoption marker  @stewart
 2026-08-02  PLT-5m5t Mirror the tooling split across taskman and notes  @stewart
 2026-08-02  PLT-7xjv Make the skeleton adoption marker legible instead of an empty dotfile  @stewart
-2026-08-02  PLT-kkqk Move taskman machinery out of the records tree  @stewart

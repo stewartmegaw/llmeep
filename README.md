@@ -66,7 +66,7 @@ Defaults do the work: `add` assumes platform, `go` and `done` assume the current
 inferable from state has to be typed — including **who you are**: `go` assigns a task to you,
 derived from your git config, and `done` records it. With more than one developer, the board
 answers *who is doing what next* without anyone maintaining it
-([`DEC-010`](decisions/DEC-010-tasks-carry-an-assignee.md)).
+([`DEC-010`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-010-tasks-carry-an-assignee.md)).
 
 ### The standup
 
@@ -87,7 +87,7 @@ Set `STANDUP_PERIOD` to `daily`, `workday`, `bidaily` or `weekly` in `.env`.
 **If you want it unattended**, `tasks/_tooling/blueprints/standup.sh` is a blueprint for an always-on
 machine: it fetches, then reports. Nothing here runs it — `tm standup --cron` prints the line
 that would (at `STANDUP_AT`, default `09:00`), and you decide whether to schedule it
-([`DEC-017`](decisions/DEC-017-the-standup-is-usually-a-person.md)).
+([`DEC-017`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-017-the-standup-is-usually-a-person.md)).
 
 **Close the task, then commit** — code, board and history land together:
 
@@ -127,14 +127,14 @@ That the channel's configuration lives in the *service* rather than the repo is 
 a gap: bot name, description, which room, who can see it — all of that differs per team and
 belongs to them. The repo's share is one line and a secret, so swapping channels touches no
 record and no ontology. Adding one is a function plus a dict entry
-([`DEC-008`](decisions/DEC-008-notifier-is-swappable.md)).
+([`DEC-008`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-008-notifier-is-swappable.md)).
 
 We built the other way first and deleted it. Inbound Telegram worked — `/add` filed tasks,
 `/list` returned the board — and it was still a worse version of something already available
 from the same phone: an agent needs no command syntax, no flags, and lands the change on the
 board directly instead of queueing it for a later pull. See
-[`DEC-006`](decisions/DEC-006-telegram-is-notification-only.md) and
-[`DEC-007`](decisions/DEC-007-stray-telegram-messages-are-ignored.md).
+[`DEC-006`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-006-telegram-is-notification-only.md) and
+[`DEC-007`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-007-stray-telegram-messages-are-ignored.md).
 
 The rule generalises past Telegram: **before building an input surface, check whether an agent
 with the repository already does it better.** Slack, email, a web UI — the answer is usually
@@ -283,11 +283,11 @@ shipped wrong.
 ## Status
 
 **Taskman is built and in use** — this repo tracks its own work with it.
-[`DEC-001`](decisions/DEC-001-taskman-design.md) (model),
-[`DEC-002`](decisions/DEC-002-task-history-index.md) (history),
-[`DEC-003`](decisions/DEC-003-skills-are-executables.md) (tooling),
-[`DEC-004`](decisions/DEC-004-commits-close-tasks.md) (superseded),
-[`DEC-005`](decisions/DEC-005-agent-mediated-git.md) (git).
+[`DEC-001`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-001-taskman-design.md) (model),
+[`DEC-002`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-002-task-history-index.md) (history),
+[`DEC-003`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-003-skills-are-executables.md) (tooling),
+[`DEC-004`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-004-commits-close-tasks.md) (superseded),
+[`DEC-005`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-005-agent-mediated-git.md) (git).
 
 Not yet done, and honest about it:
 
