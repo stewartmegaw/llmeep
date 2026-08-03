@@ -34,7 +34,7 @@ untouched; it adds the record trees beside them and starts you with empty boards
 ```sh
 git clone --depth 1 https://github.com/stewartmegaw/llmeep.git /tmp/llmeep
 cd my-project
-/tmp/llmeep/_tooling/adopt --dry-run    # then again without --dry-run
+/tmp/llmeep/adopt --dry-run    # then again without --dry-run
 ```
 
 If your repo already has a `tasks/`, `notes/`, `decisions/` or `ontology/`, it stops and tells
@@ -50,7 +50,7 @@ checks standalone, so CI needs no separate configuration. Agent permissions are 
 three that change something you cannot take back (`tm reset`, `tm check --notify --send`,
 `nm prune --yes`) deliberately still ask.
 
-<!-- adopt:start — everything to adopt:end is copied into an adopting repo by _tooling/adopt -->
+<!-- adopt:start — everything to adopt:end is copied into an adopting repo by ./adopt -->
 
 ## Tracking work
 
@@ -293,8 +293,8 @@ history and your README are never touched:
 ```sh
 git clone --depth 1 https://github.com/stewartmegaw/llmeep.git /tmp/llmeep
 cd my-project
-/tmp/llmeep/_tooling/adopt --dry-run    # what it would do
-/tmp/llmeep/_tooling/adopt
+/tmp/llmeep/adopt --dry-run    # what it would do
+/tmp/llmeep/adopt
 ```
 
 It copies the four record trees and the agent adapters in, appends to `.gitignore` rather than
@@ -311,7 +311,7 @@ README. It is generated at adopt time rather than maintained separately, so it c
 one, `adopt` stops rather than merging into it:
 
 ```sh
-/tmp/llmeep/_tooling/adopt --into ops    # ops/tasks/, ops/notes/, ops/decisions/, ops/ontology/
+/tmp/llmeep/adopt --into ops    # ops/tasks/, ops/notes/, ops/decisions/, ops/ontology/
 ```
 
 Nesting needs no configuration: `tm` and `nm` derive their roots from where they sit, and the

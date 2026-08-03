@@ -8,13 +8,13 @@ are never touched, and everything llmeep needs is added beside them.
 Run it from the repo you want to adopt into:
 
     git clone --depth 1 <llmeep> /tmp/llmeep
-    cd my-project && /tmp/llmeep/_tooling/adopt
+    cd my-project && /tmp/llmeep/adopt
 
 `tasks`, `notes`, `decisions` and `ontology` are ordinary words, so a repo may
 well have one already. Rather than merge into it and hope, `adopt` stops and
 tells you to nest the lot under a directory of your choosing:
 
-    /tmp/llmeep/_tooling/adopt --into ops
+    /tmp/llmeep/adopt --into ops
 
 That works because `tm` and `nm` derive their roots from where they sit
 (`REPO = dirname(ROOT)`), so a nested install needs no configuration.
@@ -26,8 +26,10 @@ import shutil
 import subprocess
 import sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-SRC = os.path.dirname(HERE)
+# `adopt` sits at the repo root because it is the one file a stranger runs
+# before any of this exists — pointing them a directory deep is friction on the
+# only step that has to be effortless.
+SRC = os.path.dirname(os.path.abspath(__file__))
 
 # The record trees. `platform/` is deliberately absent: an adopting repo already
 # has its code, and it stays where it is.
