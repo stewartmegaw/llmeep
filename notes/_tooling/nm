@@ -297,6 +297,17 @@ def cmd_drop(args):
     print(f"  dropped raw/{name} — git keeps it")
 
 
+def capture_names():
+    """Pending captures. `raw/` is committed and survives its own emptiness by
+    a `.gitkeep`, so a dotfile here is scaffolding, never a capture."""
+    if not os.path.isdir(RAW):
+        return []
+    return [
+        n for n in sorted(os.listdir(RAW))
+        if not n.startswith(".") and os.path.isfile(os.path.join(RAW, n))
+    ]
+
+
 def cmd_promote(args):
     """A note becomes a task. The note stays until that task ships — a task can
     be parked or dropped, and until it lands the note is the only record the
@@ -366,16 +377,13 @@ def cmd_prune(args):
     apply = "--yes" in args
     cutoff = date.today() - timedelta(days=RAW_STALE_DAYS)
     stale = []
-    if os.path.isdir(RAW):
-        for name in sorted(os.listdir(RAW)):
-            path = os.path.join(RAW, name)
-            if name.startswith(".") or not os.path.isfile(path):
-                continue
-            m = re.match(r"^(\d{4}-\d{2}-\d{2})", name)
-            when = m.group(1) if m else date.fromtimestamp(
-                os.path.getmtime(path)).isoformat()
-            if when < cutoff.isoformat():
-                stale.append((name, when))
+    for name in capture_names():
+        path = os.path.join(RAW, name)
+        m = re.match(r"^(\d{4}-\d{2}-\d{2})", name)
+        when = m.group(1) if m else date.fromtimestamp(
+            os.path.getmtime(path)).isoformat()
+        if when < cutoff.isoformat():
+            stale.append((name, when))
 
     archive = Archive()
     done = shipped_tasks()
@@ -389,7 +397,7 @@ def cmd_prune(args):
 
     if not stale and not over and not shipped_ids:
         print(f"  nothing to prune — {len(archive.notes)} note(s), "
-              f"{len(os.listdir(RAW)) if os.path.isdir(RAW) else 0} capture(s)")
+              f"{len(capture_names())} capture(s)")
         return
     for name, when in stale:
         print(f"  raw/{name}  unprocessed since {when}")
@@ -457,7 +465,7 @@ def cmd_reset(args):
     two are meant to stay liftable apart (DEC-020)."""
     archive = Archive()
     rows = len(history_rows())
-    captures = sorted(os.listdir(RAW)) if os.path.isdir(RAW) else []
+    captures = capture_names()
 
     print("  clears:")
     print(f"    notes.md — {len(archive.notes)} note(s)")

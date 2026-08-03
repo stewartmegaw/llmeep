@@ -10,6 +10,7 @@ PLT-cajd Decisions need a find before they could ever be pruned
 
 ## recent
 
+2026-08-03  PLT-fy4e A clean skeleton is missing notes/raw and platform sidecars  @stewart
 2026-08-03  PLT-evwe The README status section claims work that is done  @stewart
 2026-08-03  PLT-g3qq README decision links break on a release cut  @stewart
 2026-08-03  PLT-44pv A released skeleton should not carry llmeep decisions  @stewart
@@ -24,4 +25,3 @@ PLT-cajd Decisions need a find before they could ever be pruned
 2026-08-02  PLT-9wdq A note whose task shipped should leave the window, not just be hidden  @stewart
 2026-08-02  PLT-ms4z Move DEC records out of notes into a top-level decisions folder  @stewart
 2026-08-02  PLT-xw2q Give notes its own reset and adoption marker  @stewart
-2026-08-02  PLT-5m5t Mirror the tooling split across taskman and notes  @stewart
