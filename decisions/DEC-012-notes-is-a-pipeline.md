@@ -33,7 +33,7 @@ notes/raw/*.md  ──▶  notes.md        ──▶  taskman board  ──▶  
 ```
 
 **A separate `notes/nm` executable**, not an extension of `tm`. Both subsystems stay liftable —
-`taskman/ontology.md` claims you can take that folder to another project, and folding notes into
+`tasks/ontology.md` claims you can take that folder to another project, and folding notes into
 `tm` would make it false. `nm promote` shells out to `tm add --id`, which was added for exactly
 this: a machine-readable id back, rather than parsing prose.
 

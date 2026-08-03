@@ -9,7 +9,7 @@ Seven rules. Everything else in the skeleton is a consequence of one of them.
 **On-disk formats are optimised for unambiguous machine parsing and cheap retrieval.
 Human readability is a secondary, best-effort property.**
 
-The primary reader and writer of `taskman/` and `notes/` is an agent, not a person. So
+The primary reader and writer of `tasks/` and `notes/` is an agent, not a person. So
 records get explicit, typed, redundant structure — stable IDs, enumerated status values,
 fully-qualified references, absolute dates — even where a human would find that verbose or
 would prefer prose.
@@ -22,11 +22,11 @@ needs to read the state of the project, that is the job of a display command tha
 the records — not a reason to make the records themselves pretty. A format that is hard to
 read raw is fine if there is a command that renders it well.
 
-This principle applies across the whole project, not just to `taskman/`.
+This principle applies across the whole project, not just to `tasks/`.
 
 ## 2. Mutation flows through tooling
 
-**Records under `taskman/` and `notes/` are created, moved and updated by skills and
+**Records under `tasks/` and `notes/` are created, moved and updated by skills and
 automations. Not by hand, and not by ad-hoc agent file-edits.**
 
 Hand-editing is what breaks invariants: duplicate IDs, statuses that do not match the
@@ -62,7 +62,7 @@ because it is the one moment every change reliably passes through.
 
 Hooks are expected to cover three things:
 
-1. **Record integrity.** Reject a commit where a record under `taskman/` or `notes/` breaks
+1. **Record integrity.** Reject a commit where a record under `tasks/` or `notes/` breaks
    its invariants: duplicate or renumbered IDs, frontmatter disagreeing with its folder,
    dangling references, a decision edited in substance rather than superseded.
 2. **Lifecycle honesty.** A commit that closes work should move the task; a commit
@@ -111,7 +111,7 @@ Promotion is one-directional and explicit. `.notes/` never silently becomes trut
 
 **Work is either platform work or business work, and both are tracked the same way.**
 
-`taskman/platform/` and `taskman/business/` use identical structure, lifecycle and tooling.
+`tasks/platform/` and `tasks/business/` use identical structure, lifecycle and tooling.
 The split exists because the two have different reviewers, different cadences and different
 definitions of done — not because they deserve different machinery.
 

@@ -28,7 +28,7 @@ and `nm` itself. Decision records live at `decisions/`, outside this subsystem e
 
 Adoption is per subsystem. `tm reset` clears tasks and does not touch notes; this clears notes
 and does not touch tasks. Run both when adopting the whole skeleton — they are two commands
-because `taskman/` and `notes/` are meant to be liftable apart.
+because `tasks/` and `notes/` are meant to be liftable apart.
 
 ## If you are working on the skeleton itself
 

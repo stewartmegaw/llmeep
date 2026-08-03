@@ -120,7 +120,7 @@ End with the rule and hint line whenever there are notes. **Never link the ids**
 markdown links to repo files render as "unsupported link" over Remote Control.
 
 **Mark a linked task `✓` once it is done** — one `grep -f` of the linked ids against
-`taskman/_tooling/history.tsv`. A ticked note is awaiting removal, not hidden: `nm prune` deletes
+`tasks/_tooling/history.tsv`. A ticked note is awaiting removal, not hidden: `nm prune` deletes
 it outright, window and history row both, because the task now carries the record.
 
 **Offer `nm prune` when you see ticks.** That is the command that clears them.

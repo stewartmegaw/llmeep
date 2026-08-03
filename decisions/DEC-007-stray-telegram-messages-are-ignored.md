@@ -60,7 +60,7 @@ actually is.
 - **`tm` no longer reads from Telegram at all** — the integration is one outbound POST. Every
   helper that existed to receive is gone.
 - **Configuration moved out of the repo.** The BotFather description is state in Telegram, not
-  in version control, so a fresh clone cannot set it up — `taskman/ontology.md` documents the
+  in version control, so a fresh clone cannot set it up — `tasks/ontology.md` documents the
   two commands, but nothing enforces them.
 - Someone who messages the bot gets silence. Accepted, because the description and the empty
   command list mean they should not have got as far as typing.

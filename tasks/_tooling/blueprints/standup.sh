@@ -13,7 +13,7 @@
 #   1. clone the repo somewhere the scheduler can reach
 #   2. put a .env beside it — NOTIFY plus that channel's token, and
 #      STANDUP_PERIOD if it differs from the default
-#   3. schedule it. `taskman/_tooling/tm standup --cron` prints the line.
+#   3. schedule it. `tasks/_tooling/tm standup --cron` prints the line.
 #
 # Read-only access is enough; this never pushes. A deploy key or a read-only
 # token is the right credential.
@@ -34,4 +34,4 @@ git -C "$REPO" pull --ff-only --quiet origin "$BRANCH"
 
 # Sends through whatever NOTIFY names in the .env beside the repo. Prints the
 # report too, which is what ends up in the log.
-exec "$REPO/taskman/_tooling/tm" standup --send
+exec "$REPO/tasks/_tooling/tm" standup --send

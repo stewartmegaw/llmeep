@@ -32,7 +32,7 @@ search fails for the same reason the convention it replaced failed.
 
 ## Decision
 
-**`taskman/history.tsv` is an append-only index of every completed task**, written by `done`,
+**`tasks/history.tsv` is an append-only index of every completed task**, written by `done`,
 one line per completion:
 
 ```

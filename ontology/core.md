@@ -23,7 +23,7 @@ Everything about the project that is not the platform: customers, positioning, p
 operations, finance, legal, hiring.
 
 - **Identity:** singular, like Platform.
-- **Lives in:** no dedicated tree — it is the subject matter of `taskman/business/` and of
+- **Lives in:** no dedicated tree — it is the subject matter of `tasks/business/` and of
   much of `notes/`.
 - **Relates to:** subject of every task in [Ledger](#ledger) `business`.
 
@@ -31,7 +31,7 @@ operations, finance, legal, hiring.
 
 A unit of intended change — the thing the project actually tracks.
 
-- **Defined in:** [`taskman/ontology.md`](../taskman/ontology.md), along with Ledger, Board,
+- **Defined in:** [`tasks/ontology.md`](../tasks/ontology.md), along with Ledger, Board,
   Sidecar, Window and History.
 - **Notes:** taskman's vocabulary is co-located with taskman. Only the pointer lives here,
   because a Task is referenced from outside the subsystem — a [Note](#note) or a commit
@@ -98,5 +98,5 @@ An unattended process — a hook, a scheduled job, a CI step — that performs t
 mutation a Skill does, without a human or agent in the loop.
 
 - **Relates to:** shares the invariants and, ideally, the implementation of [Skills](#skill).
-- **Notes:** Skills and Automations are the only two legitimate writers to `taskman/` and
+- **Notes:** Skills and Automations are the only two legitimate writers to `tasks/` and
   `notes/`.

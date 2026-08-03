@@ -19,7 +19,7 @@ notes/
     history.tsv  <- every note ever; grep-only, never loaded
 ```
 
-Same shape as `taskman/`: what a person reads sits in the open, what only a tool touches sits
+Same shape as `tasks/`: what a person reads sits in the open, what only a tool touches sits
 under `_tooling/`.
 
 ---

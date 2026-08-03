@@ -26,7 +26,7 @@ transition is exactly what [principle 2](../../../ontology/principles.md) exists
 - [x] Refuses with a clear message when nothing is in `doing`, or when the named task is not.
 - [x] Returns to the **bottom** by default so the next bare `go` does not restart it; `-n` for
       the top.
-- [x] Documented in `taskman/ontology.md`, the root README and the agent skill.
+- [x] Documented in `tasks/ontology.md`, the root README and the agent skill.
 
 ## Approach
 

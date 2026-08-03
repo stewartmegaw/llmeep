@@ -15,8 +15,8 @@ before?"* with a stranger's work, and it looks exactly like your own.
 ## What to do
 
 ```sh
-taskman/_tooling/tm reset        # shows what would go
-taskman/_tooling/tm reset --yes  # does it, and deletes this file
+tasks/_tooling/tm reset        # shows what would go
+tasks/_tooling/tm reset --yes  # does it, and deletes this file
 ```
 
 `reset` clears both boards, `history.tsv` and the task sidecars. It **keeps** `ontology.md`,

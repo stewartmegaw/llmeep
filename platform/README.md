@@ -19,13 +19,13 @@ Put your codebase here — `src/`, `services/`, `infra/`, whatever shape it take
 
 ## The boundary
 
-Everything above this directory — `ontology/`, `taskman/`, `notes/` — is about the project.
+Everything above this directory — `ontology/`, `tasks/`, `notes/` — is about the project.
 Everything inside it is the project.
 
 Keep the boundary clean:
 
 - The skeleton does not reach into `platform/`. Tooling that manages tasks and notes must
   work identically whether this directory holds Rust or nothing at all.
-- `platform/` does not reach out. Application code does not read `taskman/` or `notes/`.
+- `platform/` does not reach out. Application code does not read `tasks/` or `notes/`.
 - If your platform needs its own docs, they live in here. `notes/` is for knowledge about
   the project, not generated API reference.

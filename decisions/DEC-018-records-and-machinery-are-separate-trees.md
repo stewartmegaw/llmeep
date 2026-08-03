@@ -13,7 +13,7 @@ relates_to: [DEC-001, DEC-003]
 
 ## Context
 
-`taskman/` had grown to hold two unrelated kinds of thing side by side:
+`tasks/` had grown to hold two unrelated kinds of thing side by side:
 
 | Records | Machinery |
 | --- | --- |
@@ -22,7 +22,7 @@ relates_to: [DEC-001, DEC-003]
 | `business/board.md`, `business/tasks/` | `blueprints/` |
 | `ontology.md` | `_template.md` |
 
-Nothing marked the boundary. A reader opening `taskman/` could not tell at a glance which files
+Nothing marked the boundary. A reader opening `tasks/` could not tell at a glance which files
 are the ledger the project depends on and which are the code that maintains it — and the
 distinction matters more here than usual, because
 [principle 2](../ontology/principles.md#2-mutation-flows-through-tooling) says one side is
@@ -33,10 +33,10 @@ not ignored. It had been shipping to every cloner. That is the kind of thing a m
 
 ## Decision
 
-**`taskman/` holds records. `taskman/_tooling/` holds everything that runs.**
+**`tasks/` holds records. `tasks/_tooling/` holds everything that runs.**
 
 ```
-taskman/
+tasks/
   ontology.md
   history.tsv
   platform/          board.md + tasks/
@@ -67,11 +67,11 @@ hooks exist at all.
 
 ## Alternatives considered
 
-- **Move only `hooks/`, `blueprints/` and `_template.md`; leave `tm` at `taskman/tm`.** Keeps
+- **Move only `hooks/`, `blueprints/` and `_template.md`; leave `tm` at `tasks/tm`.** Keeps
   the most-typed path in the project short and needs no changes to `tm` itself. Rejected
-  deliberately: a rule with an exception in it is not a rule, and `taskman/` would still have
+  deliberately: a rule with an exception in it is not a rule, and `tasks/` would still have
   contained one executable.
-- **`taskman/bin/`.** Conventional, but hooks, a shell blueprint and a markdown template are not
+- **`tasks/bin/`.** Conventional, but hooks, a shell blueprint and a markdown template are not
   binaries; the name would undersell the contents.
 - **Leave it.** The cost is real — 56 references across 9 files, plus a re-run of
   `core.hooksPath` in every clone. Rejected on the same reasoning as `DEC-013`: the rename is
@@ -81,11 +81,11 @@ hooks exist at all.
 
 - **Every path changes**, including ~30 rules in `.claude/settings.json` and the `TM` constant in
   `notes/nm` — which is built from path segments and so was invisible to a textual search for
-  `taskman/tm`. Worth remembering the next time a move looks fully covered by grep.
-- **Existing clones must re-run `git config core.hooksPath taskman/_tooling/hooks`.** `tm check`
+  `tasks/tm`. Worth remembering the next time a move looks fully covered by grep.
+- **Existing clones must re-run `git config core.hooksPath tasks/_tooling/hooks`.** `tm check`
   now says so rather than leaving it to be discovered.
-- **`DEC-003` and `DEC-017` describe `taskman/tm`.** They are committed and not edited; this
-  record is the reconciliation. Substitute `taskman/_tooling/tm` when reading them.
+- **`DEC-003` and `DEC-017` describe `tasks/tm`.** They are committed and not edited; this
+  record is the reconciliation. Substitute `tasks/_tooling/tm` when reading them.
 - **`__pycache__/` and `*.pyc` are now gitignored** and the tracked artifact is removed.
 
 ## Revisit when

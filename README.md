@@ -43,7 +43,7 @@ because every agent reads README. Point yours at this file.
 | Path        | Committed | Purpose                                                            |
 | ----------- | --------- | ------------------------------------------------------------------ |
 | `ontology/` | yes       | The shared vocabulary. What things are called and how they relate.  |
-| `taskman/`  | yes       | Task boards. `platform/` for build work, `business/` for the rest.  |
+| `tasks/`    | yes       | Task boards. `platform/` for build work, `business/` for the rest.  |
 | `notes/`    | yes       | The intake funnel for work. Captures, notes, decisions.             |
 | `.notes/`   | **no**    | Local working memory. Sessions, scratch, inbox. Gitignored.         |
 | `platform/` | yes       | **Your project goes here.** Empty in the skeleton.                  |
@@ -53,12 +53,12 @@ because every agent reads README. Point yours at this file.
 Six commands. No install step — one Python 3 file, standard library only.
 
 ```sh
-taskman/_tooling/tm add Fix flaky auth test   # create; -b for business, -n for top of the order
-taskman/_tooling/tm go                        # start the next task, or show the one in progress
-taskman/_tooling/tm park                      # put it back; unassigns it
-taskman/_tooling/tm done                      # complete the current task
-taskman/_tooling/tm find auth                 # search everything ever completed
-taskman/_tooling/tm standup                   # what closed this period; --send posts it
+tasks/_tooling/tm add Fix flaky auth test   # create; -b for business, -n for top of the order
+tasks/_tooling/tm go                        # start the next task, or show the one in progress
+tasks/_tooling/tm park                      # put it back; unassigns it
+tasks/_tooling/tm done                      # complete the current task
+tasks/_tooling/tm find auth                 # search everything ever completed
+tasks/_tooling/tm standup                   # what closed this period; --send posts it
 ```
 
 Defaults do the work: `add` assumes platform, `go` and `done` assume the current task. Nothing
@@ -77,13 +77,13 @@ is the one question the working tree stops being able to answer. `tm standup` as
 case worth optimising for.
 
 ```sh
-taskman/_tooling/tm standup           # what closed this period, and what is still open
-taskman/_tooling/tm standup --send    # ...and post it to the team channel
+tasks/_tooling/tm standup           # what closed this period, and what is still open
+tasks/_tooling/tm standup --send    # ...and post it to the team channel
 ```
 
 Set `STANDUP_PERIOD` to `daily`, `workday`, `bidaily` or `weekly` in `.env`.
 
-**If you want it unattended**, `taskman/_tooling/blueprints/standup.sh` is a blueprint for an always-on
+**If you want it unattended**, `tasks/_tooling/blueprints/standup.sh` is a blueprint for an always-on
 machine: it fetches, then reports. Nothing here runs it — `tm standup --cron` prints the line
 that would (at `STANDUP_AT`, default `09:00`), and you decide whether to schedule it
 ([`DEC-017`](decisions/DEC-017-the-standup-is-usually-a-person.md)).
@@ -91,14 +91,14 @@ that would (at `STANDUP_AT`, default `09:00`), and you decide whether to schedul
 **Close the task, then commit** — code, board and history land together:
 
 ```sh
-taskman/_tooling/tm done PLT-007
+tasks/_tooling/tm done PLT-007
 git commit -m "Fix flaky auth test. closes PLT-007"
 ```
 
 The trailer makes the commit self-identifying, so `find` can recover it later and no SHA is
 stored anywhere.
 
-Listing is reading [the board](taskman/platform/board.md); reordering is moving a line in it.
+Listing is reading [the board](tasks/platform/board.md); reordering is moving a line in it.
 Neither needs a command. `add` and `go` search history automatically, so work that was already
 attempted surfaces without anyone deciding to look.
 
@@ -186,7 +186,7 @@ Full model: [`notes/ontology.md`](notes/ontology.md).
 **Install the validation hooks** — one step, because `.git/hooks` is not committed:
 
 ```sh
-git config core.hooksPath taskman/_tooling/hooks
+git config core.hooksPath tasks/_tooling/hooks
 ```
 
 Agent permissions are committed in `.claude/settings.json`, so a clone stops prompting for the
@@ -196,15 +196,15 @@ daily commands immediately. The three that change something you cannot take back
 They block on inconsistent records and warn on drift. `tm check` runs the same checks
 standalone, so CI needs no separate configuration.
 
-Full model: [`taskman/ontology.md`](taskman/ontology.md).
+Full model: [`tasks/ontology.md`](tasks/ontology.md).
 
 ## Start here
 
 1. [`ontology/principles.md`](ontology/principles.md) — the seven rules everything follows from.
 2. [`ontology/core.md`](ontology/core.md) — the entities that cut across subsystems. A
    self-contained subsystem keeps its vocabulary next to itself instead, like
-   [`taskman/ontology.md`](taskman/ontology.md).
-3. [`taskman/ontology.md`](taskman/ontology.md) — how work is tracked. One board file,
+   [`tasks/ontology.md`](tasks/ontology.md).
+3. [`tasks/ontology.md`](tasks/ontology.md) — how work is tracked. One board file,
    priority by position.
 4. [`notes/ontology.md`](notes/ontology.md) — how work arrives. Capture, distil, promote,
    prune.
@@ -217,7 +217,7 @@ Full model: [`taskman/ontology.md`](taskman/ontology.md).
 ```sh
 git clone <this-repo> my-project && cd my-project
 rm -rf .git && git init
-git config core.hooksPath taskman/_tooling/hooks
+git config core.hooksPath tasks/_tooling/hooks
 ```
 
 The default branch is **`release`** — a clean skeleton with empty boards, ready to use. That is
@@ -234,12 +234,12 @@ Then work through [`ontology/domain/README.md`](ontology/domain/README.md).
 | `v1`, `v2`, …   | Pinned versions                       | pin to a specific one           |
 | `main`          | Development, with full task history   | improve the skeleton itself     |
 
-**If you cloned `main` instead**, an `UNADOPTED.md` sits in both `taskman/` and `notes/` saying
+**If you cloned `main` instead**, an `UNADOPTED.md` sits in both `tasks/` and `notes/` saying
 so, and each tool repeats it until you deal with it. Run **both** resets — adoption is per
 subsystem, because the two are meant to be liftable apart:
 
 ```sh
-taskman/_tooling/tm reset --yes   # clears boards, history, sidecars
+tasks/_tooling/tm reset --yes   # clears boards, history, sidecars
 notes/_tooling/nm reset --yes     # clears the archive, its history, raw/
 ```
 
@@ -259,7 +259,7 @@ Release branches are **write-once — never merged back**, which is what keeps `
 ```sh
 git checkout release
 git checkout main -- .
-taskman/_tooling/tm reset --yes
+tasks/_tooling/tm reset --yes
 git commit -am "v2: clean skeleton" && git tag v2
 git checkout main            # work continues; history intact
 ```
@@ -287,8 +287,8 @@ Known limits, which are not bugs:
 - **Validation checks consistency, not truth.** The hooks cannot tell you a task was closed that
   should not have been — this has already happened once here, and is recorded in the history.
 - **Boards conflict on branches.** The resolution procedure in
-  [`taskman/ontology.md`](taskman/ontology.md) exists but has never been run in anger.
+  [`tasks/ontology.md`](tasks/ontology.md) exists but has never been run in anger.
 - **Telegram fires on `done`, not on push**, so on a branch the team hears about work before
   they can pull it.
 
-Open work is on the [platform board](taskman/platform/board.md).
+Open work is on the [platform board](tasks/platform/board.md).

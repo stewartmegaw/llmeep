@@ -13,7 +13,7 @@ relates_to: [DEC-012, DEC-019]
 
 ## Context
 
-`tm reset` and `taskman/UNADOPTED.md` exist because a clone of `main` inherits the skeleton's
+`tm reset` and `tasks/UNADOPTED.md` exist because a clone of `main` inherits the skeleton's
 task history, and `add`/`go` search that history automatically — so the tool answers *"have we
 tried this before?"* with a stranger's work.
 
@@ -31,10 +31,10 @@ ever made.
 ## Decision
 
 **Each subsystem owns its own adoption.** `notes/` gets `nm reset` and `notes/UNADOPTED.md`,
-mirroring `taskman/`:
+mirroring `tasks/`:
 
 ```sh
-taskman/_tooling/tm reset --yes   # boards, history, sidecars
+tasks/_tooling/tm reset --yes   # boards, history, sidecars
 notes/_tooling/nm reset --yes     # archive, history, raw/
 ```
 

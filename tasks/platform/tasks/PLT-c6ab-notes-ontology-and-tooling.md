@@ -8,7 +8,7 @@ created: 2026-07-31
 
 ## Outcome
 
-`notes/` is a self-contained subsystem on the same terms as `taskman/`: its vocabulary lives
+`notes/` is a self-contained subsystem on the same terms as `tasks/`: its vocabulary lives
 beside it, and it has a lifecycle — capture, process, promote, prune — rather than three static
 folders.
 
@@ -43,7 +43,7 @@ notes/raw/*.md  ──▶  notes/notes.md  ──▶  taskman board  ──▶  
 
 | Question | Answer | Why |
 |---|---|---|
-| Executable? | **`notes/nm`**, separate from `tm` | Keeps both subsystems liftable. `nm promote` shells out to `taskman/_tooling/tm add`. |
+| Executable? | **`notes/nm`**, separate from `tm` | Keeps both subsystems liftable. `nm promote` shells out to `tasks/_tooling/tm add`. |
 | Archive shape | **One accumulating file**, `notes/notes.md` | Cheap to read whole, greppable, matches the board and `history.tsv`. Notes are short. |
 | Raw state | **Presence means pending** | Processing deletes the file; git keeps it. No marker, no rename, nothing to disagree with. |
 | Raw location | **Committed**, `notes/raw/` | Teammates can process; git is the archive after pruning. Accepts that transcripts enter history permanently. |

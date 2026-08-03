@@ -22,7 +22,7 @@ pointed at a person rather than an agent: retrieval that has to be *decided on* 
 coin flip indefinitely. Nobody spontaneously thinks to look back over the week. Completed
 tasks also fall out of `recent` as the window fills, so the raw material actively leaves view.
 
-The data already exists. `taskman/history.tsv` carries `date · id · ledger · title · who`,
+The data already exists. `tasks/history.tsv` carries `date · id · ledger · title · who`,
 unbounded and append-only. A period's report is a filter on the date column — no new records,
 nothing to keep in sync.
 

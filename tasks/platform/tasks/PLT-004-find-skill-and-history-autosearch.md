@@ -9,7 +9,7 @@ created: 2026-07-31
 ## Outcome
 
 Work that was already attempted surfaces on its own, without anyone deciding to look for it.
-`add` and `go` grep `taskman/history.tsv` and print matches inline; `find` does it explicitly.
+`add` and `go` grep `tasks/history.tsv` and print matches inline; `find` does it explicitly.
 
 ## Context
 

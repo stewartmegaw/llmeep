@@ -62,7 +62,7 @@ Slack needs one URL — so `check` dispatches, while sending goes through `notif
 them.
 
 **The out-of-repo configuration is stated as an advantage**, in `.env.example`, the root README
-and `taskman/ontology.md`: the channel is external and replaceable *by design*.
+and `tasks/ontology.md`: the channel is external and replaceable *by design*.
 
 ## Alternatives considered
 
@@ -73,7 +73,7 @@ and `taskman/ontology.md`: the channel is external and replaceable *by design*.
   Telegram's API is not a plain JSON POST (form-encoded, token in the path, `chat_id` required),
   so "generic" would have meant dropping the channel that actually works today. `webhook` is
   offered *alongside* named ones, not instead.
-- **A `taskman/notify` shell script the user rewrites.** Maximum flexibility, zero providers to
+- **A `tasks/notify` shell script the user rewrites.** Maximum flexibility, zero providers to
   maintain. Rejected: it ships broken — every adopter has to write a script before completions
   announce anywhere — and it adds a second executable to a subsystem that deliberately has one.
 - **A plugin system with discovery.** Rejected as machinery for a problem the size of four

@@ -12,7 +12,7 @@ the [root README](../README.md) and not repeated here.
 [`DEC-002`](../decisions/DEC-002-task-history-index.md).
 
 ```
-taskman/
+tasks/
   ontology.md      <- this file
   platform/
     board.md
@@ -58,7 +58,7 @@ sight, it is not a task — it is a note.
 The single source of truth for a ledger's live state: which tasks exist, their order, what is
 being worked on, and what was recently completed.
 
-- **Identity:** one per [Ledger](#ledger), at `taskman/<ledger>/board.md`.
+- **Identity:** one per [Ledger](#ledger), at `tasks/<ledger>/board.md`.
 - **Contains:** [Tasks](#task) as lines. Nothing else — **no counter, no metadata.** A field
   that does not exist cannot conflict between branches (`PLT-006`).
 - **Invariants:** IDs unique across both boards and history; **at most one task in progress per
@@ -166,8 +166,8 @@ task. See [`DEC-010`](../decisions/DEC-010-tasks-carry-an-assignee.md).
 
 Optional detail for a Task whose title was not sufficient.
 
-- **Lives in:** `taskman/<ledger>/tasks/<id>-<slug>.md` — **or a folder** at
-  `taskman/<ledger>/tasks/<id>-<slug>/` when one file is not enough. A folder's entry point is
+- **Lives in:** `tasks/<ledger>/tasks/<id>-<slug>.md` — **or a folder** at
+  `tasks/<ledger>/tasks/<id>-<slug>/` when one file is not enough. A folder's entry point is
   its `README.md`, the same "start here" convention the rest of the skeleton uses; a folder
   without one is an error, since there is nothing to read and no acceptance to find. Everything
   else in the folder is supporting material, and `go` lists it.
@@ -208,7 +208,7 @@ The `recent` section of a Board: the last 15 completed Tasks, newest first.
 The append-only index of every Task that has ever completed. The query layer for work that has
 left the Window.
 
-- **Lives in:** `taskman/_tooling/history.tsv`. Written by `done`, one line per completion.
+- **Lives in:** `tasks/_tooling/history.tsv`. Written by `done`, one line per completion.
   **Append-only; never rewritten.**
 
   ```
@@ -235,7 +235,7 @@ One of five operations. Everything else — listing, reordering — is a file re
 
 **A skill is an executable command**, not a vendor artifact. Every agent can run a shell
 command, and so can a person; it is the only common denominator that does not pick a winner.
-One executable, `taskman/_tooling/tm`, written in Python 3 with standard library only — no install
+One executable, `tasks/_tooling/tm`, written in Python 3 with standard library only — no install
 step. See [`DEC-003`](../decisions/DEC-003-skills-are-executables.md).
 
 | Skill  | Invocation           | Does                                                            |
@@ -308,7 +308,7 @@ A wrapper that surfaces these in an agent's native skill list is **ergonomics, n
 and carries a header saying so:
 
 ```
-.claude/skills/tm/SKILL.md   ->  runs ./taskman/_tooling/tm
+.claude/skills/tm/SKILL.md   ->  runs ./tasks/_tooling/tm
 ```
 
 If an adapter contains behaviour, someone using a different agent gets a different system —
@@ -347,7 +347,7 @@ itself — bot name, description, which room, who can see it, how long it retain
 in the service, not in this repo. The repo's share is one line in `.env` and a secret. That is
 the boundary, not a leak: swapping channels touches no record, no ontology file and no task.
 
-**Adding a channel is one function and one dict entry** in `taskman/_tooling/tm`. That is the whole
+**Adding a channel is one function and one dict entry** in `tasks/_tooling/tm`. That is the whole
 extension point — no plugin loader, no registry, no config schema. See
 [`DEC-008`](../decisions/DEC-008-notifier-is-swappable.md).
 
@@ -427,7 +427,7 @@ One step, from a clean clone — `.git/hooks` is not committed, so git is pointe
 committed directory instead:
 
 ```sh
-git config core.hooksPath taskman/_tooling/hooks
+git config core.hooksPath tasks/_tooling/hooks
 ```
 
 | Hook          | Runs                | Effect                                          |
@@ -521,11 +521,11 @@ mechanical covers that. If it proves to be where duplicated work starts,
 
 ## Layout
 
-Records and machinery are separate trees. `taskman/` is what you and the agent read; nothing
+Records and machinery are separate trees. `tasks/` is what you and the agent read; nothing
 in it is executable. `_tooling/` is what runs, and nothing in it is a record.
 
 ```
-taskman/
+tasks/
   ontology.md        this file
   platform/          board.md + tasks/ sidecars
   business/          board.md + tasks/ sidecars
@@ -555,7 +555,7 @@ The underscore says *not a record* — the same signal `_template.md` already ca
 | **sidecar**  | Optional detail file for a task whose title was not enough.             |
 | **window**   | The `recent` section — last 15 completed.                               |
 | **prune**    | Drop an entry off the end of the window, out of the working tree.       |
-| **history**  | `taskman/_tooling/history.tsv`. Grep-only, never loaded.                         |
+| **history**  | `tasks/_tooling/history.tsv`. Grep-only, never loaded.                   |
 | **position** | A task's place in the `open` order. **This is its priority.**           |
 
 ### Words we avoid

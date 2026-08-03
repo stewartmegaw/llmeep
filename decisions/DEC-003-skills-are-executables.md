@@ -28,7 +28,7 @@ for every agent and for a human at a terminal.
 **A skill is an executable command.** Every agent can run a shell command, and so can a person;
 it is the only common denominator that does not pick a vendor.
 
-- **One executable, `taskman/tm`,** with four subcommands. Fewer moving parts than four
+- **One executable, `tasks/tm`,** with four subcommands. Fewer moving parts than four
   scripts, and co-located with the ontology and data so the subsystem stays liftable.
 
   ```

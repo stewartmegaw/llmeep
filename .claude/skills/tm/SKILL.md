@@ -5,25 +5,25 @@ description: Task tracking — create, start, complete and search tasks. Use whe
 
 # tm
 
-**ADAPTER ONLY — no logic here.** All behaviour lives in `taskman/_tooling/tm`. If you find yourself
+**ADAPTER ONLY — no logic here.** All behaviour lives in `tasks/_tooling/tm`. If you find yourself
 wanting to add rules to this file, they belong in the executable or in
-`taskman/ontology.md`, so that people using other agents get the same system
+`tasks/ontology.md`, so that people using other agents get the same system
 (`DEC-003`, principle 3).
 
 Run from the repo root:
 
 ```sh
-taskman/_tooling/tm add [-b] [-n] <title...>   # -b business ledger, -n top of the order
-taskman/_tooling/tm go [id]                    # show the current task, or start the next one
-taskman/_tooling/tm park [id] [-n]             # return it to the backlog, unassigned
-taskman/_tooling/tm done [id] [--force]        # complete it
-taskman/_tooling/tm find <term>                # search every task ever completed
-taskman/_tooling/tm standup [--send]           # the period's work; --send posts it
-taskman/_tooling/tm standup --cron             # the crontab line, if scheduling it
+tasks/_tooling/tm add [-b] [-n] <title...>   # -b business ledger, -n top of the order
+tasks/_tooling/tm go [id]                    # show the current task, or start the next one
+tasks/_tooling/tm park [id] [-n]             # return it to the backlog, unassigned
+tasks/_tooling/tm done [id] [--force]        # complete it
+tasks/_tooling/tm find <term>                # search every task ever completed
+tasks/_tooling/tm standup [--send]           # the period's work; --send posts it
+tasks/_tooling/tm standup --cron             # the crontab line, if scheduling it
 
-taskman/_tooling/tm check                      # validate records (hooks and CI call this)
-taskman/_tooling/tm check --notify [--send]    # verify the notification channel
-taskman/_tooling/tm reset [--yes]              # clear task records when adopting the skeleton
+tasks/_tooling/tm check                      # validate records (hooks and CI call this)
+tasks/_tooling/tm check --notify [--send]    # verify the notification channel
+tasks/_tooling/tm reset [--yes]              # clear task records when adopting the skeleton
 ```
 
 ## Translating what the user says
@@ -34,12 +34,12 @@ taskman/_tooling/tm reset [--yes]              # clear task records when adoptin
 | "let's start PLT-9puy" | `tm go PLT-9puy` |
 | "add a task for X" | `tm add X` — pass `-b` if the done-state is a business outcome |
 | "park that" / "I'm blocked on this" | `tm park` — returns it to the `backlog`, unassigned |
-| "what is sam working on" | `grep @sam taskman/*/board.md` |
+| "what is sam working on" | `grep @sam tasks/*/board.md` |
 | "give this to sam" | `tm add -f sam <title>`, or `tm go <id> -f sam` |
 | "commit task" / "that's done" | `tm done`, then `git commit` with `closes <id>` in the message |
 | "have we done this before" | `tm find <term>` |
 | "what did we get done this week" / "standup" | `tm standup` — **without** `--send` unless they ask to post it |
-| "schedule the standup" / "how do I automate this" | `tm standup --cron`, and point at `taskman/_tooling/blueprints/standup.sh` |
+| "schedule the standup" / "how do I automate this" | `tm standup --cron`, and point at `tasks/_tooling/blueprints/standup.sh` |
 | "I've just cloned this to start a project" | `tm reset` to see what goes, then `--yes` |
 | "is the Telegram bot set up" | `tm check --notify` — add `--send` only if they want a test message |
 
@@ -82,7 +82,7 @@ remembered rather than done, that is `nm` — see its skill. A note becomes a ta
 
 ## When asked for tasks, lift the tasks
 
-**Read `taskman/*/board.md` first, every time** — never from memory, and never from the example
+**Read `tasks/*/board.md` first, every time** — never from memory, and never from the example
 below. Ids are four random characters, so a plausible wrong one reads exactly like a right one.
 
 Render the live state. **Nothing else** — no commentary on what is
@@ -143,13 +143,13 @@ and this gets read on a phone away from the repo. Rendered lists are exempt: the
 on the line.
 
 - **You classify, the tool does not.** `add` always assumes the platform ledger. Decide from
-  the routing rule in `taskman/ontology.md` and pass `-b` yourself (principle 7).
+  the routing rule in `tasks/ontology.md` and pass `-b` yourself (principle 7).
 - **Run `done` before committing**, so the board, history and code land in one commit.
 - **Include `closes <id>`** in the commit message when acceptance is met. That trailer is the
   permanent link between task and commit — nothing else records it.
-- **Listing is reading `taskman/<ledger>/board.md`. Reordering is moving a line in it.**
+- **Listing is reading `tasks/<ledger>/board.md`. Reordering is moving a line in it.**
   Neither is a command; do not invent one.
-- **Resolving a board merge conflict** follows the table in `taskman/ontology.md`, not a
+- **Resolving a board merge conflict** follows the table in `tasks/ontology.md`, not a
   textual merge.
 - **`tm standup` prints; `tm standup --send` broadcasts.** Nothing in the repo triggers a
   send — a scheduler does. Never add `--send` on your own initiative.

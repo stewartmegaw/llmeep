@@ -34,10 +34,10 @@ A self-contained subsystem keeps its own vocabulary **next to itself**, not here
 
 | Subsystem  | Its ontology                                     |
 | ---------- | ------------------------------------------------ |
-| `taskman/` | [`taskman/ontology.md`](../taskman/ontology.md)  |
+| `tasks/` | [`tasks/ontology.md`](../tasks/ontology.md)  |
 | `notes/`   | [`notes/ontology.md`](../notes/ontology.md)      |
 
-Two reasons. The subsystem stays **liftable** — you can take `taskman/` to another project
+Two reasons. The subsystem stays **liftable** — you can take `tasks/` to another project
 and its definitions travel with it. And the ontology sits where someone working on the
 subsystem will actually see it, which is the only way it stays current.
 
@@ -45,7 +45,7 @@ subsystem will actually see it, which is the only way it stays current.
 the entry point still resolves every term.
 
 The test for whether something belongs here or there: **is it referenced by more than one
-subsystem?** Task lives in `taskman/` because only taskman defines it, even though commits
+subsystem?** Task lives in `tasks/` because only taskman defines it, even though commits
 and notes cite task IDs. Principles live here because everything obeys them.
 
 ## Conventions

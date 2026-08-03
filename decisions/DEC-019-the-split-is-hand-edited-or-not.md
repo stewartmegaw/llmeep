@@ -29,8 +29,8 @@ On that axis `history.tsv` is not a record a person keeps; it is a byproduct of 
 consulted only through `find`. `DEC-018` had it filed with the boards purely because both are
 "records", which is a true statement that predicts nothing about how either is used.
 
-`notes/` had drifted from `taskman/` besides. Both ontologies promise the same shape — a bounded
-window plus an unbounded ledger — but only `taskman/` had a `_tooling/`.
+`notes/` had drifted from `tasks/` besides. Both ontologies promise the same shape — a bounded
+window plus an unbounded ledger — but only `tasks/` had a `_tooling/`.
 
 ## Decision
 
@@ -38,7 +38,7 @@ window plus an unbounded ledger — but only `taskman/` had a `_tooling/`.
 subsystems are split identically.**
 
 ```
-taskman/                        notes/
+tasks/                        notes/
   ontology.md                     ontology.md
   platform/  board.md, tasks/     notes.md
   business/  board.md, tasks/     raw/
@@ -57,7 +57,7 @@ learn rather than two.
 
 ## Alternatives considered
 
-- **Move only `taskman/history.tsv`.** What was originally asked for, and about ten references
+- **Move only `tasks/history.tsv`.** What was originally asked for, and about ten references
   instead of forty. Rejected because the asymmetry would be permanent and unexplainable: the
   same file, in the same role, at two different depths in two subsystems that are documented as
   mirrors.
@@ -77,7 +77,7 @@ learn rather than two.
   open that nobody may open.
 - **`DEC-018` is superseded one day after being written.** Its `__pycache__` fix and its
   `HERE`/`ROOT`/`REPO` split stand; only the placement of `history.tsv` changes.
-- **Older decisions name `taskman/history.tsv` and `notes/nm`.** They are committed and not
+- **Older decisions name `tasks/history.tsv` and `notes/nm`.** They are committed and not
   edited; substitute the `_tooling/` paths when reading them.
 
 ## Revisit when

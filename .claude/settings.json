@@ -1,22 +1,22 @@
 {
   "permissions": {
     "allow": [
-      "Bash(./taskman/_tooling/tm)",
-      "Bash(./taskman/_tooling/tm add *)",
-      "Bash(./taskman/_tooling/tm go *)",
-      "Bash(./taskman/_tooling/tm park *)",
-      "Bash(./taskman/_tooling/tm done *)",
-      "Bash(./taskman/_tooling/tm find *)",
-      "Bash(./taskman/_tooling/tm standup)",
-      "Bash(./taskman/_tooling/tm standup --period daily)",
-      "Bash(./taskman/_tooling/tm standup --period workday)",
-      "Bash(./taskman/_tooling/tm standup --period bidaily)",
-      "Bash(./taskman/_tooling/tm standup --period weekly)",
-      "Bash(./taskman/_tooling/tm standup --cron)",
-      "Bash(./taskman/_tooling/tm check)",
-      "Bash(./taskman/_tooling/tm check --quiet)",
-      "Bash(./taskman/_tooling/tm check --staged *)",
-      "Bash(./taskman/_tooling/tm check --notify)",
+      "Bash(./tasks/_tooling/tm)",
+      "Bash(./tasks/_tooling/tm add *)",
+      "Bash(./tasks/_tooling/tm go *)",
+      "Bash(./tasks/_tooling/tm park *)",
+      "Bash(./tasks/_tooling/tm done *)",
+      "Bash(./tasks/_tooling/tm find *)",
+      "Bash(./tasks/_tooling/tm standup)",
+      "Bash(./tasks/_tooling/tm standup --period daily)",
+      "Bash(./tasks/_tooling/tm standup --period workday)",
+      "Bash(./tasks/_tooling/tm standup --period bidaily)",
+      "Bash(./tasks/_tooling/tm standup --period weekly)",
+      "Bash(./tasks/_tooling/tm standup --cron)",
+      "Bash(./tasks/_tooling/tm check)",
+      "Bash(./tasks/_tooling/tm check --quiet)",
+      "Bash(./tasks/_tooling/tm check --staged *)",
+      "Bash(./tasks/_tooling/tm check --notify)",
 
       "Bash(./notes/_tooling/nm)",
       "Bash(./notes/_tooling/nm add *)",
@@ -37,9 +37,9 @@
       "Bash(git check-ignore *)"
     ],
     "ask": [
-      "Bash(./taskman/_tooling/tm reset *)",
-      "Bash(./taskman/_tooling/tm check --notify --send)",
-      "Bash(./taskman/_tooling/tm standup --send)",
+      "Bash(./tasks/_tooling/tm reset *)",
+      "Bash(./tasks/_tooling/tm check --notify --send)",
+      "Bash(./tasks/_tooling/tm standup --send)",
       "Bash(./notes/_tooling/nm prune --yes)",
       "Bash(./notes/_tooling/nm reset --yes)"
     ]

@@ -24,8 +24,8 @@ decision "Note-adjacent" and then immediately disclaiming the adjacency.
 The stronger argument was in the code:
 
 ```
-taskman/_tooling/tm  dec_dir = os.path.join(REPO, "notes", "decisions")
-taskman/_tooling/tm  git diff --cached --name-only -- notes/decisions/
+tasks/_tooling/tm  dec_dir = os.path.join(REPO, "notes", "decisions")
+tasks/_tooling/tm  git diff --cached --name-only -- notes/decisions/
 ```
 
 **`tm` owned a folder inside `notes/`.** `tm reset --all` deleted decisions; `check_decisions`

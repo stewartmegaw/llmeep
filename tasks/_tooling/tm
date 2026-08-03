@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tm — taskman. See taskman/ontology.md for the model.
+"""tm — taskman. See tasks/ontology.md for the model.
 
 Five commands: add, go, park, done, find. Listing is reading the board; reordering is
 moving a line in it. Neither is a command.
@@ -571,7 +571,7 @@ def cmd_standup_cron(period):
     at = os.environ.get("STANDUP_AT") or "09:00"
     print(f"\n  {standup_cron(period)}\n")
     print(f"  {period} standup at {at}, on whatever machine is already always-on."
-          "\n  It calls taskman/blueprints/standup.sh — read that first; it needs a"
+          "\n  It calls tasks/blueprints/standup.sh — read that first; it needs a"
           "\n  checkout and a .env of its own, and it fetches before it reports."
           "\n"
           "\n  Optional. Most standups are someone running `tm standup` before the"
@@ -847,7 +847,7 @@ def skeleton_nudge():
     know what any of it is. Nothing parses it, so it costs nothing to make it
     say so in full."""
     if os.path.exists(marker_path()):
-        print(f"\n  ~ these are the skeleton's own records — see taskman/{MARKER},"
+        print(f"\n  ~ these are the skeleton's own records — see tasks/{MARKER},"
               "\n    or run `tm reset` if you cloned this to start a project")
 
 
@@ -1389,7 +1389,7 @@ USAGE = """tm — taskman
   tm reset [--yes] [--all]      clear task records when adopting the skeleton
 
 Listing is reading the board; reordering is moving a line in it.
-Model: taskman/ontology.md"""
+Model: tasks/ontology.md"""
 
 
 def main():

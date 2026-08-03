@@ -19,7 +19,7 @@ provenance argument `DEC-012` made: the row records where a task came from.
 The question that undid it: **why store one idea in two ledgers?**
 
 Normal use is to curate a note until it becomes a task, and curate the task thereafter. Once
-`PLT-9wmv` has a permanent row in `taskman/_tooling/history.tsv`, the note's row adds one field
+`PLT-9wmv` has a permanent row in `tasks/_tooling/history.tsv`, the note's row adds one field
 that the task lacks — `src:` — and duplicates the rest.
 
 It is not free. `nm check` reads taskman's board *and* its history on every commit, purely to

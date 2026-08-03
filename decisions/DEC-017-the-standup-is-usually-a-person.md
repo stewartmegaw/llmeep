@@ -31,12 +31,12 @@ is stale by definition.** It reports whatever was last pulled. Nothing in `DEC-0
 
 **A person runs the standup. Unattended reporting is an optional blueprint they own.**
 
-`taskman/blueprints/standup.sh` is committed, executable, and run by nothing in this repo. It
+`tasks/blueprints/standup.sh` is committed, executable, and run by nothing in this repo. It
 fetches, then reports:
 
 ```sh
 git -C "$REPO" pull --ff-only --quiet origin "$BRANCH"
-exec "$REPO/taskman/tm" standup --send
+exec "$REPO/tasks/tm" standup --send
 ```
 
 **It is a script, not a cron line, because of the fetch.** Where that fetch gets its credentials
