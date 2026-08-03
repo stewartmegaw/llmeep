@@ -55,7 +55,8 @@ three that change something you cannot take back (`tm reset`, `tm check --notify
 ## Tracking work
 
 ```sh
-tasks/_tooling/tm add Fix flaky auth test   # create; -b for business, -n for top of the order
+tasks/_tooling/tm add Fix flaky auth test   # file it in the backlog; -b for business, -n prioritises
+tasks/_tooling/tm prioritise PLT-9puy       # backlog → prioritised; -n for the top of the order
 tasks/_tooling/tm go                        # start the next task, or show the one in progress
 tasks/_tooling/tm park                      # put it back; unassigns it
 tasks/_tooling/tm done                      # complete the current task
@@ -222,6 +223,7 @@ there too. You speak; it translates:
 "what am I on?"          →   tm go
 "start PLT-9puy"         →   tm go PLT-9puy
 "add a task for X"       →   tm add X
+"that's next"            →   tm prioritise PLT-9puy
 "that's done, commit it" →   tm done  &&  git commit -m "…. closes PLT-9puy"
 ```
 

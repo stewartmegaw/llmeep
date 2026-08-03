@@ -40,7 +40,14 @@ ID_LEN = 4
 
 # Heading → attribute. They stopped being the same string once a section name
 # contained a space; deriving one from the other silently dropped the section.
-SECTIONS = {"in progress": "in_progress", "backlog": "backlog"}
+#
+# `prioritised` is the decided queue and `backlog` is the pool everything lands
+# in. Only `prioritised` is ordered — position there is priority, and it is what
+# a bare `go` and the standup both read. The pool has no order to defend, which
+# is the point: filing something costs no ranking decision.
+SECTIONS = {"in progress": "in_progress",
+            "prioritised": "prioritised",
+            "backlog": "backlog"}
 
 TAG_RE = re.compile(r"^(detail|@[a-z0-9][a-z0-9._-]*|blocked:[A-Za-z]{3}-\S+)$")
 ID_RE = re.compile(r"^(PLT|BUS)-\S+$")
@@ -154,13 +161,20 @@ def git_config(key):
 
 
 class Board:
-    """One ledger's live state. Sections are authoritative; order is priority."""
+    """One ledger's live state. Sections are authoritative; order is priority
+    within `prioritised`, which is the only section that has one."""
 
     def __init__(self, ledger):
         self.ledger = ledger
         self.path = os.path.join(ROOT, ledger, "board.md")
-        self.in_progress, self.backlog, self.recent = [], [], []
+        self.in_progress, self.prioritised, self.backlog, self.recent = [], [], [], []
         self._load()
+
+    @property
+    def open(self):
+        """Everything not yet started, decided work first. Read-only — appending
+        to this would land in a throwaway list, so mutate a section directly."""
+        return self.prioritised + self.backlog
 
     def _load(self):
         if not os.path.exists(self.path):
@@ -203,25 +217,26 @@ class Board:
         return Task(tid, " ".join(tokens), tags, done_on=done_on)
 
     def all_ids(self):
-        return {t.id for t in self.in_progress + self.backlog + self.recent}
+        return {t.id for t in self.in_progress + self.open + self.recent}
 
     def find(self, tid):
-        for bucket in (self.in_progress, self.backlog, self.recent):
+        for bucket in (self.in_progress, self.prioritised, self.backlog, self.recent):
             for t in bucket:
                 if t.id.lower() == tid.lower():
                     return t, bucket
         return None, None
 
     def is_blocked(self, task):
-        """A blocker resolved once it is out of the backlog and progress."""
+        """A blocker resolved once it is off the board and out of progress —
+        either open section still counts as unfinished."""
         b = task.blocker
         if not b:
             return None
-        live = {t.id for t in self.in_progress + self.backlog}
+        live = {t.id for t in self.in_progress + self.open}
         return b if b in live else None
 
     def clear_blocker(self, tid):
-        for t in self.in_progress + self.backlog:
+        for t in self.in_progress + self.open:
             t.tags = [g for g in t.tags if g != f"blocked:{tid}"]
 
     def save(self):
@@ -229,6 +244,8 @@ class Board:
         del self.recent[WINDOW:]  # pruned entries survive in history.tsv
         out = [f"# {self.ledger}", "", "## in progress", ""]
         out += [t.render() for t in self.in_progress]
+        out += ["", "## prioritised", ""]
+        out += [t.render() for t in self.prioritised]
         out += ["", "## backlog", ""]
         out += [t.render() for t in self.backlog]
         out += ["", "## recent", ""]
@@ -639,21 +656,30 @@ def render_slack(sections):
 
 def standup_next():
     """What the meeting is actually for. Completed work answers "what happened";
-    the top of the backlog is the part anyone can still change their mind about,
-    and it was the one thing a standup could not show."""
-    queued = []
+    the queue is the part anyone can still change their mind about, and it was
+    the one thing a standup could not show.
+
+    Reads `prioritised` only. The pool is unranked by definition, so listing the
+    first eight of it would present arbitrary lines as a plan. When nothing is
+    ranked, saying so is the more useful report — an empty queue behind a full
+    pool is exactly the thing a standup should surface."""
+    queued, pooled = [], 0
     for ledger in LEDGERS:
         try:
-            queued.extend(Board(ledger).backlog)
+            board = Board(ledger)
         except Fail:
             continue
+        queued.extend(board.prioritised)
+        pooled += len(board.backlog)
     if not queued:
+        if pooled:
+            return [("PRIORITY", [f"· nothing prioritised — {pooled} waiting in the backlog"])]
         return []
     body = [f"· {t.title}" + (f" — @{t.assignee}" if t.assignee else "")
             for t in queued[:STANDUP_LIST]]
     if len(queued) > STANDUP_LIST:
         body.append(f"…and {len(queued) - STANDUP_LIST} more")
-    return [("NEXT UP", body)]
+    return [("PRIORITY", body)]
 
 
 def standup_notes():
@@ -788,14 +814,19 @@ def cmd_add(args):
         show_related(title)  # before allocating, so a duplicate can be abandoned
     task = Task(new_id(LEDGERS[ledger], all_known_ids()), title)
     task.assign(slug(who))
-    board.backlog.insert(0, task) if top else board.backlog.append(task)
+    # Filing costs no ranking decision: everything lands in the pool, and
+    # deciding it is next is the separate, deliberate act `-n` performs.
+    if top:
+        board.prioritised.insert(0, task)
+    else:
+        board.backlog.append(task)
     board.save()
     if quiet:
         print(task.id)
         return
     print(f"\n  {task.id}  {task.title}")
     assigned = f" · @{task.assignee}" if task.assignee else ""
-    print(f"  {ledger} · {'top of' if top else 'bottom of'} backlog{assigned}")
+    print(f"  {ledger} · {'top of prioritised' if top else 'backlog'}{assigned}")
     skeleton_nudge()
 
 
@@ -831,21 +862,29 @@ def cmd_go(args):
         for ledger in LEDGERS:
             board = Board(ledger)
             task, bucket = board.find(tid)
-            if task and bucket is board.backlog:
+            # Naming a task starts it from either section. Prioritising first
+            # would be ceremony — saying `go PLT-9puy` *is* the decision, and
+            # requiring the step would push people into the board to take it.
+            if task and bucket in (board.prioritised, board.backlog):
                 return start(board, task, who)
             if task:
-                raise Fail(f"{task.id} is not in the backlog")
-        raise Fail(f"no backlog task {tid}")
+                raise Fail(f"{task.id} is not open — it is in progress or completed")
+        raise Fail(f"no open task {tid}")
+    # Bare `go` reads the queue and nothing else. Picking out of an unordered
+    # pool would be the tool choosing your next task, which is the judgement
+    # the split exists to keep with a person (principle 7).
     for ledger in LEDGERS:
         board = Board(ledger)
-        for task in board.backlog:
+        for task in board.prioritised:
             # Someone else's task is not yours to pick up; name it explicitly
             # if you mean to take it over.
             if task.assignee and task.assignee != who:
                 continue
             if not board.is_blocked(task):
                 return start(board, task, who)
-    raise Fail("nothing startable — every backlog task is blocked, assigned or absent")
+    pooled = sum(len(Board(l).backlog) for l in LEDGERS)
+    raise Fail("nothing startable — every prioritised task is blocked, assigned or absent"
+               + (f"; {pooled} in the backlog, none prioritised" if pooled else ""))
 
 
 def start(board, task, who=None):
@@ -853,7 +892,7 @@ def start(board, task, who=None):
     if blocker:
         raise Fail(f"{task.id} is blocked by {blocker} — finish that first")
     task.assign(who)
-    board.backlog.remove(task)
+    (board.prioritised if task in board.prioritised else board.backlog).remove(task)
     board.in_progress.append(task)
     board.save()
     show_task(board, task, started=True)
@@ -879,6 +918,50 @@ def show_task(board, task, started):
                 print(f"    [ ] {item}")
     show_related(task.title)
     skeleton_nudge()
+
+
+def cmd_prioritise(args):
+    """backlog → prioritised, at the bottom of the queue (`-n` for the top).
+
+    By the reordering exemption this could be a hand edit — moving a line
+    between two open sections breaks no invariant, and `go <id>` already starts
+    anything from either, so the tool never traps you into needing it. It is a
+    command because triage is the one board edit that happens in bulk: ranking
+    a week's filings by hand is where a stray line ends up in `recent` with no
+    date, which `check` catches but only after the fact.
+
+    Hand editing stays entirely valid. This writes the same file the same way.
+    """
+    top = "-n" in args
+    rest = [a for a in args if a != "-n"]
+    if not rest:
+        raise Fail("usage: tm prioritise <id> [-n]")
+    for tid in rest:
+        moved = False
+        for ledger in LEDGERS:
+            board = Board(ledger)
+            task, bucket = board.find(tid)
+            if not task:
+                continue
+            if bucket is board.prioritised:
+                raise Fail(f"{task.id} is already prioritised")
+            if bucket is not board.backlog:
+                raise Fail(f"{task.id} is not in the backlog — "
+                           "it is in progress or completed")
+            board.backlog.remove(task)
+            board.prioritised.insert(0, task) if top else board.prioritised.append(task)
+            board.save()
+            print(f"  {task.id}  {task.title}")
+            print(f"  {ledger} · {'top' if top else 'bottom'} of prioritised")
+            blocker = board.is_blocked(task)
+            if blocker:
+                # Worth ranking anyway — you are saying it is next once the
+                # blocker clears — but a bare `go` will skip straight past it.
+                print(f"  ! blocked by {blocker}; `go` will skip it until that closes")
+            moved = True
+            break
+        if not moved:
+            raise Fail(f"no task {tid}")
 
 
 def cmd_park(args):
@@ -910,10 +993,12 @@ def cmd_park(args):
             continue
         board.in_progress.remove(task)
         task.unassign()  # parked means available; assign again with `go`
-        board.backlog.insert(0, task) if top else board.backlog.append(task)
+        # Back to the queue, not the pool. Something you started was decided
+        # work; parking says "not now", not "never ranked this".
+        board.prioritised.insert(0, task) if top else board.prioritised.append(task)
         board.save()
         print(f"  {task.id}  {task.title}")
-        print(f"  {ledger} · returned to {'top' if top else 'bottom'} of the backlog")
+        print(f"  {ledger} · returned to {'top' if top else 'bottom'} of prioritised")
         return
     raise Fail(f"no task {tid} in progress" if tid else "nothing in progress")
 
@@ -1001,7 +1086,7 @@ def cmd_reset(args):
             board = Board(ledger)
         except Fail:
             continue
-        n = len(board.in_progress) + len(board.backlog) + len(board.recent)
+        n = len(board.in_progress) + len(board.open) + len(board.recent)
         boards.append((board, n))
         sidecars += sidecar_all(ledger)
     rows = len(history_rows())
@@ -1030,7 +1115,7 @@ def cmd_reset(args):
         return
 
     for board, _ in boards:
-        board.in_progress, board.backlog, board.recent = [], [], []
+        board.in_progress, board.prioritised, board.backlog, board.recent = [], [], [], []
         board.save()
     with open(HISTORY, "w") as fh:
         fh.write("#date\tid\tledger\ttitle\twho\n")
@@ -1100,8 +1185,8 @@ def check_boards(rep):
         dates = [t.done_on for t in board.recent]
         if dates != sorted(dates, reverse=True):
             rep.error(f"{ledger}: recent is not newest-first")
-        live = {t.id for t in board.in_progress + board.backlog}
-        for task in board.in_progress + board.backlog + board.recent:
+        live = {t.id for t in board.in_progress + board.open}
+        for task in board.in_progress + board.open + board.recent:
             if not ID_RE.match(task.id):
                 rep.error(f"{ledger}: malformed id {task.id!r}")
             where = seen.get(task.id)
@@ -1129,7 +1214,7 @@ def check_sidecars(rep):
             board = Board(ledger)
         except Fail:
             continue
-        tagged = {t.id for t in board.in_progress + board.backlog if t.has_detail}
+        tagged = {t.id for t in board.in_progress + board.open if t.has_detail}
         closed = {t.id for t in board.recent} | {r["id"] for r in history_rows()}
         for name in sorted(os.listdir(d)):
             if name.startswith("_") or name.startswith("."):
@@ -1154,7 +1239,7 @@ def check_sidecars(rep):
             if tid not in tagged and tid not in closed:
                 rep.error(f"{name}: no board line tagged detail, and not completed")
 
-        for task in board.in_progress + board.backlog + board.recent:
+        for task in board.in_progress + board.open + board.recent:
             errors, warnings = title_problems(task.title)
             for e in errors:
                 rep.error(f"{task.id}: {e}")
@@ -1601,7 +1686,7 @@ def check_release(rep, root):
             board = Board(ledger)
         except Fail:
             continue
-        n = len(board.in_progress) + len(board.backlog) + len(board.recent)
+        n = len(board.in_progress) + len(board.open) + len(board.recent)
         if n:
             rep.error(f"{ledger} board still has {n} task line(s) — run `tm reset --yes --all`")
     if len(history_rows()):
@@ -1671,10 +1756,11 @@ def cmd_check(args):
 
 USAGE = """tm — taskman
 
-  tm add [-b] [-n] [-f who]     create a task (-b business, -n top, -f assign)
-         [--id]                 ...printing only the new id
+  tm add [-b] [-n] [-f who]     file a task in the backlog (-b business,
+         [--id]                 -n prioritises it, -f assigns; --id prints the id)
   tm go [id] [-f who]           show your current task, or start the next one
-  tm park [id] [-n]             return it to the backlog (-n puts it on top)
+  tm prioritise <id> [-n]       backlog → prioritised (-n puts it on top)
+  tm park [id] [-n]             return it to prioritised (-n puts it on top)
   tm done [id] [--force]        complete it, then commit with "closes <id>"
   tm find <term>                search every task ever completed
   tm standup [--send]           report the period's work (--send posts it)
@@ -1696,6 +1782,7 @@ def main():
         return 0
     commands = {
         "add": cmd_add, "go": cmd_go, "park": cmd_park,
+        "prioritise": cmd_prioritise, "prioritize": cmd_prioritise,
         "done": cmd_done, "find": cmd_find, "standup": cmd_standup,
         "check": cmd_check, "reset": cmd_reset,
     }
