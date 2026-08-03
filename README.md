@@ -249,8 +249,14 @@ notes/_tooling/nm reset --yes   # clears the archive, its history, raw/
 Otherwise you inherit this project's task history and `find` returns the skeleton's work as
 your prior art, which is the amnesia-prevention mechanism working against you. Every `tm add`
 and `tm go` says so until you do. `reset` clears both boards, `history.tsv` and the sidecars;
-it **keeps** the ontology, principles, templates and decision records, because those explain
-why the design is what it is. Run it without `--yes` first to see exactly what goes.
+it **keeps** the ontology, principles, templates and decision records. Run it without `--yes`
+first to see exactly what goes.
+
+Whether to keep the decisions depends on which repo you are becoming. Improving llmeep itself,
+keep them — they explain why the design is what it is. Starting your own project, add `--all`:
+`decisions/` is then yours from `DEC-001`, rather than someone else's twenty-five records with
+your first decision filed behind them. The design is still described by `ontology/`,
+`tasks/ontology.md` and `notes/ontology.md`, which `reset` never touches.
 
 ### Cutting a version
 
@@ -260,14 +266,19 @@ Release branches are **write-once — never merged back**, which is what keeps `
 
 ```sh
 git checkout release
-git rm -rq .                    # or a rename leaves the old paths behind
+git rm -rq .                          # or a rename leaves the old paths behind
 git checkout main -- .
-tasks/_tooling/tm reset --yes   # both subsystems, or the version ships
-notes/_tooling/nm reset --yes   # with this project's records inside it
+tasks/_tooling/tm reset --yes --all   # --all drops this project's decisions too;
+notes/_tooling/nm reset --yes         # a release is nobody's project yet
 git add -A
-git commit -m "v2: clean skeleton" && git tag v2
-git checkout main            # work continues; history intact
+git commit -m "v3: clean skeleton" && git tag v3
+git checkout main                     # work continues; history intact
 ```
+
+**A release cut always takes `--all`.** Whoever clones it is starting their own project, so
+llmeep's decision records would be twenty-five entries of someone else's reasoning sitting in
+front of their first one — the same argument as the task history above, and the reason v2
+shipped wrong.
 
 ## Status
 
