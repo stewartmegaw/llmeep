@@ -496,7 +496,10 @@ CRON_TAIL = {
 
 def standup_period(override=None):
     load_env()
-    name = (override or os.environ.get("STANDUP_PERIOD") or "weekly").strip().lower()
+    # Daily by default. A week of closed tasks is a wall of text on a phone,
+    # which is where this gets read, and the standup that prompts a decision is
+    # the one about yesterday (`PLT-hfwz`).
+    name = (override or os.environ.get("STANDUP_PERIOD") or "daily").strip().lower()
     if name not in STANDUP_PERIODS:
         raise Fail(f"unknown period {name!r}; known: {', '.join(STANDUP_PERIODS)}")
     return name

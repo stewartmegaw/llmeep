@@ -117,13 +117,13 @@ of growing with the project.
 
 ## Updating
 
-The tooling here was installed by `adopt`, which recorded the version and a checksum per file
-in `.llmeep`. To take a newer release, clone llmeep and point its `adopt` at this repo:
+`adopt` installed `.llmeep` at the root of this repo. It is the installer itself, carrying the
+version and a checksum per file in its header, so updating needs no clone step:
 
 ```sh
-git clone --depth 1 https://github.com/stewartmegaw/llmeep.git /tmp/llmeep
-/tmp/llmeep/adopt --update --dry-run    # what would change
-/tmp/llmeep/adopt --update
+./.llmeep --version
+./.llmeep --update --dry-run    # what it would fetch; fetches nothing
+./.llmeep --update              # fetches the newest release and applies it
 ```
 
 **Machinery is replaced; records never are.** Boards, notes, captures, decisions, both
@@ -256,7 +256,7 @@ Full model: [`tasks/_tooling/ontology.md`](tasks/_tooling/ontology.md).
 Completed tasks fall out of `recent` as the window fills, so _what did we actually get done_
 is the one question the working tree stops being able to answer. `tm standup` asks git instead.
 
-**Usually it is a person.** Whoever runs the weekly call types it and reads the output out;
+**Usually it is a person.** Whoever runs the call types it and reads the output out;
 `--send` posts it if the team wants it in writing. That needs no infrastructure, and it is the
 case worth optimising for.
 
@@ -265,7 +265,8 @@ tasks/_tooling/tm standup           # what closed this period, and what is still
 tasks/_tooling/tm standup --send    # ...and post it to the team channel
 ```
 
-Set `STANDUP_PERIOD` to `daily`, `workday`, `bidaily` or `weekly` in `.env`.
+Reports the day by default. Set `STANDUP_PERIOD` to `workday`, `bidaily` or `weekly` in
+`.env` for a longer window; `workday` is `daily` that skips weekends and covers them on Monday.
 
 **If you want it unattended**, `tasks/_tooling/blueprints/standup.sh` is a blueprint for an always-on
 machine: it fetches, then reports. Nothing here runs it — `tm standup --cron` prints the line
@@ -320,6 +321,9 @@ replacing it, installs the hooks, and clears llmeep's own records so you start e
 installed are invisible to the session that ran it. Anything
 already present is skipped and reported, never overwritten. **Your code stays where it is** —
 `platform/` is not created, because an existing repo already has one.
+
+It also copies itself in as `.llmeep`, which is how the repo updates later — see
+[Updating](#updating).
 
 Your README is not touched either, so the working agreement is written to **`LLMEEP.md`**
 (`ops/README.md` for a nested install) — the same sections a fresh clone is told to keep,
