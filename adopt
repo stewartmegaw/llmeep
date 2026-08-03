@@ -263,8 +263,12 @@ def main(argv):
         mark = {"add": "+", "skip": "!", "edit": "~", "reset": "✓"}[kind]
         print(f"  {mark} {path:<{width}}  {note}")
     print(f"\n  ✓ adopted. Your code, history and README are untouched.")
-    print(f"    Start with:  {prefix}tasks/_tooling/tm add <the first thing you need to do>")
-    print(f"    Then read:   {prefix}ontology/domain/README.md — describe your project there")
+    # Skills are read when a session starts, so the one that just arrived is
+    # invisible to the agent that ran this.
+    print("    Restart your agent session first — it reads its skills at startup,")
+    print("    so the two just installed are not loaded yet.")
+    print(f"\n    Then:      {prefix}tasks/_tooling/tm add <the first thing you need to do>")
+    print(f"    And read:  {prefix}ontology/domain/README.md — describe your project there")
     return 0
 
 

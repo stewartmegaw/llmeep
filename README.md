@@ -298,7 +298,9 @@ cd my-project
 ```
 
 It copies the four record trees and the agent adapters in, appends to `.gitignore` rather than
-replacing it, installs the hooks, and clears llmeep's own records so you start empty. Anything
+replacing it, installs the hooks, and clears llmeep's own records so you start empty.
+**Restart your agent session afterwards** — skills are read at startup, so the two it just
+installed are invisible to the session that ran it. Anything
 already present is skipped and reported, never overwritten. **Your code stays where it is** —
 `platform/` is not created, because an existing repo already has one.
 
