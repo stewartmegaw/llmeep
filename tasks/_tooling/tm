@@ -12,6 +12,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import subprocess
 import sys
 import urllib.error
@@ -327,6 +328,22 @@ def sidecar_path(ledger, tid):
         if os.path.isdir(path) or name.endswith(".md"):
             return path
     return None
+
+
+def sidecar_all(ledger):
+    """Every sidecar in a ledger, file or folder. Same rule as `sidecar_path`,
+    which is the point — anything that rule can find, `reset` has to clear."""
+    d = os.path.join(ROOT, ledger, "tasks")
+    if not os.path.isdir(d):
+        return []
+    out = []
+    for name in sorted(os.listdir(d)):
+        path = os.path.join(d, name)
+        if name.startswith("_") or name.startswith("."):
+            continue
+        if os.path.isdir(path) or name.endswith(".md"):
+            out.append(path)
+    return out
 
 
 def sidecar_doc(path):
@@ -862,12 +879,7 @@ def cmd_reset(args):
             continue
         n = len(board.in_progress) + len(board.backlog) + len(board.recent)
         boards.append((board, n))
-        d = os.path.join(ROOT, ledger, "tasks")
-        if os.path.isdir(d):
-            sidecars += [
-                os.path.join(d, f) for f in sorted(os.listdir(d))
-                if f.endswith(".md") and not f.startswith("_")
-            ]
+        sidecars += sidecar_all(ledger)
     rows = len(history_rows())
     decisions = []
     dec_dir = os.path.join(REPO, "decisions")
@@ -881,7 +893,7 @@ def cmd_reset(args):
     for board, n in boards:
         print(f"    {board.ledger} board — {n} task line(s)")
     print(f"    history.tsv — {rows} row(s)")
-    print(f"    sidecars — {len(sidecars)} file(s)")
+    print(f"    sidecars — {len(sidecars)} item(s)")
     if decisions:
         print(f"    decisions — {len(decisions)} file(s)")
     print("\n  keeps: ontology, principles, templates, tm, hooks" +
@@ -899,7 +911,7 @@ def cmd_reset(args):
     with open(HISTORY, "w") as fh:
         fh.write("#date\tid\tledger\ttitle\twho\n")
     for path in sidecars + decisions:
-        os.remove(path)
+        shutil.rmtree(path) if os.path.isdir(path) else os.remove(path)
     if os.path.exists(marker_path()):
         os.remove(marker_path())
     print("\n  ✓ reset. the boards are yours now.")
