@@ -6,7 +6,7 @@ It lives here rather than in `ontology/core.md` because it describes one subsyst
 [`ontology/core.md`](../ontology/core.md) explains the convention.
 
 **Rationale and rejected alternatives:**
-[`DEC-012`](../decisions/DEC-012-notes-is-a-pipeline.md).
+[`DEC-012`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-012-notes-is-a-pipeline.md).
 
 ```
 notes/
@@ -105,7 +105,7 @@ NTE-enu9  Sam owns the Stripe migration end to end        src:acme-call
 Until then it stays: a task can be parked or dropped, and the note is the only record the idea
 existed. Once the task has a permanent row of its own, the note is a second record of one idea,
 and git keeps the deleted row like any other (`git log -S <id>`). `nm prune` does the removing;
-see [`DEC-023`](../decisions/DEC-023-a-shipped-note-is-removed-outright.md).
+see [`DEC-023`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-023-a-shipped-note-is-removed-outright.md).
 
 ## Archive and history
 
@@ -118,7 +118,7 @@ Exactly the split taskman uses, for the same reason.
 
 Pruning narrows the window; it loses nothing.
 
-**The window narrows only on `prune`** — never as a side effect of adding a note ([`DEC-025`](../decisions/DEC-025-the-window-narrows-only-on-prune.md)).
+**The window narrows only on `prune`** — never as a side effect of adding a note ([`DEC-025`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-025-the-window-narrows-only-on-prune.md)).
 
 **Two exceptions to append-only:** promoting a note rewrites its history row to add the task id, and pruning a shipped note removes the row outright.
 A link discovered later is new information about an existing row, not a second row — and a
@@ -177,7 +177,7 @@ is something someone said on a Tuesday.
 
 They used to share this folder on the grounds that both are durable knowledge. That was the only
 thing they shared, and it cost five separate places saying *decisions are the exception*
-([`DEC-021`](../decisions/DEC-021-decisions-are-top-level-and-machine-checked.md)).
+([`DEC-021`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-021-decisions-are-top-level-and-machine-checked.md)).
 
 ---
 

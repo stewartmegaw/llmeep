@@ -11,6 +11,7 @@ Three consecutive cuts shipped wrong, all on 2026-08-03:
 | v2 | Carried all 25 of llmeep's decision records | Stewart, reading the branch on GitHub |
 | v3 | Ten README links pointed at `decisions/DEC-*.md`, deleted by `--all` | me, after tagging |
 | v3 | `notes/raw/` and `tasks/platform/tasks/` absent — git cannot track an empty directory | Stewart |
+| v5 | Fifteen more dead links, same cause, in `tasks/ontology.md` and `notes/ontology.md` | the check below, run by hand |
 
 Each was cheap to fix and cheap to detect. None was detectable from `main`, which is the point:
 the checks that matter here are exactly the ones `tm check` cannot run in the repo it lives in.

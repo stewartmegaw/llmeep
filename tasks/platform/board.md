@@ -11,6 +11,7 @@ PLT-rhew tm check --release verifies a cut tree before it is committed  detail
 
 ## recent
 
+2026-08-03  PLT-su83 Ontology decision links break on a release cut  @stewart
 2026-08-03  PLT-swrt Reduce the ontology to what is actually referenced  @stewart
 2026-08-03  PLT-fy4e A clean skeleton is missing notes/raw and platform sidecars  @stewart
 2026-08-03  PLT-evwe The README status section claims work that is done  @stewart
@@ -25,4 +26,3 @@ PLT-rhew tm check --release verifies a cut tree before it is committed  detail
 2026-08-02  PLT-9c84 nm cannot remove an archived note, and drop already means something else  @stewart
 2026-08-02  PLT-nq2u Pruning a shipped note should drop its history row too, not just the window line  @stewart
 2026-08-02  PLT-9wdq A note whose task shipped should leave the window, not just be hidden  @stewart
-2026-08-02  PLT-ms4z Move DEC records out of notes into a top-level decisions folder  @stewart

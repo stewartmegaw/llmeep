@@ -8,8 +8,8 @@ ontology holds only what cuts across subsystems.
 
 **Why any of this exists** — Jira friction, PRs with one developer, git as a database — is in
 the [root README](../README.md) and not repeated here.
-**Rationale and rejected alternatives:** [`DEC-001`](../decisions/DEC-001-taskman-design.md),
-[`DEC-002`](../decisions/DEC-002-task-history-index.md).
+**Rationale and rejected alternatives:** [`DEC-001`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-001-taskman-design.md),
+[`DEC-002`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-002-task-history-index.md).
 
 ```
 tasks/
@@ -160,7 +160,7 @@ so the format gains no new concept.
 
 Git already answers *who did* finished work — the commit author, via `find`. What it cannot
 answer is *who owns* open work, and that is the case that causes two people to pick up the same
-task. See [`DEC-010`](../decisions/DEC-010-tasks-carry-an-assignee.md).
+task. See [`DEC-010`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-010-tasks-carry-an-assignee.md).
 
 ## Sidecar
 
@@ -219,7 +219,7 @@ left the Window.
 - **No SHA is stored.** The completing commit says `closes PLT-011`, so it is self-identifying
   and always recoverable — `git log --grep="closes PLT-011"`. Storing it would be derived data
   that can go stale, and it was the sole cause of an ordering constraint that no longer exists.
-  See [`DEC-004`](../decisions/DEC-004-commits-close-tasks.md).
+  See [`DEC-004`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-004-commits-close-tasks.md).
 
 - **Never read whole — only grepped.** That is the whole distinction from a Board: a Board is
   always loaded and must stay bounded; History costs zero context because nothing loads it. It
@@ -236,7 +236,7 @@ One of five operations. Everything else — listing, reordering — is a file re
 **A skill is an executable command**, not a vendor artifact. Every agent can run a shell
 command, and so can a person; it is the only common denominator that does not pick a winner.
 One executable, `tasks/_tooling/tm`, written in Python 3 with standard library only — no install
-step. See [`DEC-003`](../decisions/DEC-003-skills-are-executables.md).
+step. See [`DEC-003`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-003-skills-are-executables.md).
 
 | Skill  | Invocation           | Does                                                            |
 | ------ | -------------------- | --------------------------------------------------------------- |
@@ -349,11 +349,11 @@ the boundary, not a leak: swapping channels touches no record, no ontology file 
 
 **Adding a channel is one function and one dict entry** in `tasks/_tooling/tm`. That is the whole
 extension point — no plugin loader, no registry, no config schema. See
-[`DEC-008`](../decisions/DEC-008-notifier-is-swappable.md).
+[`DEC-008`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-008-notifier-is-swappable.md).
 
 `tm check --notify` verifies the configured channel and walks its setup if it is missing. It
 **does not send** — pass `--send` to post a test message. `check` never takes an action anyone
-outside the machine can observe ([`DEC-009`](../decisions/DEC-009-check-has-no-outward-side-effects.md)),
+outside the machine can observe ([`DEC-009`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-009-check-has-no-outward-side-effects.md)),
 the same guard `reset` applies to destruction. **A failed send never fails a completion.**
 
 ### Nothing comes back in
@@ -363,10 +363,10 @@ Task management is conversational, through an agent that already has the reposit
 command syntax, and lands the change on the board directly.
 
 Inbound Telegram was built and then removed for being a worse version of it
-([`DEC-006`](../decisions/DEC-006-telegram-is-notification-only.md)). Messages sent to
+([`DEC-006`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-006-telegram-is-notification-only.md)). Messages sent to
 the bot are ignored; say so in its BotFather description and send `/setcommands` an empty list,
 which also removes the autocomplete that invites the message
-([`DEC-007`](../decisions/DEC-007-stray-telegram-messages-are-ignored.md)).
+([`DEC-007`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-007-stray-telegram-messages-are-ignored.md)).
 
 The rule generalises: **before building an input surface, check whether an agent with the
 repository already does it better.**
@@ -419,7 +419,7 @@ Information, never a gate. No prompt, no network, no cost.
 | `find`  | nothing              | `git log --grep` to resolve commits |
 
 No `tm` command touches git state. Hooks only ever **validate** — they never mutate records.
-See [`DEC-005`](../decisions/DEC-005-agent-mediated-git.md).
+See [`DEC-005`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-005-agent-mediated-git.md).
 
 ### Hooks
 
@@ -515,7 +515,7 @@ are none** — a section that is usually absent gets read when it appears.
 
 **The residual gap:** free-form discussion invokes no skill and so triggers no search. Nothing
 mechanical covers that. If it proves to be where duplicated work starts,
-[`DEC-002`](../decisions/DEC-002-task-history-index.md) names the fix.
+[`DEC-002`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-002-task-history-index.md) names the fix.
 
 ---
 
