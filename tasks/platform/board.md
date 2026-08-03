@@ -10,6 +10,7 @@ PLT-3wjv Board could use a per-person filter
 
 ## recent
 
+2026-08-03  PLT-qbnn An adopted repo is never told how to update  @stewart
 2026-08-03  PLT-gxq2 An installed skeleton can update itself to a newer release  @stewart
 2026-08-03  PLT-x9wv nm still points at taskman, so promote and prune are broken  @stewart
 2026-08-03  PLT-wxr5 A nested adopt leaves root-relative paths everywhere  @stewart
@@ -24,4 +25,3 @@ PLT-3wjv Board could use a per-person filter
 2026-08-03  PLT-evwe The README status section claims work that is done  @stewart
 2026-08-03  PLT-g3qq README decision links break on a release cut  @stewart
 2026-08-03  PLT-44pv A released skeleton should not carry llmeep decisions  @stewart
-2026-08-03  PLT-7fyv Offer to commit a closed task before starting the next one  @stewart
