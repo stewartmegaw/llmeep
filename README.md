@@ -6,6 +6,13 @@ A project skeleton for a small team working with agents. Tasks, notes and decisi
 files in your repo, driven by two commands and read by whatever agent you point at them —
 no tracker, no bot, no dashboard to keep in sync.
 
+Most scaffolding assumes a team that cannot hold context in its head, and charges coordination
+overhead for it — a cost a small team shipping fast pays for nothing. The agent already has the
+whole repository, so a tracker living anywhere else is a second, worse copy that someone keeps
+in sync by hand. Delete all of that and three things are left worth keeping: **a shared
+vocabulary**, **an ordered list of what is next**, and **a durable record of why**. That is
+what this is. [The longer argument](#why-this-exists) is at the bottom.
+
 ## Get started
 
 ```sh
