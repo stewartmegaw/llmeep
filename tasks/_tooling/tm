@@ -591,7 +591,7 @@ def standup_sections(period, today=None):
     if live:
         # The point of the standup is not the trophy cabinet. Work that has sat
         # in progress across a period is the part someone should react to.
-        sections.append(("Still in progress",
+        sections.append(("IN PROGRESS",
                          [f"· {t.title} — {'@' + t.assignee if t.assignee else 'unassigned'}"
                           for t in live]))
     return sections + extras
@@ -653,7 +653,7 @@ def standup_next():
             for t in queued[:STANDUP_LIST]]
     if len(queued) > STANDUP_LIST:
         body.append(f"…and {len(queued) - STANDUP_LIST} more")
-    return [("Next up", body)]
+    return [("NEXT UP", body)]
 
 
 def standup_notes():
@@ -683,7 +683,7 @@ def standup_notes():
     body = [f"· {text}" for text, _ in unpromoted[:STANDUP_LIST]]
     if len(unpromoted) > STANDUP_LIST:
         body.append(f"…and {len(unpromoted) - STANDUP_LIST} more")
-    return [("Captured, not yet work", body)]
+    return [("CAPTURED, NOT YET WORK", body)]
 
 
 def standup_cron(period):
