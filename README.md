@@ -61,6 +61,7 @@ llmeep/tasks/_tooling/tm go                        # start the next task, or sho
 llmeep/tasks/_tooling/tm park                      # put it back; unassigns it
 llmeep/tasks/_tooling/tm done                      # complete the current task
 llmeep/tasks/_tooling/tm find auth                 # search everything ever completed
+llmeep/tasks/_tooling/tm why standup               # search decisions; `tm why DEC-017` explains one
 llmeep/tasks/_tooling/tm standup                   # what closed this period; --send posts it
 ```
 

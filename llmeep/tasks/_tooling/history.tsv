@@ -62,3 +62,4 @@
 2026-08-04	PLT-s6zu	platform	Updating an existing install is broken by the llmeep/ move	stewart
 2026-08-04	PLT-zud9	platform	Updating a nested install splits ontology in two	stewart
 2026-08-04	PLT-brek	platform	Test the install lifecycle, not just the records	stewart
+2026-08-04	PLT-cajd	platform	Decisions need a find before they could ever be pruned	stewart

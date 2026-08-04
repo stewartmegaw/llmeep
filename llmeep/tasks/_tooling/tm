@@ -1334,6 +1334,145 @@ def frontmatter_field(text, field):
     return m.group(1).strip() if m else ""
 
 
+# ------------------------------------------------------------------- decisions
+#
+# `find` searches history — "have we tried this?". `why` searches decisions —
+# "why is it like this?". Different question, different corpus, so a separate
+# verb rather than a flag on `find`: overloading it would make one command
+# return two shapes of answer depending on an argument.
+
+DEC_ID_RE = re.compile(r"\bDEC-\d+\b")
+
+
+def decision_paths(root=None):
+    d = os.path.join(root or REPO, "decisions")
+    if not os.path.isdir(d):
+        return []
+    return [os.path.join(d, f) for f in sorted(os.listdir(d))
+            if f.endswith(".md") and not f.startswith("_")]
+
+
+def decision(path):
+    with open(path) as fh:
+        text = fh.read()
+    return {
+        "id": frontmatter_field(text, "id"),
+        "title": frontmatter_field(text, "title"),
+        # A record with no status is accepted; only supersession writes one.
+        "status": frontmatter_field(text, "status") or "accepted",
+        "decided": frontmatter_field(text, "decided"),
+        "supersedes": _dec_list(text, "supersedes"),
+        "superseded_by": _dec_list(text, "superseded_by"),
+        "relates_to": _dec_list(text, "relates_to"),
+        "path": path,
+        "text": text,
+    }
+
+
+def decisions(root=None):
+    return [decision(p) for p in decision_paths(root)]
+
+
+def cited_by(did, all_decs):
+    """Which *other* decisions name this one, and how. Supersession is already
+    checked both ways by `check_decision_graph`; this is the reading of it, and
+    the thing pruning will need — a record nothing cites is a different
+    proposition from one three others build on (`PLT-4jg2`)."""
+    out = []
+    for d in all_decs:
+        if d["id"] == did:
+            continue
+        for field in ("supersedes", "superseded_by", "relates_to"):
+            if did in d[field]:
+                out.append((d["id"], field))
+    return out
+
+
+def cited_outside(did, root=None):
+    """Where the wider tree names it — ontology, README, skills, code comments.
+    A decision cited only by other decisions is talking to itself; one cited
+    from the machinery is load-bearing."""
+    top = (git("rev-parse", "--show-toplevel") or (root or REPO)).strip()
+    out = git("grep", "-l", "--", did, cwd=top)
+    return sorted(p for p in out.split("\n")
+                  if p and not p.startswith("decisions/")
+                  and "/decisions/" not in p)
+
+
+def dec_line(d):
+    mark = {"accepted": " ", "superseded": "~", "proposed": "?"}.get(d["status"], "?")
+    return f"{mark} {d['id']}  {d['decided'] or '':<10}  {d['title']}"
+
+
+def cmd_why(args):
+    """`why <term>` searches; `why DEC-016` explains one and its chain."""
+    if not args:
+        raise Fail("usage: tm why <term|DEC-000>")
+    term = " ".join(args).strip()
+    all_decs = decisions()
+    if not all_decs:
+        print("  no decisions recorded")
+        return
+
+    m = DEC_ID_RE.fullmatch(term.upper())
+    if m:
+        want = next((d for d in all_decs if d["id"].upper() == term.upper()), None)
+        if not want:
+            raise Fail(f"no {term.upper()}")
+        return show_decision(want, all_decs)
+
+    hits = [d for d in all_decs if term.lower() in d["text"].lower()]
+    if not hits:
+        print(f"  nothing in decisions for {term!r}")
+        return
+    # Superseded last: the current answer is the one you almost always want,
+    # and the history is what you read when it surprises you.
+    hits.sort(key=lambda d: (d["status"] == "superseded", d["id"]))
+    for d in hits:
+        print("  " + dec_line(d))
+    live = sum(1 for d in hits if d["status"] != "superseded")
+    print(f"\n  {len(hits)} record(s), {len(hits) - live} superseded"
+          f" — `tm why {hits[0]['id']}` for one of them")
+
+
+def show_decision(d, all_decs):
+    print(f"\n  {d['id']}  {d['title']}")
+    meta = f"  {d['status']}"
+    if d["decided"]:
+        meta += f" · {d['decided']}"
+    print(meta)
+
+    by_id = {x["id"]: x for x in all_decs}
+
+    def named(ids):
+        return [f"{i} ({by_id[i]['title']})" if i in by_id else f"{i} (missing)"
+                for i in ids]
+
+    for label, ids in (("supersedes", d["supersedes"]),
+                       ("superseded by", d["superseded_by"]),
+                       ("relates to", d["relates_to"])):
+        for line in named(ids):
+            print(f"  {label:>14}: {line}")
+
+    back = cited_by(d["id"], all_decs)
+    if back:
+        print("\n  cited by")
+        for did, field in back:
+            print(f"    {did}  {field.replace('_', ' ')}")
+
+    outside = cited_outside(d["id"])
+    if outside:
+        print("\n  referenced in")
+        for p in outside:
+            print(f"    {p}")
+    elif not back:
+        # The signal pruning is for. Said plainly rather than scored.
+        print("\n  nothing else references this record")
+
+    top = (git("rev-parse", "--show-toplevel") or REPO).strip()
+    print(f"\n  {os.path.relpath(d['path'], top)}")
+
+
 def check_decisions(rep, root):
     """A decision is superseded, never rewritten. Typo-level edits pass; the
     threshold is deliberately generous — this catches rewrites, not tidying."""
@@ -1854,6 +1993,7 @@ USAGE = """tm — taskman
   tm park [id] [-n]             return it to prioritised (-n puts it on top)
   tm done [id] [--force]        complete it, then commit with "closes <id>"
   tm find <term>                search every task ever completed
+  tm why <term|DEC-000>         search decisions, or explain one and its chain
   tm standup [--send]           report the period's work (--send posts it)
   tm standup --cron             the crontab line, if you schedule it
 
@@ -1874,7 +2014,8 @@ def main():
     commands = {
         "add": cmd_add, "go": cmd_go, "park": cmd_park,
         "prioritise": cmd_prioritise, "prioritize": cmd_prioritise,
-        "done": cmd_done, "find": cmd_find, "standup": cmd_standup,
+        "done": cmd_done, "find": cmd_find, "why": cmd_why,
+        "standup": cmd_standup,
         "check": cmd_check, "reset": cmd_reset,
     }
     cmd = commands.get(argv[0])
