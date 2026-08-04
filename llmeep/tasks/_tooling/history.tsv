@@ -63,3 +63,4 @@
 2026-08-04	PLT-zud9	platform	Updating a nested install splits ontology in two	stewart
 2026-08-04	PLT-brek	platform	Test the install lifecycle, not just the records	stewart
 2026-08-04	PLT-cajd	platform	Decisions need a find before they could ever be pruned	stewart
+2026-08-04	PLT-4jg2	platform	Prune decisions by staleness, not by superseded status	stewart
