@@ -213,9 +213,9 @@ over Remote Control — tested 2026-08-01. Plain bold ids only.
     ### backlog
     ---
 
-    **PLT-7t1p**  Drop legacy endpoint — *unassigned* — filed 01-08-26
+    **PLT-7t1p**  01-08-26  Drop legacy endpoint — *unassigned*
 
-    **PLT-2m4x**  Replace the fixture loader — *unassigned* — filed 28-07-26
+    **PLT-2m4x**  28-07-26  Replace the fixture loader — *unassigned*
 
     **PLT-021**  Audit the retry timeouts — *unassigned*
 
@@ -237,12 +237,15 @@ persistent order is just the queue again (`DEC-027`).
 Undated lines sort last, which under newest-first is where the oldest belong anyway. Still
 never say what is "top of the backlog" — sorted by date is not ranked by importance.
 
-**Backlog lines show their `filed:` date, as `DD-MM-YY`** — the same form the standup uses, so
-the two agree. It is the one real signal a pool line carries, and how long something has sat
-there is the question the section actually prompts. Omit it for a line that has none: anything
-filed before the tag existed is undated forever, and inventing one would be worse than the gap.
-Prioritised lines do not carry it — their position already says where they stand, and a date
-beside it competes with the ranking.
+**Backlog lines put their `filed:` date between the id and the title**, as `DD-MM-YY` — the
+same column order the standup uses, so the two read alike. It is the one real signal a pool
+line carries, and how long something has sat there is the question the section prompts. It
+leads rather than trails because that is what makes the dates scannable down the list; after
+the title they are a ragged right edge nobody compares.
+
+A line with no date simply omits the column — anything filed before the tag existed is undated
+forever, and inventing one would be worse than the gap. Prioritised lines never carry it:
+their position already says where they stand, and a date beside it competes with the ranking.
 
 **End with the hint line** whenever the board is not empty — one italic line, no prompt, no
 blocking. The verbs already work in conversation; the hint exists because someone who did not
