@@ -3,13 +3,13 @@
 The whole of note-keeping: vocabulary, format and operation, in one file.
 
 It lives here rather than in `ontology/core.md` because it describes one subsystem —
-[`ontology/core.md`](../../ontology/core.md) explains the convention.
+[`ontology/core.md`](../../../ontology/core.md) explains the convention.
 
 **Rationale and rejected alternatives:**
 [`DEC-012`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-012-notes-is-a-pipeline.md).
 
 ```
-notes/
+llmeep/notes/
   notes.md       <- the archive: the window you read
   raw/           <- captures waiting to be processed
   UNADOPTED.md   <- present until `nm reset`; says whose notes these are
@@ -141,7 +141,7 @@ board.
 `nm check` validates records; it is not a skill, because it touches no note.
 
 **Discovery.** An agent only uses a skill it knows exists, so these are listed in the
-[root README](../../README.md) — the contract every agent reads. A vendor adapter at
+[root README](../../../README.md) — the contract every agent reads. A vendor adapter at
 `.claude/skills/nm/` carries the distilling instructions to agents that support one, but it is
 ergonomics only: the same guidance is here, which is where an agent without an adapter will
 find it.

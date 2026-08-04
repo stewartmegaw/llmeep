@@ -10,14 +10,17 @@ Run it from the repo you want to adopt into:
     git clone --depth 1 <llmeep> /tmp/llmeep
     cd my-project && /tmp/llmeep/adopt
 
-`tasks`, `notes`, `decisions` and `ontology` are ordinary words, so a repo may
-well have one already. Rather than merge into it and hope, `adopt` stops and
-tells you to nest the lot under a directory of your choosing:
+`tasks`, `notes` and `decisions` are ordinary words, so a repo may well have
+one already. Everything llmeep owns therefore goes in a single directory —
+`llmeep/` unless you say otherwise:
 
     /tmp/llmeep/adopt --into ops
 
 That works because `tm` and `nm` derive their roots from where they sit
-(`REPO = dirname(ROOT)`), so a nested install needs no configuration.
+(`REPO = dirname(ROOT)`), so the install folder needs no configuration and can
+be renamed afterwards. `ontology/` and `.claude/` stay at the repo root: the
+first is where you describe your own project, the second is the only place an
+agent looks.
 """
 
 import json
@@ -40,6 +43,16 @@ DEFAULT_URL = "https://github.com/stewartmegaw/llmeep.git"
 # The record trees. `platform/` is deliberately absent: an adopting repo already
 # has its code, and it stays where it is.
 TREES = ["tasks", "notes", "decisions", "ontology"]
+
+# Of those, the ones that live under the install folder. `ontology/` stays at the
+# repo root: `ontology/domain/` is where an adopter describes *their* project, so
+# it is theirs rather than llmeep's, and burying it under the tooling folder says
+# the opposite.
+NESTED = ["tasks", "notes", "decisions"]
+
+# Everything llmeep owns goes in one folder, by default this one. A repo gets a
+# single directory it can rename, rather than four it has to recognise.
+DEFAULT_INTO = "llmeep"
 
 # Agent adapters and the permission allowlist (DEC-003). These stay at the repo
 # root even for a nested install, because that is the only place an agent looks.
@@ -210,18 +223,39 @@ def managed(src):
     """
     out = []
     for base in ("tasks/_tooling", "notes/_tooling"):
-        for dirpath, _, names in os.walk(os.path.join(src, base)):
+        root = src_of(base, src)
+        for dirpath, _, names in os.walk(root):
             for n in sorted(names):
                 if n == "history.tsv":
                     continue
-                out.append(os.path.relpath(os.path.join(dirpath, n), src))
+                out.append(os.path.join(base, os.path.relpath(
+                    os.path.join(dirpath, n), root)).replace(os.sep, "/"))
     out += ["ontology/principles.md", "ontology/core.md",
             "ontology/domain/_template.md", "decisions/_template.md", ".env.example"]
-    return sorted(p for p in out if os.path.isfile(os.path.join(src, p)))
+    return sorted(p for p in out if os.path.isfile(src_of(p, src)))
+
+
+def nested(rel_path):
+    """Whether an install-relative path lives under the install folder.
+
+    Two things sit outside it and both are the adopter's rather than llmeep's:
+    `.claude/`, because that is the only place an agent looks, and `ontology/`,
+    whose `domain/` is where they describe their own project. Everything else
+    goes in the one folder they can rename.
+    """
+    head = rel_path.split("/")[0]
+    return head in NESTED or rel_path == ".env.example" or head == ".notes"
+
+
+def src_of(rel_path, src):
+    """Where a path sits in a clone of llmeep. The skeleton ships in the same
+    shape it installs, so this is `dest_of` pointed at the source."""
+    return os.path.join(src, DEFAULT_INTO, rel_path) if nested(rel_path) \
+        else os.path.join(src, rel_path)
 
 
 def dest_of(rel_path, top, dest_root):
-    return os.path.join(top if rel_path.startswith(".claude/") else dest_root, rel_path)
+    return os.path.join(dest_root if nested(rel_path) else top, rel_path)
 
 
 BEGIN = "# llmeep:manifest — rewritten by --update; do not edit"
@@ -314,7 +348,7 @@ def reroot_text(text, into):
     """Rewrite llmeep's own paths for a nested install. One function, because
     every file that documents a path needs the same treatment, and each caller
     that reimplemented it became a bug (`PLT-wxr5`, `PLT-yftg`)."""
-    trees = "tasks|notes|decisions|ontology"
+    trees = "|".join(NESTED)
     # `./tasks/…` first — the general pattern refuses to match after a dot,
     # which is what keeps it off `.notes/` and off already-rooted paths.
     text = re.sub(rf"\./({trees})/", rf"./{into}/\1/", text)
@@ -498,7 +532,9 @@ def do_update(top, force, dry):
 
 
 def main(argv):
-    into = ""
+    # Nesting is the default, not the escape hatch. A repo gets one directory
+    # it can recognise and rename, instead of four ordinary words it has to.
+    into = DEFAULT_INTO
     if "--into" in argv:
         i = argv.index("--into")
         try:
@@ -521,11 +557,11 @@ def main(argv):
     dest_root = os.path.join(top, into) if into else top
     prefix = f"{into}/" if into else ""
 
-    clashes = [t for t in TREES if os.path.exists(os.path.join(dest_root, t))]
+    clashes = [t for t in TREES if os.path.exists(dest_of(t, top, dest_root))]
     if clashes and not into:
         raise Fail(
             f"{', '.join(clashes)} already exist(s) here.\n"
-            "  Nest llmeep instead:  adopt --into ops\n"
+            "  Pick another folder:  adopt --into ops\n"
             "  `tm` and `nm` find their own roots, so nothing else changes."
         )
     if clashes:
@@ -534,25 +570,25 @@ def main(argv):
     if dry:
         print(f"  would install into {rel(dest_root, top) if into else 'the repo root'}")
         for t in TREES:
-            print(f"    + {prefix}{t}/")
+            print(f"    + {prefix if nested(t) else ''}{t}/")
         for a in AGENT:
             print(f"    + {a}")
         for b in BESIDE:
-            print(f"    + {prefix}{b}")
+            print(f"    + {prefix if nested(b) else ''}{b}")
         print(f"    + {prefix + 'README.md' if into else 'LLMEEP.md'}  (how the tooling works)")
         print("    ~ .gitignore, git config core.hooksPath")
         return 0
 
     report = []
     for t in TREES:
-        copy(os.path.join(SRC, t), os.path.join(dest_root, t), report, top)
+        copy(src_of(t, SRC), dest_of(t, top, dest_root), report, top)
     for a in AGENT:
         src = os.path.join(SRC, a)
         if os.path.exists(src):
             copy(src, os.path.join(top, a), report, top)
 
     for b in BESIDE:
-        copy(os.path.join(SRC, b), os.path.join(dest_root, b), report, top)
+        copy(src_of(b, SRC), dest_of(b, top, dest_root), report, top)
     if into:
         reroot(top, into, report)
     working_agreement(top, dest_root, into, report)
@@ -576,7 +612,7 @@ def main(argv):
     print("    Restart your agent session first — it reads its skills at startup,")
     print("    so the two just installed are not loaded yet.")
     print(f"\n    Then:      {prefix}tasks/_tooling/tm add <the first thing you need to do>")
-    print(f"    And read:  {prefix}ontology/domain/README.md — describe your project there")
+    print("    And read:  ontology/domain/README.md — describe your project there")
     return 0
 
 

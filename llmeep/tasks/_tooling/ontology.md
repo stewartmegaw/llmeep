@@ -3,16 +3,16 @@
 The whole of task tracking: vocabulary, format and operation, in one file.
 
 It lives here rather than in `ontology/core.md` because it describes one subsystem —
-[`ontology/core.md`](../../ontology/core.md) explains the convention. The project-wide
+[`ontology/core.md`](../../../ontology/core.md) explains the convention. The project-wide
 ontology holds only what cuts across subsystems.
 
 **Why any of this exists** — Jira friction, PRs with one developer, git as a database — is in
-the [root README](../../README.md) and not repeated here.
+the [root README](../../../README.md) and not repeated here.
 **Rationale and rejected alternatives:** [`DEC-001`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-001-taskman-design.md),
 [`DEC-002`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-002-task-history-index.md).
 
 ```
-tasks/
+llmeep/tasks/
   platform/
     board.md
     tasks/         <- optional sidecars
@@ -21,7 +21,7 @@ tasks/
     tasks/
   _tooling/        <- the machinery, and the model it implements
     ontology.md    <- this file
-    tm             <- the executable; six commands
+    tm             <- the executable
     history.tsv    <- every completed task; grep-only, never loaded
 ```
 
@@ -39,7 +39,7 @@ A tracked stream of work. There are exactly two.
 - **Identity:** the literal strings `platform` and `business`.
 - **Relates to:** has exactly one [Board](#board).
 - **Notes:** both share one structure, one lifecycle and one set of skills. The split is about
-  ownership and cadence, not mechanism — see [principle 5](../../ontology/principles.md).
+  ownership and cadence, not mechanism — see [principle 5](../../../ontology/principles.md).
 
 **Routing.** Code, infra, tooling, tests, tech debt and incident follow-ups are platform —
 including work on taskman itself. Pricing, positioning, contracts, hiring, vendor selection,
@@ -121,7 +121,7 @@ One file holds both the tasks and their order, so moving a line cannot create dr
 no second place for it to disagree with. The highest-frequency operation in the system
 therefore needs no tooling: **open the board, move the line.**
 
-This is a deliberate, bounded exemption from [principle 2](../../ontology/principles.md).
+This is a deliberate, bounded exemption from [principle 2](../../../ontology/principles.md).
 Anything with an invariant to break — allocating IDs, transitioning status, pruning — still
 goes through a skill.
 
@@ -223,7 +223,7 @@ of this ontology. It carries no guidance, because guidance you delete on every u
 The `recent` section of a Board: the last 15 completed Tasks, newest first.
 
 - **Notes:** the Board's bound. When a sixteenth completes, the oldest is **pruned** — out of
-  the working tree entirely. See [principle 6](../../ontology/principles.md).
+  the working tree entirely. See [principle 6](../../../ontology/principles.md).
 
 ## History
 
@@ -318,7 +318,7 @@ Moving a line between `in progress` and `prioritised` breaks no invariant, so by
 [reordering exemption](#reordering-is-a-hand-edit) it could be a hand edit. It is a command
 because **WIP-1 creates the need**: `go` refuses while something is in progress, so anyone switching
 tasks is pushed by the tool's own guard into editing the board — precisely what
-[principle 2](../../ontology/principles.md) exists to prevent. A tool that forces you to break its
+[principle 2](../../../ontology/principles.md) exists to prevent. A tool that forces you to break its
 own rule has to provide the way out.
 
 Nothing in `tm` blocks deleting a line, so **dropping stays a hand edit**. The test is not "is
@@ -334,7 +334,7 @@ restarts it immediately. `-n` for the case where it genuinely is still next.
 `add` defaults to `platform` and takes `-b` for business. It does **not** guess the ledger from
 the title.
 
-This is [principle 7](../../ontology/principles.md) — judgement belongs to the agent, mechanism to
+This is [principle 7](../../../ontology/principles.md) — judgement belongs to the agent, mechanism to
 the tool. The routing rule is written down under [Ledger](#ledger); an agent invoking `tm` has
 that rule and the surrounding context, so it classifies properly and passes `-b`. A script
 inferring intent from keywords would be unpredictable *and* unintelligent, and wrong silently.
@@ -352,12 +352,12 @@ and carries a header saying so:
 ```
 
 If an adapter contains behaviour, someone using a different agent gets a different system —
-the exact failure [principle 3](../../ontology/principles.md) exists to prevent.
+the exact failure [principle 3](../../../ontology/principles.md) exists to prevent.
 
 ### Discovery
 
 An agent only uses a skill it knows exists, so the five commands are listed in the
-[root README](../../README.md) — the contract every agent reads. Discovery must not depend on an
+[root README](../../../README.md) — the contract every agent reads. Discovery must not depend on an
 adapter, because not every agent has one.
 
 ### Not skills
@@ -367,7 +367,7 @@ Two more subcommands exist. Neither touches a task, so neither is a skill:
 | Command             | Does                                                             |
 | ------------------- | ---------------------------------------------------------------- |
 | `tm check [--staged]` | Validates records. What the hooks and CI both call.            |
-| `tm reset [--yes]`  | Clears task records when the skeleton is adopted for a new project. Dry run unless `--yes`. See the [root README](../../README.md). |
+| `tm reset [--yes]`  | Clears task records when the skeleton is adopted for a new project. Dry run unless `--yes`. See the [root README](../../../README.md). |
 
 ## Notifications — outbound, and swappable
 
@@ -490,7 +490,7 @@ checks.
 
 Checks read **records only**, never `platform/` source — the ontology-currency warning looks at
 which files were added, not what is in them. That is what keeps hooks working regardless of the
-language `platform/` is written in ([principle 3](../../ontology/principles.md)).
+language `platform/` is written in ([principle 3](../../../ontology/principles.md)).
 
 `--no-verify` skips `pre-commit` and `commit-msg` but **not** `post-commit`, so bypassing is
 noticed and appended to `.git/tm-bypassed`. Every later commit reports the standing count until
@@ -531,7 +531,7 @@ The agent translates intent into commands; the commands stay mechanical.
 "commit task"          →   tm done PLT-123  &&  git commit -m "…. closes PLT-123"
 ```
 
-This is [principle 7](../../ontology/principles.md) again. The agent interprets; `tm` allocates IDs,
+This is [principle 7](../../../ontology/principles.md) again. The agent interprets; `tm` allocates IDs,
 prunes to exactly 15 and appends rows — pure mechanism, where an off-by-one fails silently. An
 agent editing the board by hand would still be a hand edit.
 
@@ -567,7 +567,7 @@ Records and machinery are separate trees. `tasks/` is what you edit while workin
 is what runs, plus the model it implements.
 
 ```
-tasks/
+llmeep/tasks/
   platform/          board.md + tasks/ sidecars
   business/          board.md + tasks/ sidecars
   UNADOPTED.md       present until `tm reset`; says whose records these are

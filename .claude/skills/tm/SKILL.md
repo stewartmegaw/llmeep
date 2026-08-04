@@ -5,27 +5,27 @@ description: Task tracking — create, start, complete and search tasks. Use whe
 
 # tm
 
-**ADAPTER ONLY — no logic here.** All behaviour lives in `tasks/_tooling/tm`. If you find yourself
+**ADAPTER ONLY — no logic here.** All behaviour lives in `llmeep/tasks/_tooling/tm`. If you find yourself
 wanting to add rules to this file, they belong in the executable or in
-`tasks/_tooling/ontology.md`, so that people using other agents get the same system
+`llmeep/tasks/_tooling/ontology.md`, so that people using other agents get the same system
 (`DEC-003`, principle 3).
 
 Run from the repo root:
 
 ```sh
-tasks/_tooling/tm add [-b] [-n] <title...>   # -b business ledger, -n prioritise it
-tasks/_tooling/tm go [id]                    # show the current task, or start the next one
-tasks/_tooling/tm prioritise <id> [-n]       # backlog → prioritised, -n for the top
-tasks/_tooling/tm park [id] [-n]             # return it to prioritised, unassigned
-tasks/_tooling/tm done [id] [--force]        # complete it
-tasks/_tooling/tm find <term>                # search every task ever completed
-tasks/_tooling/tm standup [--send]           # the period's work; --send posts it
-tasks/_tooling/tm standup --cron             # the crontab line, if scheduling it
+llmeep/tasks/_tooling/tm add [-b] [-n] <title...>   # -b business ledger, -n prioritise it
+llmeep/tasks/_tooling/tm go [id]                    # show the current task, or start the next one
+llmeep/tasks/_tooling/tm prioritise <id> [-n]       # backlog → prioritised, -n for the top
+llmeep/tasks/_tooling/tm park [id] [-n]             # return it to prioritised, unassigned
+llmeep/tasks/_tooling/tm done [id] [--force]        # complete it
+llmeep/tasks/_tooling/tm find <term>                # search every task ever completed
+llmeep/tasks/_tooling/tm standup [--send]           # the period's work; --send posts it
+llmeep/tasks/_tooling/tm standup --cron             # the crontab line, if scheduling it
 
-tasks/_tooling/tm check                      # validate records (hooks and CI call this)
-tasks/_tooling/tm check --notify [--send]    # verify the notification channel
-tasks/_tooling/tm check --release            # validate a cut tree before committing a version
-tasks/_tooling/tm reset [--yes]              # clear task records when adopting the skeleton
+llmeep/tasks/_tooling/tm check                      # validate records (hooks and CI call this)
+llmeep/tasks/_tooling/tm check --notify [--send]    # verify the notification channel
+llmeep/tasks/_tooling/tm check --release            # validate a cut tree before committing a version
+llmeep/tasks/_tooling/tm reset [--yes]              # clear task records when adopting the skeleton
 ```
 
 ## Translating what the user says
@@ -37,12 +37,12 @@ tasks/_tooling/tm reset [--yes]              # clear task records when adopting 
 | "add a task for X" | `tm add X` — pass `-b` if the done-state is a business outcome |
 | "that's the next thing" / "move X up" | `tm prioritise <id>`, `-n` for the top |
 | "park that" / "I'm blocked on this" | `tm park` — returns it to `prioritised`, unassigned |
-| "what is sam working on" | `grep @sam tasks/*/board.md` |
+| "what is sam working on" | `grep @sam llmeep/tasks/*/board.md` |
 | "give this to sam" | `tm add -f sam <title>`, or `tm go <id> -f sam` |
 | "commit task" / "that's done" | `tm done`, then `git commit` with `closes <id>` in the message |
 | "have we done this before" | `tm find <term>` |
 | "what did we get done this week" / "standup" | `tm standup` — **without** `--send` unless they ask to post it |
-| "schedule the standup" / "how do I automate this" | `tm standup --cron`, and point at `tasks/_tooling/blueprints/standup.sh` |
+| "schedule the standup" / "how do I automate this" | `tm standup --cron`, and point at `llmeep/tasks/_tooling/blueprints/standup.sh` |
 | "I've just cloned this to start a project" | `tm reset` to see what goes, then `--yes` |
 | "is the Telegram bot set up" / "post to the group instead" | `tm check --notify` — it lists every chat the bot can see; add `--send` only if they want a test message |
 
@@ -69,7 +69,7 @@ would not mention it in standup, it does not need a task.
 ## A closed task is committed before the next one starts
 
 **Before `tm add` or `tm go`, check `git status` for uncommitted changes to
-`tasks/_tooling/history.tsv`.** `done` is the only command that writes a row there, so an
+`llmeep/tasks/_tooling/history.tsv`.** `done` is the only command that writes a row there, so an
 uncommitted change to it means the last task was closed and never committed. Do not key on
 `board.md` — `add`, `go` and `park` all write it, and a task merely filed is not a task
 waiting on a commit.
@@ -98,7 +98,7 @@ and the board looks fine because the fragment is still a valid title.
 in a paragraph, do not put the paragraph in the title — write a short handle and put the rest in
 a sidecar.
 
-A sidecar is `tasks/<id>-<slug>.md`, or a **folder** `tasks/<id>-<slug>/` with a `README.md`
+A sidecar is `llmeep/tasks/<id>-<slug>.md`, or a **folder** `llmeep/tasks/<id>-<slug>/` with a `README.md`
 plus whatever else the task needs.
 
 **Notes are a separate subsystem.** If the user pastes a transcript or wants something
@@ -152,7 +152,7 @@ blank line after any `---`. No hint line; a standup is a report, not a menu.
 
 ## When asked for tasks, lift the tasks
 
-**Read `tasks/*/board.md` first, every time** — never from memory, and never from the example
+**Read `llmeep/tasks/*/board.md` first, every time** — never from memory, and never from the example
 below. Ids are four random characters, so a plausible wrong one reads exactly like a right one.
 
 Render the live state. **Nothing else** — no commentary on what is
@@ -221,18 +221,18 @@ and this gets read on a phone away from the repo. Rendered lists are exempt: the
 on the line.
 
 - **You classify, the tool does not.** `add` always assumes the platform ledger. Decide from
-  the routing rule in `tasks/_tooling/ontology.md` and pass `-b` yourself (principle 7).
+  the routing rule in `llmeep/tasks/_tooling/ontology.md` and pass `-b` yourself (principle 7).
 - **Run `done` before committing**, so the board, history and code land in one commit.
 - **Ask before starting a task on top of an uncommitted one** — see the rule above.
 - **Include `closes <id>`** in the commit message when acceptance is met. That trailer is the
   permanent link between task and commit — nothing else records it.
-- **Listing is reading `tasks/<ledger>/board.md`. Reordering is moving a line in it.**
+- **Listing is reading `llmeep/tasks/<ledger>/board.md`. Reordering is moving a line in it.**
   Neither is a command; do not invent one. `prioritise` is the exception, and only for
   `backlog` → `prioritised` — reordering *within* `prioritised` is still a hand edit.
 - **`tm add` files into the pool, not the queue.** A bare `tm go` will not pick it up. If the
   user says the thing they just filed is what they are doing next, that is `tm add -n` or a
   following `tm prioritise` — say which you used.
-- **Resolving a board merge conflict** follows the table in `tasks/_tooling/ontology.md`, not a
+- **Resolving a board merge conflict** follows the table in `llmeep/tasks/_tooling/ontology.md`, not a
   textual merge.
 - **`tm standup` prints; `tm standup --send` broadcasts.** Nothing in the repo triggers a
   send — a scheduler does. Never add `--send` on your own initiative.

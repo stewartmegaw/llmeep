@@ -5,19 +5,19 @@ description: Notes — capture, distil and promote. Use when the user pastes a c
 
 # nm
 
-**ADAPTER ONLY — no logic here.** All behaviour lives in `notes/_tooling/nm`; the model is
-`notes/_tooling/ontology.md`. If you want to add rules, they belong in one of those, so people using
+**ADAPTER ONLY — no logic here.** All behaviour lives in `llmeep/notes/_tooling/nm`; the model is
+`llmeep/notes/_tooling/ontology.md`. If you want to add rules, they belong in one of those, so people using
 other agents get the same system (`DEC-003`, principle 3).
 
 Run from the repo root:
 
 ```sh
-notes/_tooling/nm add [--from <src>] <text...>   # capture; reads stdin for batch
-notes/_tooling/nm drop <NTE-id | file>           # remove a note, or a processed capture
-notes/_tooling/nm promote <NTE-id> [-b] [-n]     # note becomes a task, linked both ways
-notes/_tooling/nm prune [--yes]                  # bound raw/, drop shipped notes; dry without --yes
-notes/_tooling/nm find <term>                    # search every note ever captured
-notes/_tooling/nm reset [--yes]                  # clear notes when adopting the skeleton
+llmeep/notes/_tooling/nm add [--from <src>] <text...>   # capture; reads stdin for batch
+llmeep/notes/_tooling/nm drop <NTE-id | file>           # remove a note, or a processed capture
+llmeep/notes/_tooling/nm promote <NTE-id> [-b] [-n]     # note becomes a task, linked both ways
+llmeep/notes/_tooling/nm prune [--yes]                  # bound raw/, drop shipped notes; dry without --yes
+llmeep/notes/_tooling/nm find <term>                    # search every note ever captured
+llmeep/notes/_tooling/nm reset [--yes]                  # clear notes when adopting the skeleton
 ```
 
 ## Distilling is your job, not a command
@@ -34,7 +34,7 @@ asked:
 4. Tell the user what you captured and what you promoted — briefly.
 
 ```sh
-notes/_tooling/nm add --from acme-call <<'EOF'
+llmeep/notes/_tooling/nm add --from acme-call <<'EOF'
 Acme want SSO before they will renew
 Their security review lands 2026-09-15
 Sam owns the Stripe migration end to end
@@ -47,7 +47,7 @@ Heredoc is the safe default when the text is anything but plain words.
 
 `--from` is a short slug for where it came from: `acme-call`, `standup`, `board-review`.
 
-**Never write the transcript to disk.** Not to `notes/raw/`, not anywhere. An exported call is
+**Never write the transcript to disk.** Not to `llmeep/notes/raw/`, not anywhere. An exported call is
 large and mostly noise, `raw/` is committed, and git would keep it permanently — pruning clears
 the working tree, not history. The note is the artifact; the transcript is scaffolding.
 
@@ -74,11 +74,11 @@ producing fifteen, you are transcribing rather than distilling.
 | "note that down" / "remember that" | `nm add <text>` |
 | "that should be a task" | `nm promote <NTE-id>` |
 | "did we discuss X" / "what did they say about Y" | `nm find <term>` |
-| "what's in the inbox" | `ls notes/raw/` |
+| "what's in the inbox" | `ls llmeep/notes/raw/` |
 | "I've processed that file" | `nm drop <file>` |
 | "drop that note" / "that one's wrong" | `nm drop <NTE-id>` — removes it from the archive *and* history |
 | "I've just cloned this to start a project" | `nm reset` to see what goes, then `--yes` — and `tm reset` too |
-| "what have we captured lately" | `cat notes/notes.md` |
+| "what have we captured lately" | `cat llmeep/notes/notes.md` |
 
 ## When asked for notes, summarise them
 
@@ -86,7 +86,7 @@ producing fifteen, you are transcribing rather than distilling.
 The file holds up to 200 because an agent reads it whole cheaply; a person scanning a phone does
 not. Storage and presentation are bounded separately and by different numbers.
 
-**Read `notes/notes.md` first, every time.** Never render the list from memory or from the
+**Read `llmeep/notes/notes.md` first, every time.** Never render the list from memory or from the
 example below — ids are four random characters and a plausible-looking wrong one is
 indistinguishable from a right one until someone acts on it.
 
@@ -120,7 +120,7 @@ End with the rule and hint line whenever there are notes. **Never link the ids**
 markdown links to repo files render as "unsupported link" over Remote Control.
 
 **Mark a linked task `✓` once it is done** — one `grep -f` of the linked ids against
-`tasks/_tooling/history.tsv`. A ticked note is awaiting removal, not hidden: `nm prune` deletes
+`llmeep/tasks/_tooling/history.tsv`. A ticked note is awaiting removal, not hidden: `nm prune` deletes
 it outright, window and history row both, because the task now carries the record.
 
 **Offer `nm prune` when you see ticks.** That is the command that clears them.
@@ -143,9 +143,9 @@ on the line.
   not leave the user to ask. A note that is context stays a note forever, and that is fine.
 - **A promoted note survives until its task ships**, then `nm prune` deletes it. Until then a
   task can be parked or dropped, and the note is the only record the idea existed.
-- **`notes/raw/` is for things worth reading again** — a written summary, a shared document, an
+- **`llmeep/notes/raw/` is for things worth reading again** — a written summary, a shared document, an
   idea to process later. The test is whether anyone would open it twice. Presence means pending;
   there is no processed marker.
-- **Reading is `cat notes/notes.md`.** There is no `list`, on the same grounds as the board.
-- **Decisions are not notes**, and live at `decisions/`, outside this subsystem — claims the
+- **Reading is `cat llmeep/notes/notes.md`.** There is no `list`, on the same grounds as the board.
+- **Decisions are not notes**, and live at `llmeep/decisions/`, outside this subsystem — claims the
   project stands behind, never edited in substance. Do not put one through this pipeline.

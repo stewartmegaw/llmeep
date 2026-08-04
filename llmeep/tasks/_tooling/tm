@@ -1736,9 +1736,14 @@ def dead_links(root):
     """Relative links that resolve on `main` and not in a cut tree. Every one of
     these so far pointed into `decisions/`, which `reset --all` empties — found
     four times by eye and once by this function, which is why it exists."""
+    # From the git toplevel, not from REPO. Nested, REPO is the install folder,
+    # and the files most likely to hold a stale path — the repo's own README and
+    # `ontology/` — sit outside it. Scanning from REPO silently stopped checking
+    # exactly the ones the move broke.
+    top = (git("rev-parse", "--show-toplevel") or root).strip()
     out = []
-    for path in git("ls-files", "*.md").split():
-        full = os.path.join(root, path)
+    for path in git("ls-files", "*.md", cwd=top).split():
+        full = os.path.join(top, path)
         if not os.path.exists(full):
             continue
         with open(full) as fh:
@@ -1800,8 +1805,12 @@ def check_release(rep, root):
         if not os.path.exists(os.path.join(dec, "_template.md")):
             rep.error("decisions/_template.md is missing — `--all` keeps the template")
 
+    # `ontology/` stays at the repo root while the record trees live under the
+    # install folder, so these do not all resolve against the same base.
+    top = (git("rev-parse", "--show-toplevel") or root).strip()
     for d in RELEASE_DIRS:
-        if not os.path.isdir(os.path.join(root, d)):
+        base = top if d.startswith("ontology/") else root
+        if not os.path.isdir(os.path.join(base, d)):
             rep.error(f"{d}/ is absent — git carries no empty directory; it needs a .gitkeep")
 
     for link in dead_links(root):
