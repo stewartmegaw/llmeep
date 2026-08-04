@@ -59,3 +59,4 @@
 2026-08-03	PLT-hu8m	platform	Standup should show the backlog, with counts in both headers	stewart
 2026-08-03	PLT-xt3h	platform	Record a filed date on tasks	stewart
 2026-08-04	PLT-pq98	platform	Install everything under an llmeep/ folder by default	stewart
+2026-08-04	PLT-s6zu	platform	Updating an existing install is broken by the llmeep/ move	stewart

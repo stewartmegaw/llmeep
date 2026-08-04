@@ -13,6 +13,7 @@ PLT-3wjv Board could use a per-person filter
 
 ## recent
 
+2026-08-04  PLT-s6zu Updating an existing install is broken by the llmeep/ move  @stewart
 2026-08-04  PLT-pq98 Install everything under an llmeep/ folder by default  @stewart
 2026-08-03  PLT-xt3h Record a filed date on tasks         @stewart
 2026-08-03  PLT-hu8m Standup should show the backlog, with counts in both headers  @stewart
@@ -27,4 +28,3 @@ PLT-3wjv Board could use a per-person filter
 2026-08-03  PLT-qbnn An adopted repo is never told how to update  @stewart
 2026-08-03  PLT-gxq2 An installed skeleton can update itself to a newer release  @stewart
 2026-08-03  PLT-x9wv nm still points at taskman, so promote and prune are broken  @stewart
-2026-08-03  PLT-wxr5 A nested adopt leaves root-relative paths everywhere  @stewart
