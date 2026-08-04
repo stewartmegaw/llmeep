@@ -452,6 +452,28 @@ def fetch_release(want, report):
     return tmp
 
 
+def migrate_ontology(top, dest_root, into, report):
+    """`DEC-028` moved `ontology/` to the repo root; a nested install from before
+    it has one inside the install folder.
+
+    Moved rather than reinstalled, because `ontology/domain/` is the adopter's
+    own description of their system. Installing a fresh copy at the root would
+    leave that behind an empty duplicate — two ontologies, the populated one
+    orphaned and the one the tooling documents empty. That is the update
+    breaking its own promise not to touch records.
+
+    Only when the destination is clear. If both exist, someone has already
+    started migrating and merging them is not a decision this can make.
+    """
+    if not into:
+        return
+    old, new = os.path.join(dest_root, "ontology"), os.path.join(top, "ontology")
+    if not os.path.isdir(old) or os.path.exists(new):
+        return
+    shutil.move(old, new)
+    report.append(("move", rel(new, top), f"was {into}/ontology/ — it is yours, not llmeep's"))
+
+
 def do_update(top, force, dry):
     """Replace the machinery, never the records.
 
@@ -494,6 +516,15 @@ def do_update(top, force, dry):
             "  in the clone, or `--force` if you mean to run unreleased code."
         )
 
+    # Before the comparison: it changes where `ontology/` files are looked for,
+    # and a dry run must report the move without performing it.
+    report = []
+    if not dry:
+        migrate_ontology(top, dest_root, into, report)
+    elif into and os.path.isdir(os.path.join(dest_root, "ontology")) \
+            and not os.path.exists(os.path.join(top, "ontology")):
+        print(f"\n  would move {into}/ontology/ to the repo root (DEC-028)")
+
     recorded = man.get("files", {})
     fresh, modified, added = [], [], []
     for r in managed(SRC) + AGENT_FILES:
@@ -515,7 +546,6 @@ def do_update(top, force, dry):
         print("\n  dry run. drop --dry-run to apply.")
         return 0
 
-    report = []
     for r in fresh + added + (modified if force else []):
         d = dest_of(r, top, dest_root)
         os.makedirs(os.path.dirname(d), exist_ok=True)
