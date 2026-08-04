@@ -66,3 +66,4 @@
 2026-08-04	PLT-4jg2	platform	Prune decisions by staleness, not by superseded status	stewart
 2026-08-04	PLT-hmy5	platform	Nothing tells an agent when to write a decision	stewart
 2026-08-04	PLT-c4zq	platform	The taskman ontology is the file that actually fills context	stewart
+2026-08-04	PLT-s9ea	platform	A kept file is overwritten by the next update	stewart

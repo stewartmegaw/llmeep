@@ -294,7 +294,7 @@ def render_manifest(doc):
     return BEGIN + "\n" + "\n".join("# " + l for l in body.split("\n")) + "\n" + END
 
 
-def install_self(top, dest_root, into, report):
+def install_self(top, dest_root, into, report, kept=()):
     """`.llmeep` is this script, carrying what it installed as a header. One
     file in the adopted repo is both the tooling entry point and the record of
     what is there, and `./.llmeep --update` needs no clone step first.
@@ -302,11 +302,23 @@ def install_self(top, dest_root, into, report):
     Always at the repo root: it is run as `./.llmeep`, and a script you have to
     find is one nobody runs (`PLT-ty47`).
     """
+    # For a file we wrote, record what we put there — post-reroot, since a
+    # nested install rewrites paths and the destination legitimately differs
+    # from the source.
+    #
+    # For a file we **kept** because it was the adopter's, record the *source*
+    # checksum instead. Recording the destination would certify their file as
+    # ours, so the next update would classify it unmodified and replace it:
+    # protected once, silently overwritten the second time. Found on a real
+    # repo whose `ontology/core.md` predated its adoption by two weeks
+    # (`PLT-s9ea`).
     files = {}
     for r in managed(SRC) + AGENT_FILES + [working_name(into)]:
         d = dest_of(r, top, dest_root)
-        if os.path.isfile(d):
-            files[r] = sha(d)
+        if not os.path.isfile(d):
+            continue
+        src = src_of(r, SRC)
+        files[r] = sha(src) if r in kept and os.path.isfile(src) else sha(d)
     doc = {"version": version_of(SRC), "on": date.today().isoformat(),
            "into": into, "files": files}
 
@@ -578,7 +590,8 @@ def do_update(top, force, dry):
             os.remove(wa)
         working_agreement(top, dest_root, into, report)
 
-    install_self(top, dest_root, into, report)
+    install_self(top, dest_root, into, report,
+                 kept=() if force else modified)
 
     for kind, path, note in report:
         print(f"  {'~' if kind == 'edit' else '+'} {path}  {note}")
@@ -616,7 +629,12 @@ def main(argv):
     dest_root = os.path.join(top, into) if into else top
     prefix = f"{into}/" if into else ""
 
-    clashes = [t for t in TREES if os.path.exists(dest_of(t, top, dest_root))]
+    # Only the nested trees can clash in a way nesting fixes. `ontology/`
+    # always lands at the repo root, so an adopter who already has one is
+    # not a conflict to refuse — `copy` leaves theirs alone, which is the
+    # right answer. Refusing sent them to `--into`, which cannot help.
+    clashes = [t for t in TREES
+               if nested(t) and os.path.exists(dest_of(t, top, dest_root))]
     if clashes and not into:
         raise Fail(
             f"{', '.join(clashes)} already exist(s) here.\n"
@@ -639,21 +657,28 @@ def main(argv):
         return 0
 
     report = []
+    # `copy` never overwrites, so anything already there is the adopter's and
+    # the whole tree is left alone. Those paths must not be recorded as ours.
+    skipped = set()
     for t in TREES:
-        copy(src_of(t, SRC), dest_of(t, top, dest_root), report, top)
+        if not copy(src_of(t, SRC), dest_of(t, top, dest_root), report, top):
+            skipped.add(t)
     for a in AGENT:
         src = os.path.join(SRC, a)
         if os.path.exists(src):
             copy(src, os.path.join(top, a), report, top)
 
     for b in BESIDE:
-        copy(src_of(b, SRC), dest_of(b, top, dest_root), report, top)
+        if not copy(src_of(b, SRC), dest_of(b, top, dest_root), report, top):
+            skipped.add(b)
     reroot(top, into, report)
     working_agreement(top, dest_root, into, report)
     append_ignores(top, prefix, report)
     reset(dest_root, "tasks", ["--all"], report)
     reset(dest_root, "notes", [], report)
-    install_self(top, dest_root, into, report)
+    kept = {r for r in managed(SRC) + AGENT_FILES
+            if r in skipped or r.split("/")[0] in skipped}
+    install_self(top, dest_root, into, report, kept=kept)
 
     hooks = os.path.relpath(os.path.join(dest_root, "tasks", "_tooling", "hooks"), top)
     git("config", "core.hooksPath", hooks, cwd=top)
