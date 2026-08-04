@@ -92,6 +92,26 @@ Committing when asked keeps `closes <id>` meaning one commit, which is what `tm 
 later. Two tasks in one commit is not fatal — two trailers in one message is legal — but the
 link stops being one-to-one and the history gets harder to read back.
 
+## A rejected alternative is a decision, and nobody will prompt you
+
+`check` enforces the *shape* of a decision and refuses a rewrite. Nothing prompts you to write
+one in the first place, so **this is on you** — the same shape as the rule about filing a task
+before starting work.
+
+**Before work that changes established behaviour, run `tm why <term>`.** If a decision already
+covers it you are superseding, not editing, and finding that out now is cheaper than at commit
+time when `check` refuses the rewrite.
+
+**Afterwards, ask one question: would a reasonable person propose the opposite next month?**
+If yes, write the decision — the rejected option and the reason are the record. Copy
+`decisions/_template.md`, fill the frontmatter, and say what you considered and why not.
+
+Not for bug fixes, renames, or anything whose opposite is obviously wrong. A decision per change
+is how the folder becomes noise.
+
+**Do not write one silently.** Say you have, and why — it is a claim the project stands behind,
+not a side effect of the task.
+
 ## Titles are handles
 
 **A title is a shell argument, so quote it or use stdin.** A `;`, `&`, `|`, `(` or `)` in what

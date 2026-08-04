@@ -74,7 +74,14 @@ the message is the permanent link between the two. Listing is reading
 [the board](llmeep/tasks/platform/board.md); reordering is moving a line in it. Neither needs a
 command.
 
-Full model: [`llmeep/tasks/_tooling/ontology.md`](llmeep/tasks/_tooling/ontology.md).
+**When you reject an alternative someone will propose again, write a decision.** Nothing prompts
+you to — `tm check` enforces their shape and their graph, but whether a choice was worth
+recording is judgement. Copy `decisions/_template.md`; the test is *would a reasonable person
+suggest the opposite next month?* Not for bug fixes or renames. `tm why <term>` searches them,
+and is worth running **before** work that changes established behaviour.
+
+Full model: [`llmeep/tasks/_tooling/ontology.md`](llmeep/tasks/_tooling/ontology.md), and
+[`ontology/core.md`](ontology/core.md) for decisions.
 
 ## Capturing work
 
