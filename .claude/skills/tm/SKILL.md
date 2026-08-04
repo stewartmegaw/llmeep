@@ -213,7 +213,11 @@ over Remote Control — tested 2026-08-01. Plain bold ids only.
     ### backlog
     ---
 
-    **PLT-7t1p**  Drop legacy endpoint — *unassigned*
+    **PLT-7t1p**  01-08-26  Drop legacy endpoint — *unassigned*
+
+    **PLT-2m4x**  28-07-26  Replace the fixture loader — *unassigned*
+
+    **PLT-021**  Audit the retry timeouts — *unassigned*
 
     ---
 
@@ -221,10 +225,27 @@ over Remote Control — tested 2026-08-01. Plain bold ids only.
 
 Omit empty sections. Omit `recent` unless asked.
 
-**`prioritised` is ordered and `backlog` is not.** Render them in that order and never
-reorder either one yourself. Position in `prioritised` is priority, so it is information;
-position in `backlog` is an accident of when something was filed, so reading it as a ranking —
-or telling the user what is "top of the backlog" — invents a decision nobody made.
+**Never reorder `prioritised`.** Its position *is* the priority — someone put those lines in
+that order on purpose, and rearranging them overwrites a decision.
+
+**Sort `backlog` newest-filed first**, matching the standup and `recent`. The pool has no
+order of its own, so the file's sequence is an accident of when things were added — sorting by
+the one real signal a pool line carries beats rendering that accident. This is a view: it
+changes what you print and never what is written to `board.md`. A pool that acquires a
+persistent order is just the queue again (`DEC-027`).
+
+Undated lines sort last, which under newest-first is where the oldest belong anyway. Still
+never say what is "top of the backlog" — sorted by date is not ranked by importance.
+
+**Backlog lines put their `filed:` date between the id and the title**, as `DD-MM-YY` — the
+same column order the standup uses, so the two read alike. It is the one real signal a pool
+line carries, and how long something has sat there is the question the section prompts. It
+leads rather than trails because that is what makes the dates scannable down the list; after
+the title they are a ragged right edge nobody compares.
+
+A line with no date simply omits the column — anything filed before the tag existed is undated
+forever, and inventing one would be worse than the gap. Prioritised lines never carry it:
+their position already says where they stand, and a date beside it competes with the ranking.
 
 **End with the hint line** whenever the board is not empty — one italic line, no prompt, no
 blocking. The verbs already work in conversation; the hint exists because someone who did not
