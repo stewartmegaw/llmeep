@@ -400,6 +400,21 @@ your first decision filed behind them. The design is still described by `ontolog
 `llmeep/tasks/_tooling/ontology.md` and `llmeep/notes/_tooling/ontology.md`, which `reset`
 never touches.
 
+### Before cutting: `selftest`
+
+```sh
+python3 selftest                 # ~40s; needs release tags in the checkout
+```
+
+`tm check` validates records. `selftest` checks that the thing an adopter runs still works —
+greenfield clone, adoption into a repo that already has a `tasks/` directory, `--into ops`, and
+**upgrades from previous releases**, which is the axis nothing else covers and where every
+install bug so far has lived (`DEC-029`).
+
+Run it before a cut. It never touches this repo; every case builds a throwaway repo in a temp
+directory. Deliberately not in the pre-commit hook — a slow hook gets bypassed, taking `check`
+with it.
+
 ### Cutting a version
 
 Release branches are **write-once — never merged back**, which is what keeps `board.md` and
@@ -407,6 +422,7 @@ Release branches are **write-once — never merged back**, which is what keeps `
 `main`'s tree and clearing the records:
 
 ```sh
+python3 selftest                      # the install lifecycle still works
 git checkout release
 git rm -rq .                          # or a rename leaves the old paths behind
 git checkout main -- .
