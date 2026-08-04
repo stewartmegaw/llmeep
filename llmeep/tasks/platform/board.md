@@ -13,6 +13,7 @@ PLT-fqcz An update that fails partway leaves a half-installed repo  filed:2026-0
 
 ## recent
 
+2026-08-04  PLT-947q Order the pool by filing date when listing it  @stewart
 2026-08-04  PLT-a4ej Board listings should show the filed date on backlog lines  @stewart
 2026-08-04  PLT-s9ea A kept file is overwritten by the next update  @stewart
 2026-08-04  PLT-c4zq The taskman ontology is the file that actually fills context  @stewart
@@ -27,4 +28,3 @@ PLT-fqcz An update that fails partway leaves a half-installed repo  filed:2026-0
 2026-08-03  PLT-hu8m Standup should show the backlog, with counts in both headers  @stewart
 2026-08-03  PLT-99e2 Tag each standup line with its ledger  @stewart
 2026-08-03  PLT-97n3 Split the backlog into a prioritised section and an unordered pool  @stewart
-2026-08-03  PLT-4hck check --notify cannot help you change an already-set chat  @stewart
