@@ -25,6 +25,7 @@ llmeep/tasks/_tooling/tm standup [--send]           # the period's work; --send 
 llmeep/tasks/_tooling/tm standup --cron             # the crontab line, if scheduling it
 
 llmeep/tasks/_tooling/tm check                      # validate records (hooks and CI call this)
+llmeep/tasks/_tooling/tm check --context            # what an agent carries, measured
 llmeep/tasks/_tooling/tm check --notify [--send]    # verify the notification channel
 llmeep/tasks/_tooling/tm check --release            # validate a cut tree before committing a version
 llmeep/tasks/_tooling/tm reset [--yes]              # clear task records when adopting the skeleton

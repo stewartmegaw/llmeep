@@ -2069,11 +2069,61 @@ def check_release(rep, root):
         rep.error(f"dead link: {link}")
 
 
+# What an agent carries. A skill is loaded whole the moment its subject comes
+# up, so it is the only file here with a standing cost — and the one nobody
+# notices growing, because every addition to it is individually justified.
+#
+# The ontology is not in this table on purpose. It is large (~8.6k tokens) and
+# read on demand, when the model changes rather than when work happens. That
+# distinction was got backwards once already: `PLT-c4zq` was filed believing the
+# ontology was the file filling context, and measuring showed the skill was.
+SKILL_BUDGET = 4000     # tokens; ~10% headroom over where measuring put it
+CHARS_PER_TOKEN = 4     # rough and deliberately so — the point is drift, not precision
+
+
+def context_cost():
+    """Measured, never asserted. The README carried a cost table for weeks that
+    understated the real figure by a third, because it was written once and the
+    skill kept growing."""
+    top = (git("rev-parse", "--show-toplevel") or REPO).strip()
+    rows = []
+    for label, path, when in (
+        ("tm skill", os.path.join(top, ".claude/skills/tm/SKILL.md"), "tasks are mentioned"),
+        ("nm skill", os.path.join(top, ".claude/skills/nm/SKILL.md"), "notes are mentioned"),
+        ("platform board", os.path.join(ROOT, "platform/board.md"), "it lists or starts work"),
+        ("business board", os.path.join(ROOT, "business/board.md"), "it lists or starts work"),
+    ):
+        if os.path.isfile(path):
+            rows.append((label, os.path.getsize(path) // CHARS_PER_TOKEN, when))
+    return rows
+
+
+def check_context(rep):
+    rows = context_cost()
+    print("\n  what an agent carries\n")
+    for label, tokens, when in rows:
+        print(f"    {label:<16} ~{tokens:>5} tokens   when {when}")
+    skills = {l: t for l, t, _ in rows if l.endswith("skill")}
+    session = skills.get("tm skill", 0) + next(
+        (t for l, t, _ in rows if l == "platform board"), 0)
+    print(f"\n    a task session  ~{session:>5} tokens   the tm skill plus a board")
+    for label, tokens in skills.items():
+        if tokens > SKILL_BUDGET:
+            rep.warn(f"{label} is ~{tokens} tokens, over the {SKILL_BUDGET} budget — "
+                     "it loads whole, every time its subject comes up")
+
+
 def cmd_check(args):
     if "--notify" in args:
         sys.exit(check_notify(send="--send" in args))
     root = REPO
     rep = Report()
+    if "--context" in args:
+        # Not part of plain `check`: it prints a table, and `check` runs in
+        # hooks where output nobody reads is output that trains people to
+        # ignore the rest.
+        check_context(rep)
+        sys.exit(rep.emit())
     if "--release" in args:
         check_release(rep, root)
     elif "--msg" in args:
@@ -2112,6 +2162,7 @@ USAGE = """tm — taskman
   tm standup --cron             the crontab line, if you schedule it
 
   tm check [--staged]           validate records; used by hooks and CI
+  tm check --context            what an agent carries, measured
   tm check --notify [--send]    verify the notification channel (--send posts)
   tm check --release            validate a cut tree before committing the version
   tm reset [--yes] [--all]      clear task records when adopting the skeleton

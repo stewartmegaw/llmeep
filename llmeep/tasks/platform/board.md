@@ -6,7 +6,6 @@
 ## prioritised
 
 PLT-3wjv Board could use a per-person filter
-PLT-c4zq The taskman ontology is the file that actually fills context  filed:2026-08-04
 
 ## backlog
 
@@ -14,6 +13,7 @@ PLT-fqcz An update that fails partway leaves a half-installed repo  filed:2026-0
 
 ## recent
 
+2026-08-04  PLT-c4zq The taskman ontology is the file that actually fills context  @stewart
 2026-08-04  PLT-hmy5 Nothing tells an agent when to write a decision  @stewart
 2026-08-04  PLT-4jg2 Prune decisions by staleness, not by superseded status  @stewart
 2026-08-04  PLT-cajd Decisions need a find before they could ever be pruned  @stewart
@@ -28,4 +28,3 @@ PLT-fqcz An update that fails partway leaves a half-installed repo  filed:2026-0
 2026-08-03  PLT-4hck check --notify cannot help you change an already-set chat  @stewart
 2026-08-03  PLT-2mv7 Standup headers should be bold in Telegram  @stewart
 2026-08-03  PLT-h6fq The working agreement belongs with the install, not at the root  @stewart
-2026-08-03  PLT-hfwz Default the standup period to daily  @stewart

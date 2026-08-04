@@ -65,3 +65,4 @@
 2026-08-04	PLT-cajd	platform	Decisions need a find before they could ever be pruned	stewart
 2026-08-04	PLT-4jg2	platform	Prune decisions by staleness, not by superseded status	stewart
 2026-08-04	PLT-hmy5	platform	Nothing tells an agent when to write a decision	stewart
+2026-08-04	PLT-c4zq	platform	The taskman ontology is the file that actually fills context	stewart
