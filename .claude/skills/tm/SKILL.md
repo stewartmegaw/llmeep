@@ -213,7 +213,9 @@ over Remote Control — tested 2026-08-01. Plain bold ids only.
     ### backlog
     ---
 
-    **PLT-7t1p**  Drop legacy endpoint — *unassigned*
+    **PLT-7t1p**  Drop legacy endpoint — *unassigned* — filed 01-08-26
+
+    **PLT-021**  Audit the retry timeouts — *unassigned*
 
     ---
 
@@ -225,6 +227,15 @@ Omit empty sections. Omit `recent` unless asked.
 reorder either one yourself. Position in `prioritised` is priority, so it is information;
 position in `backlog` is an accident of when something was filed, so reading it as a ranking —
 or telling the user what is "top of the backlog" — invents a decision nobody made.
+
+**Backlog lines show their `filed:` date, as `DD-MM-YY`** — the same form the standup uses, so
+the two agree. It is the one real signal a pool line carries, and how long something has sat
+there is the question the section actually prompts. Omit it for a line that has none: anything
+filed before the tag existed is undated forever, and inventing one would be worse than the gap.
+Prioritised lines do not carry it — their position already says where they stand, and a date
+beside it competes with the ranking.
+
+**Showing the date is not sorting by it.** The rule above still holds: render the file's order.
 
 **End with the hint line** whenever the board is not empty — one italic line, no prompt, no
 blocking. The verbs already work in conversation; the hint exists because someone who did not
