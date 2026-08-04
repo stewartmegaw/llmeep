@@ -51,12 +51,41 @@ behind, written deliberately. It sits at the top level rather than inside a subs
 
 - **Identity:** `DEC-###`, sequential, never reused.
 - **Lives in:** `decisions/DEC-###-<slug>.md`
-- **Lifecycle:** `accepted → superseded`. **Never edited in substance and never deleted.** To
-  change a decision, write a new one that supersedes it — the record of having believed
-  something is itself the value.
+- **Lifecycle:** `accepted → superseded → pruned`. **Never edited in substance.** To change a
+  decision, write a new one that supersedes it — the record of having believed something is
+  itself the value. Superseded is not a step towards deletion: measured on 2026-08-04, the two
+  most-referenced records in this project were both superseded. Only a record **nothing
+  references** is a prune candidate, and `tm why --stale` proposes rather than acts.
 - **Enforced, not trusted:** `tm check` rejects a rewrite, a one-sided supersession, a status
   that disagrees with `superseded_by`, a dangling reference and a duplicate id. Nobody can hold
   that graph in their head, so nobody is asked to.
+
+### When to write one
+
+Nothing prompts you. `check` enforces the *shape* of a decision and the graph between them, but
+no tool can tell that a choice was worth recording — that is judgement, and it stays with the
+person or agent doing the work ([principle 7](principles.md)).
+
+Three triggers, most mechanical first:
+
+1. **You are about to contradict a decision that already exists.** `check` refuses to let you
+   quietly rewrite one, so this is forced eventually — but it is forced at commit time, after
+   the work. Run `tm why <term>` *before* starting anything that changes established behaviour
+   and you find out while it is still cheap.
+2. **You rejected an alternative someone will propose again.** The test is not "was this
+   important?" — it is **"would a reasonable person suggest the opposite next month?"** If yes,
+   the rejected option and its reason are the record; without them the same idea comes back and
+   gets re-argued from nothing.
+3. **The reason exists only in a conversation.** A commit message says what changed. A decision
+   says what else was considered and why not. When the second one is missing, the first reads
+   like arbitrary preference six weeks later.
+
+**When not to.** A bug fix. A rename with no alternative. Anything where the opposite would be
+obviously wrong. A decision per change is how the folder becomes noise, and noise is what makes
+the genuine ones unreadable.
+
+The chain is the point, not the individual record. `DEC-015` → `DEC-016` → `DEC-017` is three
+answers to one question, and the two wrong ones are what stop the first being proposed again.
 
 ## Words we avoid
 

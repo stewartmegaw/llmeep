@@ -19,10 +19,13 @@ llmeep/tasks/_tooling/tm prioritise <id> [-n]       # backlog → prioritised, -
 llmeep/tasks/_tooling/tm park [id] [-n]             # return it to prioritised, unassigned
 llmeep/tasks/_tooling/tm done [id] [--force]        # complete it
 llmeep/tasks/_tooling/tm find <term>                # search every task ever completed
+llmeep/tasks/_tooling/tm why <term|DEC-000>         # search decisions, or explain one
+llmeep/tasks/_tooling/tm why --stale [--yes]        # records nothing references; --yes prunes
 llmeep/tasks/_tooling/tm standup [--send]           # the period's work; --send posts it
 llmeep/tasks/_tooling/tm standup --cron             # the crontab line, if scheduling it
 
 llmeep/tasks/_tooling/tm check                      # validate records (hooks and CI call this)
+llmeep/tasks/_tooling/tm check --context            # what an agent carries, measured
 llmeep/tasks/_tooling/tm check --notify [--send]    # verify the notification channel
 llmeep/tasks/_tooling/tm check --release            # validate a cut tree before committing a version
 llmeep/tasks/_tooling/tm reset [--yes]              # clear task records when adopting the skeleton
@@ -41,6 +44,8 @@ llmeep/tasks/_tooling/tm reset [--yes]              # clear task records when ad
 | "give this to sam" | `tm add -f sam <title>`, or `tm go <id> -f sam` |
 | "commit task" / "that's done" | `tm done`, then `git commit` with `closes <id>` in the message |
 | "have we done this before" | `tm find <term>` |
+| "why is it like this" / "what did we decide about X" | `tm why <term>`, then `tm why DEC-000` |
+| "can we tidy the decisions" | `tm why --stale` — **without** `--yes`. Unreferenced is not finished with; the subject test is the user's |
 | "what did we get done this week" / "standup" | `tm standup` — **without** `--send` unless they ask to post it |
 | "schedule the standup" / "how do I automate this" | `tm standup --cron`, and point at `llmeep/tasks/_tooling/blueprints/standup.sh` |
 | "I've just cloned this to start a project" | `tm reset` to see what goes, then `--yes` |
@@ -87,6 +92,26 @@ llmeep's README title out and back in to keep two trailers honest.
 Committing when asked keeps `closes <id>` meaning one commit, which is what `tm find` recovers
 later. Two tasks in one commit is not fatal — two trailers in one message is legal — but the
 link stops being one-to-one and the history gets harder to read back.
+
+## A rejected alternative is a decision, and nobody will prompt you
+
+`check` enforces the *shape* of a decision and refuses a rewrite. Nothing prompts you to write
+one in the first place, so **this is on you** — the same shape as the rule about filing a task
+before starting work.
+
+**Before work that changes established behaviour, run `tm why <term>`.** If a decision already
+covers it you are superseding, not editing, and finding that out now is cheaper than at commit
+time when `check` refuses the rewrite.
+
+**Afterwards, ask one question: would a reasonable person propose the opposite next month?**
+If yes, write the decision — the rejected option and the reason are the record. Copy
+`decisions/_template.md`, fill the frontmatter, and say what you considered and why not.
+
+Not for bug fixes, renames, or anything whose opposite is obviously wrong. A decision per change
+is how the folder becomes noise.
+
+**Do not write one silently.** Say you have, and why — it is a claim the project stands behind,
+not a side effect of the task.
 
 ## Titles are handles
 

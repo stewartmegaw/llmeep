@@ -1,0 +1,414 @@
+#!/usr/bin/env python3
+"""selftest — does the thing an adopter runs still work?
+
+`tm check` validates records: boards parse, ids are unique, links resolve. It
+has never checked *behaviour*, and on 2026-08-04 three bugs shipped through that
+gap in two releases — one of which stopped any adopter fetching the release at
+all (`PLT-brek`).
+
+All three had the same cause. Everything was tested as a fresh clone or a fresh
+adoption, and neither ever upgrades anything, so the update path — the only code
+that must understand two versions at once — was covered by nothing.
+
+So this is a matrix, not a checklist: **layout** against **transition**.
+
+    python3 selftest              # everything
+    python3 selftest -k update    # one axis
+    python3 selftest -v
+
+Standard library only, no network, and every repo it builds lives in a temp
+directory that is removed afterwards. It never touches the repo it is run from.
+
+Upgrade cases clone release tags of this repository, which pins what they are
+upgrading *from*. A checkout with no tags skips them and says so rather than
+failing — a shallow CI clone is not a broken suite.
+
+Deliberately not wired into the pre-commit hook: it is the first slow thing
+here, and a slow hook gets bypassed, taking `check` with it.
+"""
+
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import unittest
+
+REPO = os.path.dirname(os.path.abspath(__file__))
+
+# What upgrade cases start from. Two back, so a release is exercised against the
+# one before it and the one before that — `--update` is allowed to skip versions
+# and nothing else proves it can.
+FROM_TAGS = 2
+
+# The last release that nested `ontology/` inside the install folder. The
+# `DEC-028` migration only has anything to do when upgrading across that
+# boundary, so this is pinned rather than tracking the newest tags — which
+# drift away from it with every release and quietly stop testing it.
+PRE_DEC028 = "v26"
+
+
+def sh(*args, cwd=None, env=None, check=False):
+    e = dict(os.environ, **(env or {}))
+    e.setdefault("NOTIFY", "none")      # belt and braces; every repo also gets a .env
+    out = subprocess.run(args, cwd=cwd, capture_output=True, text=True, env=e)
+    if check and out.returncode != 0:
+        raise AssertionError(f"{' '.join(args)} failed in {cwd}:\n{out.stdout}\n{out.stderr}")
+    return out
+
+
+def release_tags():
+    """Newest first. Empty for a checkout without tags."""
+    out = sh("git", "tag", "--list", "v*", cwd=REPO).stdout.split()
+    return sorted((t for t in out if t[1:].isdigit()),
+                  key=lambda t: int(t[1:]), reverse=True)
+
+
+class Fixture(unittest.TestCase):
+    """A throwaway repo, and the assertions every case shares."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="llmeep-selftest-")
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+
+    def path(self, *parts):
+        return os.path.join(self.tmp, *parts)
+
+    # ---------------------------------------------------------------- builders
+
+    def a_project(self, name="project", extra_dirs=()):
+        """Someone else's repo: their code, their history, their README."""
+        top = self.path(name)
+        os.makedirs(os.path.join(top, "src"))
+        with open(os.path.join(top, "src", "app.py"), "w") as fh:
+            fh.write("print('theirs')\n")
+        with open(os.path.join(top, "README.md"), "w") as fh:
+            fh.write("# their project\n")
+        for d in extra_dirs:
+            os.makedirs(os.path.join(top, d), exist_ok=True)
+            with open(os.path.join(top, d, "keep.md"), "w") as fh:
+                fh.write("theirs\n")
+        self.git_init(top)
+        return top
+
+    def git_init(self, top):
+        sh("git", "init", "-q", ".", cwd=top, check=True)
+        sh("git", "config", "user.email", "selftest@example.com", cwd=top, check=True)
+        sh("git", "config", "user.name", "selftest", cwd=top, check=True)
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "commit", "-qm", "initial", cwd=top)
+
+    def clone_tag(self, tag):
+        """A checkout of a released version, to install or upgrade from."""
+        dest = self.path(f"src-{tag}")
+        sh("git", "clone", "--quiet", "--branch", tag, REPO, dest, check=True)
+        return dest
+
+    def working_copy(self):
+        """This repo as it stands, uncommitted changes included — the version
+        under test. Copied rather than cloned so a change is covered before it
+        is committed, which is the whole point of running this before a cut."""
+        dest = self.path("src-working")
+        if not os.path.isdir(dest):
+            shutil.copytree(REPO, dest,
+                            ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"))
+        return dest
+
+    def greenfield(self, src):
+        """The documented clone-and-init path: their project *is* the skeleton."""
+        top = self.path("greenfield")
+        shutil.copytree(src, top, ignore=shutil.ignore_patterns(".git"))
+        self.git_init(top)
+        return top
+
+    def adopt(self, src, top, *args, expect_ok=True):
+        out = sh(sys.executable, os.path.join(src, "adopt"), *args, cwd=top)
+        if expect_ok and out.returncode != 0:
+            raise AssertionError(f"adopt {' '.join(args)} failed:\n{out.stdout}\n{out.stderr}")
+        return out
+
+    def install_root(self, top):
+        """Where the record trees landed — the repo root for a flat install."""
+        for candidate in ("llmeep", "ops"):
+            if os.path.isdir(os.path.join(top, candidate, "tasks", "_tooling")):
+                return os.path.join(top, candidate)
+        return top
+
+    def ontology_root(self, top):
+        """Where `ontology/` is *now*. Pre-`DEC-028` installs keep it inside the
+        install folder; the migration is what moves it to the repo root, so a
+        fixture cannot assume the answer before running one."""
+        nested = os.path.join(self.install_root(top), "ontology")
+        return nested if os.path.isdir(nested) else os.path.join(top, "ontology")
+
+    def quieten(self, top):
+        """No test may reach Telegram. `done` notifies, and a suite that posts to
+        the team channel is a suite nobody runs twice."""
+        with open(os.path.join(self.install_root(top), ".env"), "w") as fh:
+            fh.write("NOTIFY=none\n")
+
+    # -------------------------------------------------------------- assertions
+
+    def tm(self, top, *args):
+        return sh(os.path.join(self.install_root(top), "tasks", "_tooling", "tm"),
+                  *args, cwd=top)
+
+    def nm(self, top, *args):
+        return sh(os.path.join(self.install_root(top), "notes", "_tooling", "nm"),
+                  *args, cwd=top)
+
+    def assert_tooling_runs(self, top):
+        """The one assertion that would have caught the update crash: the tools
+        run, from where they were actually installed."""
+        for name, out in (("tm check", self.tm(top, "check")),
+                          ("nm check", self.nm(top, "check"))):
+            self.assertEqual(out.returncode, 0, f"{name} failed:\n{out.stdout}\n{out.stderr}")
+
+    def assert_no_duplicates(self, top):
+        """Exactly one of each tree. The v28 update installed a second
+        `ontology/` at the root and orphaned the adopter's behind it."""
+        root = self.install_root(top)
+        for tree in ("tasks", "notes", "decisions"):
+            here = os.path.isdir(os.path.join(root, tree))
+            there = root != top and os.path.isdir(os.path.join(top, tree))
+            self.assertTrue(here, f"{tree}/ missing from the install")
+            self.assertFalse(there, f"{tree}/ exists at the root *and* in the install")
+        self.assertTrue(os.path.isdir(os.path.join(top, "ontology")),
+                        "ontology/ is not at the repo root")
+        if root != top:
+            self.assertFalse(os.path.isdir(os.path.join(root, "ontology")),
+                             "ontology/ exists at the root *and* in the install")
+
+    def assert_paths_resolve(self, top):
+        """Everything that names a path names one that is there. An allowlist
+        matching nothing prompts for every command; a skill naming the wrong
+        path sends an agent at a file that does not exist."""
+        import json
+        import re
+        settings = os.path.join(top, ".claude", "settings.json")
+        if os.path.exists(settings):
+            with open(settings) as fh:
+                allow = json.load(fh).get("permissions", {}).get("allow", [])
+            for entry in allow:
+                m = re.search(r"Bash\(\.?/?(\S+/(?:tm|nm))[ )]", entry)
+                if m:
+                    self.assertTrue(os.path.exists(os.path.join(top, m.group(1))),
+                                    f"settings.json allows {m.group(1)}, which does not exist")
+        for skill in ("tm", "nm"):
+            p = os.path.join(top, ".claude", "skills", skill, "SKILL.md")
+            if not os.path.exists(p):
+                continue
+            with open(p) as fh:
+                refs = set(re.findall(r"([\w./-]*(?:tasks|notes)/_tooling/(?:tm|nm))\b",
+                                      fh.read()))
+            for ref in refs:
+                self.assertTrue(os.path.exists(os.path.join(top, ref)),
+                                f"{skill}/SKILL.md names {ref}, which does not exist")
+        hooks = sh("git", "config", "core.hooksPath", cwd=top).stdout.strip()
+        if hooks:
+            self.assertTrue(os.path.isdir(os.path.join(top, hooks)),
+                            f"core.hooksPath={hooks} does not exist")
+
+    def assert_healthy(self, top):
+        self.assert_tooling_runs(top)
+        self.assert_no_duplicates(top)
+        self.assert_paths_resolve(top)
+
+    # ------------------------------------------------------------------ records
+
+    def make_records(self, top):
+        """Real work, of every kind an update must not lose."""
+        out = self.tm(top, "add", "A task that must survive")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        root = self.install_root(top)
+        with open(os.path.join(root, "notes", "raw", "capture.md"), "w") as fh:
+            fh.write("something worth keeping\n")
+        domain = os.path.join(self.ontology_root(top), "domain")
+        os.makedirs(domain, exist_ok=True)
+        with open(os.path.join(domain, "orders.md"), "w") as fh:
+            fh.write("# our own domain model\n")
+
+    def assert_records_survived(self, top):
+        root = self.install_root(top)
+        with open(os.path.join(root, "tasks", "platform", "board.md")) as fh:
+            self.assertIn("A task that must survive", fh.read(), "the board lost a task")
+        self.assertTrue(os.path.exists(os.path.join(root, "notes", "raw", "capture.md")),
+                        "a raw capture was lost")
+        domain = os.path.join(top, "ontology", "domain", "orders.md")
+        self.assertTrue(os.path.exists(domain), "the adopter's own domain file was lost")
+        with open(domain) as fh:
+            self.assertIn("our own domain model", fh.read(),
+                          "the adopter's domain file was overwritten")
+
+
+class TestFreshInstall(Fixture):
+    """Layout axis, no transition. This half was always covered; it is here so a
+    failure says which axis broke rather than only that something did."""
+
+    def test_greenfield_clone(self):
+        top = self.greenfield(self.working_copy())
+        sh("git", "config", "core.hooksPath", "llmeep/tasks/_tooling/hooks", cwd=top)
+        self.quieten(top)
+        self.assert_healthy(top)
+        self.assertEqual(self.tm(top, "add", "the first thing").returncode, 0)
+
+    def test_adopt_default_folder(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        self.assertTrue(os.path.isdir(os.path.join(top, "llmeep", "tasks")))
+        self.assert_healthy(top)
+
+    def test_adopt_into_named_folder(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top, "--into", "ops")
+        self.quieten(top)
+        self.assertTrue(os.path.isdir(os.path.join(top, "ops", "tasks")))
+        self.assert_healthy(top)
+
+    def test_adopt_beside_their_own_tasks_directory(self):
+        """The case nesting exists for: a repo that already calls something
+        `tasks/`. Theirs must survive untouched."""
+        top = self.a_project(extra_dirs=("tasks", "notes"))
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        with open(os.path.join(top, "tasks", "keep.md")) as fh:
+            self.assertEqual(fh.read(), "theirs\n")
+        self.assert_tooling_runs(top)
+        self.assert_paths_resolve(top)
+
+    def test_their_code_and_readme_are_untouched(self):
+        top = self.a_project()
+        readme, app = os.path.join(top, "README.md"), os.path.join(top, "src", "app.py")
+        with open(readme) as fh:
+            before = fh.read()
+        self.adopt(self.working_copy(), top)
+        with open(readme) as fh:
+            self.assertEqual(fh.read(), before)
+        with open(app) as fh:
+            self.assertEqual(fh.read(), "print('theirs')\n")
+
+
+class TestUpgrade(Fixture):
+    """The axis that was covered by nothing, and where all three bugs lived."""
+
+    def setUp(self):
+        super().setUp()
+        available = release_tags()
+        # Recent releases, plus one from before the layout changed. Without the
+        # pinned one the whole migration path goes untested the moment two
+        # newer versions exist.
+        self.tags = available[:FROM_TAGS]
+        if PRE_DEC028 in available and PRE_DEC028 not in self.tags:
+            self.tags.append(PRE_DEC028)
+        if not self.tags:
+            self.skipTest("no release tags in this checkout — nothing to upgrade from")
+
+    def upgrade(self, tag, *adopt_args):
+        """Adopt an old release, do real work in it, then update to the working
+        copy. `--force` because the working copy is unreleased and update is
+        right to refuse that silently — `test_refuses_unreleased` asserts it."""
+        src_old = self.clone_tag(tag)
+        top = self.a_project(name=f"from-{tag}")
+        self.adopt(src_old, top, *adopt_args)
+        self.quieten(top)
+        self.make_records(top)
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "commit", "-qm", f"adopt {tag}", cwd=top)
+        out = self.adopt(self.working_copy(), top, "--update", "--force")
+        return top, out
+
+    def test_upgrade_from_each_recent_release(self):
+        """Default folder. Two releases back as well as one, because `--update`
+        is allowed to skip versions."""
+        for tag in self.tags:
+            with self.subTest(tag=tag):
+                top, _ = self.upgrade(tag)
+                self.assert_healthy(top)
+                self.assert_records_survived(top)
+
+    def test_upgrade_of_a_named_folder_install(self):
+        """`--into ops`. The v28 split lived in exactly this cell and nowhere
+        else — a flat adopter would never have seen it."""
+        for tag in self.tags:
+            with self.subTest(tag=tag):
+                top, _ = self.upgrade(tag, "--into", "ops")
+                self.assertTrue(os.path.isdir(os.path.join(top, "ops", "tasks")),
+                                "the install folder was renamed by an update")
+                self.assert_healthy(top)
+                self.assert_records_survived(top)
+
+    def test_upgrade_leaves_one_ontology(self):
+        """Called out separately from assert_no_duplicates because this is the
+        regression, and a named test is what a future reader greps for."""
+        if PRE_DEC028 not in release_tags():
+            self.skipTest(f"{PRE_DEC028} absent — nothing to migrate from")
+        top, out = self.upgrade(PRE_DEC028, "--into", "ops")
+        self.assertFalse(os.path.isdir(os.path.join(top, "ops", "ontology")),
+                         "ontology/ was left in the install folder as well as the root")
+        self.assertTrue(os.path.exists(os.path.join(top, "ontology", "domain", "orders.md")),
+                        "the adopter's domain file did not come with the move")
+
+    def test_dry_run_changes_nothing(self):
+        """It must describe the same run without performing any of it."""
+        src_old = self.clone_tag(self.tags[0])
+        top = self.a_project()
+        self.adopt(src_old, top, "--into", "ops")
+        self.quieten(top)
+        self.make_records(top)
+        before = self.tree_state(top)
+        out = self.adopt(self.working_copy(), top, "--update", "--force", "--dry-run")
+        self.assertEqual(before, self.tree_state(top),
+                         "--dry-run modified the working tree")
+        self.assertIn("dry run", out.stdout.lower())
+
+    def test_refuses_unreleased_without_force(self):
+        """The guard the upgrade cases step around on purpose. If it stops
+        working they would silently start testing nothing."""
+        src_old = self.clone_tag(self.tags[0])
+        top = self.a_project()
+        self.adopt(src_old, top)
+        out = self.adopt(self.working_copy(), top, "--update", expect_ok=False)
+        self.assertNotEqual(out.returncode, 0,
+                            "update accepted an unreleased clone without --force")
+
+    def test_a_refused_update_writes_nothing(self):
+        """The v27 crash replaced seventeen files and *then* died, which is
+        worse than refusing outright. A refusal must happen before the first
+        write — asserted through the going-backwards guard, the one refusal
+        that can be triggered without breaking a source on purpose.
+
+        This does not prove the update is atomic. It is not: it copies file by
+        file with no rollback, so a failure *after* the guards still leaves a
+        half-state (`PLT-fqcz`). What this pins is that the guards come first.
+        """
+        if len(self.tags) < 2:
+            self.skipTest("needs two release tags to go backwards between")
+        newer, older = self.tags[0], self.tags[1]
+        top = self.a_project()
+        self.adopt(self.clone_tag(newer), top)
+        self.quieten(top)
+        self.make_records(top)
+        before = self.tree_state(top)
+
+        out = self.adopt(self.clone_tag(older), top, "--update", expect_ok=False)
+        self.assertNotEqual(out.returncode, 0,
+                            f"update accepted {older} over {newer} without --force")
+        self.assertEqual(before, self.tree_state(top),
+                         "a refused update still modified the install")
+        self.assert_tooling_runs(top)
+
+    def tree_state(self, top):
+        """Every tracked-ish path and its size, for comparing before and after.
+        Sizes rather than hashes: fast, and enough to catch a file replaced."""
+        state = {}
+        for dirpath, dirnames, names in os.walk(top):
+            dirnames[:] = [d for d in dirnames if d != ".git"]
+            for n in names:
+                p = os.path.join(dirpath, n)
+                state[os.path.relpath(p, top)] = os.path.getsize(p)
+        return state
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

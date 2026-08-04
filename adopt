@@ -357,6 +357,20 @@ def reroot_text(text, into):
     """Rewrite llmeep's own paths for a nested install. One function, because
     every file that documents a path needs the same treatment, and each caller
     that reimplemented it became a bug (`PLT-wxr5`, `PLT-yftg`)."""
+    # Since `DEC-028` the skeleton ships already rooted at `llmeep/`, so for any
+    # other folder name this is a **rename**, not a prefix. The patterns below
+    # only match a bare `tasks/`, which a shipped file no longer contains — miss
+    # this and `--into ops` silently leaves every path pointing at `llmeep/`,
+    # which is an allowlist matching nothing and a skill naming a missing file.
+    if into != DEFAULT_INTO:
+        text = re.sub(rf"(?<![\w/-])(\./)?{re.escape(DEFAULT_INTO)}/",
+                      lambda m: (m.group(1) or "") + (f"{into}/" if into else ""), text)
+
+    # And the bare form, for text written before the move or by hand. Only
+    # when there is a prefix to add: with `into=""` these would splice an
+    # empty segment and turn `./tasks/` into `.//tasks/`.
+    if not into:
+        return text
     trees = "|".join(NESTED)
     # `./tasks/…` first — the general pattern refuses to match after a dot,
     # which is what keeps it off `.notes/` and off already-rooted paths.
@@ -550,8 +564,7 @@ def do_update(top, force, dry):
         d = dest_of(r, top, dest_root)
         os.makedirs(os.path.dirname(d), exist_ok=True)
         shutil.copy2(src_of(r, SRC), d)
-    if into:
-        reroot(top, into, report)
+    reroot(top, into, report)
 
     # Generated, so it cannot be copied — but it carries the commands and the
     # update instructions, and an install that never refreshes it keeps whatever
@@ -635,8 +648,7 @@ def main(argv):
 
     for b in BESIDE:
         copy(src_of(b, SRC), dest_of(b, top, dest_root), report, top)
-    if into:
-        reroot(top, into, report)
+    reroot(top, into, report)
     working_agreement(top, dest_root, into, report)
     append_ignores(top, prefix, report)
     reset(dest_root, "tasks", ["--all"], report)

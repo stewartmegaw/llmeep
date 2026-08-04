@@ -1172,6 +1172,11 @@ def cmd_reset(args):
             os.path.join(dec_dir, f) for f in sorted(os.listdir(dec_dir))
             if f.startswith("DEC-")
         ]
+        # The stubs go with the records they stand for. A cloner
+        # inheriting llmeep's pruned-decision index is the same fault as
+        # inheriting its decisions, one indirection along.
+        if os.path.exists(dec_history()):
+            decisions.append(dec_history())
 
     print("  clears:")
     for board, n in boards:
@@ -1332,6 +1337,253 @@ def check_sidecars(rep):
 def frontmatter_field(text, field):
     m = re.search(rf"^{field}:\s*(.*)$", text, re.M)
     return m.group(1).strip() if m else ""
+
+
+# ------------------------------------------------------------------- decisions
+#
+# `find` searches history — "have we tried this?". `why` searches decisions —
+# "why is it like this?". Different question, different corpus, so a separate
+# verb rather than a flag on `find`: overloading it would make one command
+# return two shapes of answer depending on an argument.
+
+DEC_ID_RE = re.compile(r"\bDEC-\d+\b")
+
+
+def dec_history(root=None):
+    """Where pruned decisions leave their stub. Same shape and same argument as
+    `history.tsv` for tasks: the record leaves the working tree, the fact that
+    it existed does not. Without it `why` would stop finding anything pruned,
+    which is the premise of `PLT-cajd` undone one release later."""
+    return os.path.join(root or REPO, "decisions", "history.tsv")
+
+
+DEC_HISTORY_HEADER = "#decided\tid\ttitle\tpruned\tnote\n"
+
+
+def pruned_decisions(root=None):
+    path = dec_history(root)
+    if not os.path.exists(path):
+        return []
+    out = []
+    with open(path) as fh:
+        for line in fh:
+            if line.startswith("#") or not line.strip():
+                continue
+            parts = line.rstrip("\n").split("\t")
+            parts += [""] * (5 - len(parts))
+            out.append(dict(zip(("decided", "id", "title", "pruned", "note"), parts[:5])))
+    return out
+
+
+def decision_paths(root=None):
+    d = os.path.join(root or REPO, "decisions")
+    if not os.path.isdir(d):
+        return []
+    return [os.path.join(d, f) for f in sorted(os.listdir(d))
+            if f.endswith(".md") and not f.startswith("_")]
+
+
+def decision(path):
+    with open(path) as fh:
+        text = fh.read()
+    return {
+        "id": frontmatter_field(text, "id"),
+        "title": frontmatter_field(text, "title"),
+        # A record with no status is accepted; only supersession writes one.
+        "status": frontmatter_field(text, "status") or "accepted",
+        "decided": frontmatter_field(text, "decided"),
+        "supersedes": _dec_list(text, "supersedes"),
+        "superseded_by": _dec_list(text, "superseded_by"),
+        "relates_to": _dec_list(text, "relates_to"),
+        "path": path,
+        "text": text,
+    }
+
+
+def decisions(root=None):
+    return [decision(p) for p in decision_paths(root)]
+
+
+def cited_by(did, all_decs):
+    """Which *other* decisions name this one, and how. Supersession is already
+    checked both ways by `check_decision_graph`; this is the reading of it, and
+    the thing pruning will need — a record nothing cites is a different
+    proposition from one three others build on (`PLT-4jg2`)."""
+    out = []
+    for d in all_decs:
+        if d["id"] == did:
+            continue
+        for field in ("supersedes", "superseded_by", "relates_to"):
+            if did in d[field]:
+                out.append((d["id"], field))
+    return out
+
+
+def cited_outside(did, root=None):
+    """Where the wider tree names it — ontology, README, skills, code comments.
+    A decision cited only by other decisions is talking to itself; one cited
+    from the machinery is load-bearing."""
+    top = (git("rev-parse", "--show-toplevel") or (root or REPO)).strip()
+    out = git("grep", "-l", "--", did, cwd=top)
+    return sorted(p for p in out.split("\n")
+                  if p and not p.startswith("decisions/")
+                  and "/decisions/" not in p)
+
+
+def dec_line(d):
+    mark = {"accepted": " ", "superseded": "~", "proposed": "?"}.get(d["status"], "?")
+    return f"{mark} {d['id']}  {d['decided'] or '':<10}  {d['title']}"
+
+
+def stale_decisions(all_decs):
+    """Records nothing references — not records that are superseded.
+
+    Those are close to opposite. Measured on 2026-08-04: the two most-cited
+    records in the corpus, `DEC-001` at 21 references and `DEC-006` at 12, are
+    both superseded, while every record with no references at all was
+    `accepted`. Pruning by status would have deleted the foundations and kept
+    the orphans.
+
+    **Unreferenced is necessary, not sufficient.** Whether the subject still
+    exists is a judgement no tool can make, so this proposes and a person
+    disposes (principle 7).
+    """
+    live = {d["id"] for d in all_decs}
+    out = []
+    for d in all_decs:
+        if cited_by(d["id"], all_decs) or cited_outside(d["id"]):
+            continue
+        # A record its own chain still needs is referenced whether or not
+        # anyone wrote it down: keep anything another live record supersedes.
+        if any(x in live for x in d["supersedes"] + d["superseded_by"]):
+            continue
+        out.append(d)
+    return out
+
+
+def prune_decisions(candidates, yes):
+    """Dry by default, `--yes` acts — the pattern `nm prune` and `tm reset`
+    already set for anything that removes something."""
+    if not candidates:
+        print("  nothing stale — every record is referenced")
+        return
+    print(f"\n  {len(candidates)} record(s) nothing references:\n")
+    for d in candidates:
+        print("  " + dec_line(d))
+    if not yes:
+        print("\n  Unreferenced is not the same as finished with. Check the subject still"
+              "\n  matters, then `tm why --stale --yes` to prune. A stub stays in"
+              f"\n  {os.path.relpath(dec_history(), REPO)}, so `tm why` keeps finding them.")
+        return
+
+    path = dec_history()
+    fresh = not os.path.exists(path)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "a") as fh:
+        if fresh:
+            fh.write(DEC_HISTORY_HEADER)
+        for d in candidates:
+            note = (f"superseded by {', '.join(d['superseded_by'])}"
+                    if d["superseded_by"] else "no references at prune time")
+            fh.write("\t".join([d["decided"] or "", d["id"], d["title"],
+                                date.today().isoformat(), note]) + "\n")
+    for d in candidates:
+        os.remove(d["path"])
+    print(f"\n  ✓ pruned {len(candidates)}. Stubs in "
+          f"{os.path.relpath(path, REPO)}; git keeps the full text.")
+
+
+def cmd_why(args):
+    """`why <term>` searches; `why DEC-016` explains one and its chain."""
+    all_decs = decisions()
+    if "--stale" in args:
+        return prune_decisions(stale_decisions(all_decs), "--yes" in args)
+    if not args:
+        raise Fail("usage: tm why <term|DEC-000>   |   tm why --stale [--yes]")
+    term = " ".join(args).strip()
+    if not all_decs:
+        print("  no decisions recorded")
+        return
+
+    m = DEC_ID_RE.fullmatch(term.upper())
+    if m:
+        want = next((d for d in all_decs if d["id"].upper() == term.upper()), None)
+        if want:
+            return show_decision(want, all_decs)
+        gone = next((r for r in pruned_decisions()
+                     if r["id"].upper() == term.upper()), None)
+        if gone:
+            return show_pruned(gone)
+        raise Fail(f"no {term.upper()}")
+
+    hits = [d for d in all_decs if term.lower() in d["text"].lower()]
+    gone = [r for r in pruned_decisions()
+            if term.lower() in f"{r['id']} {r['title']} {r['note']}".lower()]
+    if not hits and not gone:
+        print(f"  nothing in decisions for {term!r}")
+        return
+    # Superseded last: the current answer is the one you almost always want,
+    # and the history is what you read when it surprises you.
+    hits.sort(key=lambda d: (d["status"] == "superseded", d["id"]))
+    for d in hits:
+        print("  " + dec_line(d))
+    for r in gone:
+        print(f"  - {r['id']}  {r['decided'] or '':<10}  {r['title']}  (pruned)")
+    if not hits:
+        print(f"\n  {len(gone)} pruned record(s) only — git keeps the full text")
+        return
+    live = sum(1 for d in hits if d["status"] != "superseded")
+    trailer = f"\n  {len(hits)} record(s), {len(hits) - live} superseded"
+    if gone:
+        trailer += f", {len(gone)} pruned"
+    print(trailer + f" — `tm why {hits[0]['id']}` for one of them")
+
+
+def show_pruned(row):
+    """All that is left of a pruned record, and where to get the rest."""
+    print(f"\n  {row['id']}  {row['title']}")
+    print(f"  pruned {row['pruned']}" + (f" · decided {row['decided']}" if row["decided"] else ""))
+    if row["note"]:
+        print(f"  {row['note']}")
+    print(f"\n  full text: git log --diff-filter=D -- '*{row['id']}*'")
+
+
+def show_decision(d, all_decs):
+    print(f"\n  {d['id']}  {d['title']}")
+    meta = f"  {d['status']}"
+    if d["decided"]:
+        meta += f" · {d['decided']}"
+    print(meta)
+
+    by_id = {x["id"]: x for x in all_decs}
+
+    def named(ids):
+        return [f"{i} ({by_id[i]['title']})" if i in by_id else f"{i} (missing)"
+                for i in ids]
+
+    for label, ids in (("supersedes", d["supersedes"]),
+                       ("superseded by", d["superseded_by"]),
+                       ("relates to", d["relates_to"])):
+        for line in named(ids):
+            print(f"  {label:>14}: {line}")
+
+    back = cited_by(d["id"], all_decs)
+    if back:
+        print("\n  cited by")
+        for did, field in back:
+            print(f"    {did}  {field.replace('_', ' ')}")
+
+    outside = cited_outside(d["id"])
+    if outside:
+        print("\n  referenced in")
+        for p in outside:
+            print(f"    {p}")
+    elif not back:
+        # The signal pruning is for. Said plainly rather than scored.
+        print("\n  nothing else references this record")
+
+    top = (git("rev-parse", "--show-toplevel") or REPO).strip()
+    print(f"\n  {os.path.relpath(d['path'], top)}")
 
 
 def check_decisions(rep, root):
@@ -1817,11 +2069,61 @@ def check_release(rep, root):
         rep.error(f"dead link: {link}")
 
 
+# What an agent carries. A skill is loaded whole the moment its subject comes
+# up, so it is the only file here with a standing cost — and the one nobody
+# notices growing, because every addition to it is individually justified.
+#
+# The ontology is not in this table on purpose. It is large (~8.6k tokens) and
+# read on demand, when the model changes rather than when work happens. That
+# distinction was got backwards once already: `PLT-c4zq` was filed believing the
+# ontology was the file filling context, and measuring showed the skill was.
+SKILL_BUDGET = 4000     # tokens; ~10% headroom over where measuring put it
+CHARS_PER_TOKEN = 4     # rough and deliberately so — the point is drift, not precision
+
+
+def context_cost():
+    """Measured, never asserted. The README carried a cost table for weeks that
+    understated the real figure by a third, because it was written once and the
+    skill kept growing."""
+    top = (git("rev-parse", "--show-toplevel") or REPO).strip()
+    rows = []
+    for label, path, when in (
+        ("tm skill", os.path.join(top, ".claude/skills/tm/SKILL.md"), "tasks are mentioned"),
+        ("nm skill", os.path.join(top, ".claude/skills/nm/SKILL.md"), "notes are mentioned"),
+        ("platform board", os.path.join(ROOT, "platform/board.md"), "it lists or starts work"),
+        ("business board", os.path.join(ROOT, "business/board.md"), "it lists or starts work"),
+    ):
+        if os.path.isfile(path):
+            rows.append((label, os.path.getsize(path) // CHARS_PER_TOKEN, when))
+    return rows
+
+
+def check_context(rep):
+    rows = context_cost()
+    print("\n  what an agent carries\n")
+    for label, tokens, when in rows:
+        print(f"    {label:<16} ~{tokens:>5} tokens   when {when}")
+    skills = {l: t for l, t, _ in rows if l.endswith("skill")}
+    session = skills.get("tm skill", 0) + next(
+        (t for l, t, _ in rows if l == "platform board"), 0)
+    print(f"\n    a task session  ~{session:>5} tokens   the tm skill plus a board")
+    for label, tokens in skills.items():
+        if tokens > SKILL_BUDGET:
+            rep.warn(f"{label} is ~{tokens} tokens, over the {SKILL_BUDGET} budget — "
+                     "it loads whole, every time its subject comes up")
+
+
 def cmd_check(args):
     if "--notify" in args:
         sys.exit(check_notify(send="--send" in args))
     root = REPO
     rep = Report()
+    if "--context" in args:
+        # Not part of plain `check`: it prints a table, and `check` runs in
+        # hooks where output nobody reads is output that trains people to
+        # ignore the rest.
+        check_context(rep)
+        sys.exit(rep.emit())
     if "--release" in args:
         check_release(rep, root)
     elif "--msg" in args:
@@ -1854,10 +2156,13 @@ USAGE = """tm — taskman
   tm park [id] [-n]             return it to prioritised (-n puts it on top)
   tm done [id] [--force]        complete it, then commit with "closes <id>"
   tm find <term>                search every task ever completed
+  tm why <term|DEC-000>         search decisions, or explain one and its chain
+  tm why --stale [--yes]        records nothing references; --yes prunes to a stub
   tm standup [--send]           report the period's work (--send posts it)
   tm standup --cron             the crontab line, if you schedule it
 
   tm check [--staged]           validate records; used by hooks and CI
+  tm check --context            what an agent carries, measured
   tm check --notify [--send]    verify the notification channel (--send posts)
   tm check --release            validate a cut tree before committing the version
   tm reset [--yes] [--all]      clear task records when adopting the skeleton
@@ -1874,7 +2179,8 @@ def main():
     commands = {
         "add": cmd_add, "go": cmd_go, "park": cmd_park,
         "prioritise": cmd_prioritise, "prioritize": cmd_prioritise,
-        "done": cmd_done, "find": cmd_find, "standup": cmd_standup,
+        "done": cmd_done, "find": cmd_find, "why": cmd_why,
+        "standup": cmd_standup,
         "check": cmd_check, "reset": cmd_reset,
     }
     cmd = commands.get(argv[0])
