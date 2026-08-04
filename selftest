@@ -398,6 +398,58 @@ class TestUpgrade(Fixture):
                          "a refused update still modified the install")
         self.assert_tooling_runs(top)
 
+    def test_a_kept_file_is_not_recorded_as_ours(self):
+        """A path llmeep manages, holding the adopter's own file, must never be
+        recorded in the manifest as something llmeep wrote.
+
+        `copy` never overwrites and the update keeps a modified file — but
+        `install_self` then recorded the *destination* checksum for both, which
+        certified their file as ours. The next update saw a checksum matching
+        the record, called it unmodified, and replaced it: protected once,
+        silently overwritten the second time.
+
+        Asserted on the manifest at install, because reproducing the overwrite
+        end to end needs `--force`, and `--force` legitimately means "replace my
+        changes" — a test using it would assert the wrong thing. Found on a real
+        repo whose `ontology/core.md` predated its adoption by two weeks
+        (`PLT-s9ea`).
+        """
+        top = self.a_project()
+        os.makedirs(os.path.join(top, "ontology"), exist_ok=True)
+        mine = os.path.join(top, "ontology", "core.md")
+        with open(mine, "w") as fh:
+            fh.write("# Core ontology — theirs, not llmeep's\n")
+        self.git_init(top)
+
+        src = self.working_copy()
+        self.adopt(src, top)
+
+        with open(mine) as fh:
+            self.assertIn("theirs, not llmeep's", fh.read(),
+                          "adopt overwrote a file that was already there")
+
+        import hashlib
+        import json as _json
+        import re as _re
+        text = open(os.path.join(top, ".llmeep")).read()
+        m = _re.search(r"# llmeep:manifest[^\n]*\n(.*?)\n# llmeep:manifest-end", text, _re.S)
+        recorded = _json.loads(
+            "\n".join(l.lstrip("# ") for l in m.group(1).split("\n")))["files"]
+
+        def sha16(path):
+            with open(path, "rb") as fh:
+                return hashlib.sha256(fh.read()).hexdigest()[:16]
+
+        self.assertNotEqual(
+            recorded.get("ontology/core.md"), sha16(mine),
+            "the manifest records their file's checksum as ours — a later "
+            "update will call it unmodified and replace it")
+        self.assertEqual(
+            recorded.get("ontology/core.md"),
+            sha16(os.path.join(src, "ontology", "core.md")),
+            "a kept file should record what llmeep ships, so it always "
+            "compares as modified")
+
     def tree_state(self, top):
         """Every tracked-ish path and its size, for comparing before and after.
         Sizes rather than hashes: fast, and enough to catch a file replaced."""
