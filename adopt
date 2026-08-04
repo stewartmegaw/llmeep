@@ -249,9 +249,18 @@ def nested(rel_path):
 
 def src_of(rel_path, src):
     """Where a path sits in a clone of llmeep. The skeleton ships in the same
-    shape it installs, so this is `dest_of` pointed at the source."""
-    return os.path.join(src, DEFAULT_INTO, rel_path) if nested(rel_path) \
-        else os.path.join(src, rel_path)
+    shape it installs, so this is `dest_of` pointed at the source.
+
+    Falls back to the flat position when the nested one is absent: `src` is not
+    always a current release. It is a pre-`DEC-028` checkout when someone
+    updates from an old clone, and an already-installed repo — flat or renamed —
+    when `--update` reads what is there now.
+    """
+    if nested(rel_path):
+        under = os.path.join(src, DEFAULT_INTO, rel_path)
+        if os.path.exists(under) or not os.path.exists(os.path.join(src, rel_path)):
+            return under
+    return os.path.join(src, rel_path)
 
 
 def dest_of(rel_path, top, dest_root):
@@ -401,9 +410,16 @@ def reset(root, tool, args, report):
 def is_clone(path):
     """A full llmeep checkout: the trees to copy from, and the installer beside
     them. An adopted repo has the trees too, which is why the presence of
-    `adopt` is the part that distinguishes them."""
-    return (os.path.isdir(os.path.join(path, "tasks", "_tooling"))
-            and os.path.isfile(os.path.join(path, "adopt")))
+    `adopt` is the part that distinguishes them.
+
+    Both layouts count. A release from `DEC-028` onward keeps the trees under
+    `llmeep/`; everything before it kept them at the root. This runs against a
+    clone of a version it may know nothing about, so it must recognise a
+    checkout it has never seen rather than assume the current shape.
+    """
+    tooling = any(os.path.isdir(os.path.join(path, p, "tasks", "_tooling"))
+                  for p in (DEFAULT_INTO, ""))
+    return tooling and os.path.isfile(os.path.join(path, "adopt"))
 
 
 def installed_copy():
@@ -503,7 +519,7 @@ def do_update(top, force, dry):
     for r in fresh + added + (modified if force else []):
         d = dest_of(r, top, dest_root)
         os.makedirs(os.path.dirname(d), exist_ok=True)
-        shutil.copy2(os.path.join(SRC, r), d)
+        shutil.copy2(src_of(r, SRC), d)
     if into:
         reroot(top, into, report)
 
