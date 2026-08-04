@@ -1,9 +1,9 @@
 # Local working memory — never committed, except its contract.
-.notes/*
-!.notes/README.md
+llmeep/.notes/*
+!llmeep/.notes/README.md
 
 # Agent tooling. Vendor adapters and the shared permission allowlist are committed
-# (DEC-003); anything *.local.json never is. Same carve-out pattern as .notes/ above:
+# (DEC-003); anything *.local.json never is. Same carve-out pattern as llmeep/.notes/ above:
 # ignore the directory, re-include the paths that belong in the repo. Add a pair here
 # for each agent the team uses.
 .claude/*
@@ -23,10 +23,11 @@ Thumbs.db
 .idea/
 .vscode/
 
-# Secrets. The Telegram bot token for `done` lives in .env (PLT-005).
+# Secrets. The Telegram bot token for `done` lives in llmeep/.env (PLT-005).
+# `tm` reads .env from its own install root, so it sits with the tooling, not here.
 # The platform/ subtree should add its own ignores rather than growing this file.
-.env
-.env.*
-!.env.example
+llmeep/.env
+llmeep/.env.*
+!llmeep/.env.example
 *.pem
 *.key

@@ -1,0 +1,1893 @@
+#!/usr/bin/env python3
+"""tm — taskman. See tasks/_tooling/ontology.md for the model.
+
+Five commands: add, go, park, done, find. Listing is reading the board; reordering is
+moving a line in it. Neither is a command.
+
+The tool is deterministic and never interprets intent (principle 7). It takes
+explicit flags; the agent invoking it decides what they should be.
+"""
+
+import json
+import os
+import re
+import secrets
+import shutil
+import subprocess
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+from datetime import date, timedelta
+
+# Three distinct places, and they stopped being the same one when the machinery
+# moved out of the records tree. HERE is where this script and its hooks live;
+# ROOT is the ledgers it operates on; REPO is the working tree around both.
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.environ.get("TM_ROOT") or os.path.dirname(HERE)
+REPO = os.path.dirname(ROOT)
+HISTORY = os.path.join(HERE, "history.tsv")
+LEDGERS = {"platform": "PLT", "business": "BUS"}
+WINDOW = 15
+MAX_HITS = 3
+TITLE_MAX = 120   # hard cap; past this the detail belongs in a sidecar
+TITLE_SENTENCES = 2
+
+# Unambiguous alphabet: no 0/1/i/l/o. 30^4 = 810k, and allocation also checks
+# for a local collision, so a clash needs two branches to draw the same value.
+ALPHABET = "23456789abcdefghjkmnpqrstuvwxyz"
+ID_LEN = 4
+
+# Heading → attribute. They stopped being the same string once a section name
+# contained a space; deriving one from the other silently dropped the section.
+#
+# `prioritised` is the decided queue and `backlog` is the pool everything lands
+# in. Only `prioritised` is ordered — position there is priority, and it is what
+# a bare `go` and the standup both read. The pool has no order to defend, which
+# is the point: filing something costs no ranking decision.
+SECTIONS = {"in progress": "in_progress",
+            "prioritised": "prioritised",
+            "backlog": "backlog"}
+
+TAG_RE = re.compile(r"^(detail|@[a-z0-9][a-z0-9._-]*|blocked:[A-Za-z]{3}-\S+"
+                    r"|filed:\d{4}-\d{2}-\d{2})$")
+ID_RE = re.compile(r"^(PLT|BUS)-\S+$")
+
+
+class Fail(Exception):
+    pass
+
+
+# ---------------------------------------------------------------- board model
+
+
+class Task:
+    def __init__(self, tid, title, tags=None, done_on=None):
+        self.id = tid
+        self.title = title
+        self.tags = tags or []
+        self.done_on = done_on
+
+    @property
+    def blocker(self):
+        for t in self.tags:
+            if t.startswith("blocked:"):
+                return t.split(":", 1)[1]
+        return None
+
+    @property
+    def has_detail(self):
+        return "detail" in self.tags
+
+    @property
+    def filed(self):
+        """When `add` created the line, or None for anything filed before this
+        existed. **Absence is permanent and legal** — back-filling it from git
+        would write wrong dates (renames move the board, and the commit date is
+        not the filing date), so an undated line stays undated forever."""
+        for t in self.tags:
+            if t.startswith("filed:"):
+                return t.split(":", 1)[1]
+        return None
+
+    @property
+    def assignee(self):
+        for t in self.tags:
+            if t.startswith("@"):
+                return t[1:]
+        return None
+
+    def assign(self, who):
+        self.unassign()
+        if who:
+            self.tags.insert(0, f"@{who}")
+
+    def unassign(self):
+        self.tags = [t for t in self.tags if not t.startswith("@")]
+
+    def render(self):
+        line = f"{self.id:<9}{self.title}"
+        if self.tags:
+            # ljust then an explicit separator: a title long enough to fill the
+            # column gets no padding, and without this the tag is concatenated
+            # onto the title — which _parse then reads back as part of it.
+            line = line.ljust(56) + "  " + "  ".join(self.tags)
+        return line.rstrip()
+
+    def render_recent(self):
+        line = f"{self.done_on}  {self.id:<9}{self.title}"
+        if self.assignee:
+            line = line.ljust(56) + f"  @{self.assignee}"
+        return line.rstrip()
+
+
+def title_problems(title):
+    """A title is a handle, not a description.
+
+    The character cap is enforced because it is mechanical. The sentence count
+    only warns — counting terminal punctuation false-positives on "e.g." and
+    version numbers, and a heuristic that blocks legitimate work is worse than
+    one that mentions it.
+    """
+    errors, warnings = [], []
+    if len(title) > TITLE_MAX:
+        errors.append(f"title is {len(title)} characters; the cap is {TITLE_MAX}. "
+                      "Shorten it and put the detail in a sidecar.")
+    sentences = len([m for m in re.findall(r"[.!?](?:\s|$)", title)])
+    if sentences > TITLE_SENTENCES:
+        warnings.append(f"title reads as {sentences} sentences; {TITLE_SENTENCES} is the "
+                        "guide. A sidecar holds what will not fit.")
+    return errors, warnings
+
+
+def slug(text):
+    text = re.sub(r"[^a-z0-9._-]+", "-", (text or "").strip().lower())
+    return text.strip("-") or None
+
+
+def whoami():
+    """Who the actor is. Derived, never asked for — one less thing to configure.
+
+    `git config user.email`'s local part is short, stable and already unique
+    within a team, which a display name is not. Returns None when git has no
+    identity, in which case assignments are simply not made.
+    """
+    for source in (
+        os.environ.get("TM_USER"),
+        git_config("taskman.user"),
+        (git_config("user.email") or "").split("@")[0],
+        git_config("user.name"),
+    ):
+        if source and slug(source):
+            return slug(source)
+    return None
+
+
+def git_config(key):
+    try:
+        out = subprocess.run(["git", "config", "--get", key],
+                             cwd=ROOT, capture_output=True, text=True, timeout=5)
+        return out.stdout.strip() if out.returncode == 0 else ""
+    except Exception:
+        return ""
+
+
+class Board:
+    """One ledger's live state. Sections are authoritative; order is priority
+    within `prioritised`, which is the only section that has one."""
+
+    def __init__(self, ledger):
+        self.ledger = ledger
+        self.path = os.path.join(ROOT, ledger, "board.md")
+        self.in_progress, self.prioritised, self.backlog, self.recent = [], [], [], []
+        self._load()
+
+    @property
+    def open(self):
+        """Everything not yet started, decided work first. Read-only — appending
+        to this would land in a throwaway list, so mutate a section directly."""
+        return self.prioritised + self.backlog
+
+    def _load(self):
+        if not os.path.exists(self.path):
+            raise Fail(f"no board at {self.path}")
+        section = None
+        with open(self.path) as fh:
+            for raw in fh:
+                line = raw.rstrip("\n")
+                if line.startswith("## "):
+                    section = line[3:].strip()
+                    continue
+                if not line.strip() or line.startswith("#"):
+                    continue
+                if section == "recent":
+                    self.recent.append(self._parse_recent(line))
+                elif section in SECTIONS:
+                    getattr(self, SECTIONS[section]).append(self._parse(line))
+
+    @staticmethod
+    def _split_tags(tokens):
+        tags = []
+        while tokens and TAG_RE.match(tokens[-1]):
+            tags.insert(0, tokens.pop())
+        return tokens, tags
+
+    def _parse(self, line):
+        tokens = line.split()
+        tid = tokens.pop(0)
+        tokens, tags = self._split_tags(tokens)
+        return Task(tid, " ".join(tokens), tags)
+
+    def _parse_recent(self, line):
+        tokens = line.split()
+        done_on = tokens.pop(0)
+        tid = tokens.pop(0)
+        tokens, tags = self._split_tags(tokens)
+        # Keep the assignee; drop `detail`/`blocked:` — a completed task has no
+        # blocker, and its sidecar is found by id, not by a tag.
+        tags = [t for t in tags if t.startswith("@")]
+        return Task(tid, " ".join(tokens), tags, done_on=done_on)
+
+    def all_ids(self):
+        return {t.id for t in self.in_progress + self.open + self.recent}
+
+    def find(self, tid):
+        for bucket in (self.in_progress, self.prioritised, self.backlog, self.recent):
+            for t in bucket:
+                if t.id.lower() == tid.lower():
+                    return t, bucket
+        return None, None
+
+    def is_blocked(self, task):
+        """A blocker resolved once it is off the board and out of progress —
+        either open section still counts as unfinished."""
+        b = task.blocker
+        if not b:
+            return None
+        live = {t.id for t in self.in_progress + self.open}
+        return b if b in live else None
+
+    def clear_blocker(self, tid):
+        for t in self.in_progress + self.open:
+            t.tags = [g for g in t.tags if g != f"blocked:{tid}"]
+
+    def save(self):
+        self.recent.sort(key=lambda t: t.done_on, reverse=True)
+        del self.recent[WINDOW:]  # pruned entries survive in history.tsv
+        out = [f"# {self.ledger}", "", "## in progress", ""]
+        out += [t.render() for t in self.in_progress]
+        out += ["", "## prioritised", ""]
+        out += [t.render() for t in self.prioritised]
+        out += ["", "## backlog", ""]
+        out += [t.render() for t in self.backlog]
+        out += ["", "## recent", ""]
+        out += [t.render_recent() for t in self.recent]
+        with open(self.path, "w") as fh:
+            fh.write("\n".join(out).rstrip() + "\n")
+
+
+# -------------------------------------------------------------------- history
+
+
+def history_rows():
+    if not os.path.exists(HISTORY):
+        return []
+    rows = []
+    with open(HISTORY) as fh:
+        for line in fh:
+            if line.startswith("#") or not line.strip():
+                continue
+            parts = line.rstrip("\n").split("\t")
+            if len(parts) >= 4:
+                # `who` is appended last so rows written before assignees
+                # existed still parse — zip simply stops short.
+                rows.append(dict(zip(("date", "id", "ledger", "title", "who"), parts)))
+    return rows
+
+
+def history_append(task, ledger):
+    """Append-only. Never rewritten, so a completion can never be lost."""
+    if any(r["id"] == task.id for r in history_rows()):
+        raise Fail(f"{task.id} is already in history — ids are never reused")
+    new = not os.path.exists(HISTORY)
+    with open(HISTORY, "a") as fh:
+        if new:
+            fh.write("#date\tid\tledger\ttitle\twho\n")
+        row = [task.done_on, task.id, ledger, task.title]
+        if task.assignee:
+            row.append(task.assignee)
+        fh.write("\t".join(row) + "\n")
+
+
+def search(term, limit=MAX_HITS):
+    words = [w for w in re.split(r"\W+", term.lower()) if len(w) > 2]
+    if not words:
+        return []
+    scored = []
+    for row in history_rows():
+        hay = f"{row['id']} {row['title']}".lower()
+        hits = sum(1 for w in words if w in hay)
+        if hits:
+            scored.append((hits, row["date"], row))
+    scored.sort(key=lambda s: (-s[0], s[1]))  # strongest match, then newest
+    return [r for _, _, r in scored[:limit]]
+
+
+def history_line(row):
+    title = summarise(row["title"], 42)
+    sha = resolve_commit(row["id"])
+    return f"{row['id']:<9}{title:<44}{row['date']}" + (f"  {sha}" if sha else "")
+
+
+def resolve_commit(tid):
+    try:
+        out = subprocess.run(
+            ["git", "log", f"--grep=closes {tid}", "--format=%h", "-1"],
+            cwd=ROOT, capture_output=True, text=True, timeout=5,
+        )
+        return out.stdout.strip() or None
+    except Exception:
+        return None
+
+
+def show_related(term):
+    """Automatic retrieval (principle 6). Silent when empty, capped at 3 —
+    output that is always present with weak matches gets skipped."""
+    hits = search(term)
+    if not hits:
+        return
+    print("\n  related history")
+    for row in hits:
+        print("    " + history_line(row))
+
+
+# -------------------------------------------------------------------- sidecar
+
+
+def sidecar_path(ledger, tid):
+    """One file, or a folder when a task needs several — a spec plus a diagram,
+    a rubric, sample data. Same `<id>-<slug>` name either way."""
+    d = os.path.join(ROOT, ledger, "tasks")
+    if not os.path.isdir(d):
+        return None
+    for name in sorted(os.listdir(d)):
+        if not name.startswith(f"{tid}-"):
+            continue
+        path = os.path.join(d, name)
+        if os.path.isdir(path) or name.endswith(".md"):
+            return path
+    return None
+
+
+def sidecar_all(ledger):
+    """Every sidecar in a ledger, file or folder. Same rule as `sidecar_path`,
+    which is the point — anything that rule can find, `reset` has to clear."""
+    d = os.path.join(ROOT, ledger, "tasks")
+    if not os.path.isdir(d):
+        return []
+    out = []
+    for name in sorted(os.listdir(d)):
+        path = os.path.join(d, name)
+        if name.startswith("_") or name.startswith("."):
+            continue
+        if os.path.isdir(path) or name.endswith(".md"):
+            out.append(path)
+    return out
+
+
+def sidecar_doc(path):
+    """The readable entry point. A folder's is its README.md — the same
+    convention the rest of the skeleton uses for 'start here'."""
+    if path and os.path.isdir(path):
+        readme = os.path.join(path, "README.md")
+        return readme if os.path.exists(readme) else None
+    return path
+
+
+def sidecar_extras(path):
+    """Everything in a folder sidecar besides its README, for `go` to list."""
+    if not (path and os.path.isdir(path)):
+        return []
+    return [f for f in sorted(os.listdir(path)) if f != "README.md"]
+
+
+def unchecked_acceptance(path):
+    """Acceptance is optional. Where it exists, it is the gate — with no
+    reviewer, it is the only quality gate there is."""
+    path = sidecar_doc(path)
+    if not path:
+        return []
+    section, pending = False, []
+    with open(path) as fh:
+        for line in fh:
+            if line.startswith("## "):
+                section = line[3:].strip().lower() == "acceptance"
+                continue
+            if section and line.strip().startswith("- [ ]"):
+                pending.append(summarise(line.strip()[5:]))
+    return pending
+
+
+def summarise(text, width=64):
+    """Criteria are prose; a terminal list of them is a reminder, not the text."""
+    text = re.sub(r"[*`_]", "", text).strip()
+    return text if len(text) <= width else text[: width - 1].rstrip() + "…"
+
+
+# --------------------------------------------------------------------- notify
+#
+# The notification channel is deliberately external and replaceable. Everything
+# about how it presents itself — bot name, description, which room, who can see
+# it — is configured in the service, not in this repo. The repo holds one line
+# (`NOTIFY=`) and a secret, so swapping channels touches no records and no
+# ontology. Telegram is one implementation, not the design.
+#
+# Adding a channel is a function plus a dict entry. That is the whole extension
+# point: no plugin loader, no registry, no config schema.
+
+
+def load_env():
+    path = os.path.join(REPO, ".env")
+    if not os.path.exists(path):
+        return
+    with open(path) as fh:
+        for line in fh:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip().strip("'\""))
+
+
+def post(url, data, headers=None):
+    req = urllib.request.Request(url, data, headers or {})
+    urllib.request.urlopen(req, timeout=5)
+
+
+def notify_telegram(text):
+    """Returns None when unconfigured, so `done` can say so without failing."""
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    chat = os.environ.get("TELEGRAM_CHAT_ID")
+    if not token or not chat:
+        return None
+    post(f"https://api.telegram.org/bot{token}/sendMessage",
+         urllib.parse.urlencode({"chat_id": chat, "text": text,
+                                 "parse_mode": "HTML"}).encode())
+    return "telegram"
+
+
+def notify_slack(text):
+    url = os.environ.get("SLACK_WEBHOOK_URL")
+    if not url:
+        return None
+    post(url, json.dumps({"text": text}).encode(),
+         {"Content-Type": "application/json"})
+    return "slack"
+
+
+def notify_webhook(text):
+    """Anything that accepts a JSON POST. The full task is included so a
+    receiver can render it however it likes rather than parse `text`."""
+    url = os.environ.get("NOTIFY_WEBHOOK_URL")
+    if not url:
+        return None
+    post(url, json.dumps({"text": text}).encode(),
+         {"Content-Type": "application/json"})
+    return "webhook"
+
+
+NOTIFIERS = {
+    "telegram": notify_telegram,
+    "slack": notify_slack,
+    "webhook": notify_webhook,
+    "none": lambda text: None,
+}
+
+
+def html_escape(text):
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def notify_text(text):
+    """Dispatch to whichever channel is configured. Split out from `notify` so
+    that anything with something to say — a completion, a standup — posts
+    through one place and no caller learns the channel's name.
+
+    Accepts a plain string, or sections for something with structure. The
+    channel decides how a heading looks; the caller never learns which channel
+    it got."""
+    load_env()
+    name = (os.environ.get("NOTIFY") or "telegram").strip().lower()
+    send = NOTIFIERS.get(name)
+    if send is None:
+        print(f"  ! unknown NOTIFY={name!r}; known: {', '.join(NOTIFIERS)}")
+        return False
+    # Resolved here rather than at import: the renderers are defined further
+    # down, beside the standup that produces the sections they take.
+    renderers = {"telegram": render_telegram, "slack": render_slack}
+    if isinstance(text, str):
+        # Telegram is asked to parse HTML now, so a plain line has to be escaped
+        # too — `done` posts a task title, and a title with `<` or `&` in it
+        # would otherwise be rejected by the API rather than sent.
+        body = html_escape(text) if name == "telegram" else text
+    else:
+        body = renderers.get(name, render_plain)(text)
+    try:
+        return send(body)
+    except (urllib.error.URLError, OSError) as exc:
+        # Never fail the caller because a notification failed.
+        print(f"  ! {name} not sent: {exc}")
+        return False
+
+
+def notify(task, ledger):
+    who = f"{task.assignee} · " if task.assignee else ""
+    return notify_text(f"✓ {task.title} ({task.id})\n{ledger} · {who}{task.done_on}")
+
+
+# ------------------------------------------------------------------- commands
+
+
+# ------------------------------------------------------------------- standup
+
+# Every period is a lookback length plus a key. The key is what "already
+# reported this period" means; the lookback is what gets reported.
+STANDUP_PERIODS = ("daily", "workday", "bidaily", "weekly")
+
+# Minute and hour come from STANDUP_AT; the rest is the period. Cron is the
+# only trigger, so nothing has to remember whether this period was reported —
+# the schedule *is* that memory.
+CRON_TAIL = {
+    "daily": "* * *", "workday": "* * 1-5",
+    "bidaily": "*/2 * *", "weekly": "* * 1",
+}
+
+
+def standup_period(override=None):
+    load_env()
+    # Daily by default. A week of closed tasks is a wall of text on a phone,
+    # which is where this gets read, and the standup that prompts a decision is
+    # the one about yesterday (`PLT-hfwz`).
+    name = (override or os.environ.get("STANDUP_PERIOD") or "daily").strip().lower()
+    if name not in STANDUP_PERIODS:
+        raise Fail(f"unknown period {name!r}; known: {', '.join(STANDUP_PERIODS)}")
+    return name
+
+
+def standup_window(period, today=None):
+    """`(start, key)` for the period ending today. `start` is exclusive.
+
+    `(None, None)` means the period does not fire today — only `workday` does
+    that, at a weekend.
+
+    The window is a fixed lookback rather than "everything since the last
+    standup". The last one may have been sent from a colleague's machine, so a
+    since-then window would make the contents depend on who ran it. A little
+    overlap when someone reports early is the cheaper fault.
+    """
+    today = today or date.today()
+    if period == "daily":
+        return today - timedelta(days=1), today.isoformat()
+    if period == "workday":
+        if today.weekday() >= 5:
+            return None, None
+        # Monday reaches back over the weekend; nothing fires during one.
+        return today - timedelta(days=3 if today.weekday() == 0 else 1), today.isoformat()
+    if period == "bidaily":
+        # Buckets counted from the ordinal epoch, so two machines agree on
+        # where the boundary falls without sharing any state.
+        bucket = date.fromordinal((today.toordinal() // 2) * 2)
+        return today - timedelta(days=2), f"{bucket.isoformat()}+2d"
+    year, week, _ = today.isocalendar()
+    return today - timedelta(days=7), f"{year}-W{week:02d}"
+
+
+def standup_sections(period, today=None):
+    """The report as (heading, lines), or None when there is nothing worth
+    anyone's attention."""
+    today = today or date.today()
+    start, _ = standup_window(period, today)
+    if start is None:
+        return None
+    done = [r for r in history_rows()
+            if start.isoformat() < r["date"] <= today.isoformat()]
+    live = []
+    for ledger in LEDGERS:
+        try:
+            board = Board(ledger)
+        except Fail:
+            continue
+        live.extend(board.in_progress)
+    # Computed before the emptiness test: a period with nothing closed and
+    # nothing running still has a standup worth holding if there is a queue or
+    # anything captured. Silence is for a repo with no state at all.
+    extras = standup_next() + standup_notes()
+    if not done and not live and not extras:
+        return None
+
+    # (heading, [line, …]). Structure rather than a formatted string, because
+    # this is read on a terminal, in Telegram and in Slack, and each wants its
+    # own emphasis — the notifier is swappable and the standup must not care
+    # which one it is talking to (`DEC-008`, `PLT-2mv7`).
+    sections = [(f"{start.isoformat()} → {today.isoformat()}", [])]
+    by_who = {}
+    for row in done:
+        by_who.setdefault(row.get("who") or "unassigned", []).append(row)
+    for who in sorted(by_who):
+        sections.append((who if who == "unassigned" else f"@{who}",
+                         [f"✓ {r['title']}" for r in by_who[who]]))
+    if not done:
+        sections.append(("...no recent tasks completed", []))
+    if live:
+        # The point of the standup is not the trophy cabinet. Work that has sat
+        # in progress across a period is the part someone should react to.
+        sections.append(("IN PROGRESS",
+                         [f"{ledger_tag(t)}  {t.title} — "
+                          f"{'@' + t.assignee if t.assignee else 'unassigned'}"
+                          for t in live]))
+    return sections + extras
+
+
+STANDUP_LIST = 8   # a standup is read aloud or on a phone; a full board is neither
+
+
+def ledger_tag(task):
+    """`PLT` / `BUS`, taken from the id rather than from which board it was read
+    off. One list mixes both ledgers, and without the tag a business line is
+    indistinguishable from a platform one — the reader has to already know.
+
+    Reading it off the id means the tag cannot disagree with the task: a line on
+    the wrong board is a `check` error, not a mislabelled standup."""
+    return task.id.split("-")[0].upper()
+
+
+def render_plain(sections):
+    """The terminal, and any channel that wants no markup. Unchanged from what
+    the standup printed before it grew renderers."""
+    out = []
+    for heading, body in sections:
+        if out:
+            out.append("")
+        out.append(heading)
+        out += [f"  {line}" for line in body]
+    return "\n".join(out)
+
+
+def render_telegram(sections):
+    """HTML rather than MarkdownV2. MarkdownV2 demands `_ * [ ] ( ) ~ ` > # + -
+    = | { } . !` be escaped anywhere they appear, and task titles here are full
+    of `--force`, `.llmeep` and `ontology/domain/`; one missed escape and the
+    API rejects the whole message. HTML needs three characters escaped and `<b>`
+    is all this wants."""
+    out = []
+    for heading, body in sections:
+        if out:
+            out.append("")
+        out.append(f"<b>{html_escape(heading)}</b>")
+        out += [f"  {html_escape(line)}" for line in body]
+    return "\n".join(out)
+
+
+def render_slack(sections):
+    out = []
+    for heading, body in sections:
+        if out:
+            out.append("")
+        out.append(f"*{heading}*")
+        out += [f"  {line}" for line in body]
+    return "\n".join(out)
+
+
+def standup_next():
+    """What the meeting is actually for. Completed work answers "what happened";
+    the queue is the part anyone can still change their mind about, and it was
+    the one thing a standup could not show.
+
+    Reads `prioritised` only. The pool is unranked by definition, so listing the
+    first eight of it would present arbitrary lines as a plan. When nothing is
+    ranked, saying so is the more useful report — an empty queue behind a full
+    pool is exactly the thing a standup should surface.
+
+    Both ledgers share one list, tagged per line rather than split under two
+    headings. The ordering across them is still a judgement someone made, and
+    two sections would either duplicate the eight-line budget or force an
+    arbitrary split of it.
+
+    The pool follows under its own heading. Listing it *as the queue* would
+    present arbitrary lines as a plan, which is what `DEC-027` refused; listing
+    it under `BACKLOG` claims nothing about order and answers the question the
+    queue cannot — what else is there? Each heading carries its full count, so
+    a truncated section still says how much it is standing in for."""
+    queued, pooled = [], []
+    for ledger in LEDGERS:
+        try:
+            board = Board(ledger)
+        except Fail:
+            continue
+        queued.extend(board.prioritised)
+        pooled.extend(board.backlog)
+    out = []
+    if queued:
+        out.append((f"PRIORITY ({len(queued)})", standup_lines(queued)))
+    elif pooled:
+        # An empty queue behind a full pool is the most actionable thing a
+        # standup can say, so it gets a heading of its own rather than being
+        # inferred from the absence of one.
+        out.append(("PRIORITY (0)", ["· nothing prioritised"]))
+    if pooled:
+        # Newest first, matching `recent`. Sorting happens here and nowhere
+        # else: the pool is unordered by design (`DEC-027`), so this is a view,
+        # not an ordering — nothing writes the board back in this sequence.
+        # Undated lines predate `filed:` and sort last, which is where the
+        # oldest belong under DESC anyway.
+        pooled.sort(key=lambda t: t.filed or "", reverse=True)
+        out.append((f"BACKLOG ({len(pooled)})", standup_lines(pooled, dated=True)))
+    return out
+
+
+def show_date(iso):
+    """`2026-08-31` → `31-08-26`, for reading. Storage stays ISO: the pool sorts
+    by lexical comparison on the tag, and `TAG_RE` and `check` both key on that
+    shape, so this reverses at the point of display and nowhere else."""
+    if not iso:
+        return "—"
+    year, month, day = iso.split("-")
+    return f"{day}-{month}-{year[2:]}"
+
+
+def standup_lines(tasks, dated=False):
+    """Body lines for one list of tasks — capped, tagged, and honest about what
+    the cap hid. The heading carries the full count, so the trailing "…and N
+    more" is what makes the truncation visible in the lines themselves.
+
+    `dated` shows the filing date, for the one list that is sorted by it. An
+    order with an invisible key reads as arbitrary, and the column is what makes
+    an undated line legible as undated rather than as a formatting slip."""
+    body = []
+    for t in tasks[:STANDUP_LIST]:
+        when = f"{show_date(t.filed).ljust(8)}  " if dated else ""
+        body.append(f"{ledger_tag(t)}  {when}{t.title}"
+                    + (f" — @{t.assignee}" if t.assignee else ""))
+    if len(tasks) > STANDUP_LIST:
+        body.append(f"…and {len(tasks) - STANDUP_LIST} more")
+    return body
+
+
+def standup_notes():
+    """Captured but not yet acted on — the material a standup exists to turn
+    into decisions.
+
+    Reads `notes/` directly and shrugs when it is absent, the same way `nm`
+    reads this ledger (`DEC-022`). The two subsystems stay liftable apart:
+    neither requires the other, and each is better when both are there.
+    """
+    path = os.path.join(REPO, "notes", "notes.md")
+    if not os.path.exists(path):
+        return []
+    notes = []
+    with open(path) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line.startswith("NTE-"):
+                continue
+            body = line.split(None, 1)[1] if " " in line else ""
+            body = re.sub(r"\s{2,}(src|task):\S+", "", body).strip()
+            promoted = "task:" in line
+            notes.append((body, promoted))
+    unpromoted = [n for n in notes if not n[1]]
+    if not unpromoted:
+        return []
+    body = [f"· {text}" for text, _ in unpromoted[:STANDUP_LIST]]
+    if len(unpromoted) > STANDUP_LIST:
+        body.append(f"…and {len(unpromoted) - STANDUP_LIST} more")
+    return [("CAPTURED, NOT YET WORK", body)]
+
+
+def standup_cron(period):
+    """The crontab line for this period, pointing at the blueprint rather than
+    at `tm`. A scheduled checkout is stale by definition — it has to fetch
+    before it can report — and that fetch is the part only the operator can
+    configure, so it lives in a script they own."""
+    at = (os.environ.get("STANDUP_AT") or "09:00").strip()
+    try:
+        hour, minute = (int(part) for part in at.split(":"))
+        if not (0 <= hour < 24 and 0 <= minute < 60):
+            raise ValueError(at)
+    except ValueError:
+        raise Fail(f"STANDUP_AT={at!r} is not HH:MM")
+    script = os.path.join(HERE, "blueprints", "standup.sh")
+    log = os.path.join(REPO, ".notes", "standup.log")
+    return (f"{minute} {hour} {CRON_TAIL[period]} REPO={REPO} {script}"
+            f" >>{log} 2>&1")
+
+
+def cmd_standup_cron(period):
+    at = os.environ.get("STANDUP_AT") or "09:00"
+    print(f"\n  {standup_cron(period)}\n")
+    print(f"  {period} standup at {at}, on whatever machine is already always-on."
+          "\n  It calls tasks/blueprints/standup.sh — read that first; it needs a"
+          "\n  checkout and a .env of its own, and it fetches before it reports."
+          "\n"
+          "\n  Optional. Most standups are someone running `tm standup` before the"
+          "\n  call and reading it out.")
+
+
+def cmd_standup(args):
+    override, args = take_flag(args, "--period")
+    period = standup_period(override)
+    if "--cron" in args:
+        return cmd_standup_cron(period)
+    sections = standup_sections(period)
+    if sections is None:
+        print(f"  nothing to report this {period} period")
+        return
+    print()
+    for line in render_plain(sections).split("\n"):
+        print(f"  {line}".rstrip())
+    print()
+    if "--send" not in args:
+        print("  not sent — add --send to post it to the team")
+        return
+    channel = notify_text(sections)
+    if channel:
+        print(f"  sent via {channel}")
+    elif channel is None:
+        print("  ! not sent — no channel configured, see .env.example")
+    else:
+        print("  ! not sent — the channel rejected it; the reason is above")
+
+
+def new_id(prefix, taken):
+    for _ in range(100):
+        tid = f"{prefix}-{''.join(secrets.choice(ALPHABET) for _ in range(ID_LEN))}"
+        if tid not in taken:
+            return tid
+    raise Fail("could not allocate a free id")
+
+
+def all_known_ids():
+    ids = {r["id"] for r in history_rows()}
+    for ledger in LEDGERS:
+        try:
+            ids |= Board(ledger).all_ids()
+        except Fail:
+            pass
+    return ids
+
+
+def take_flag(args, flag):
+    """Pull `--flag value` out of argv, returning (value, remaining)."""
+    if flag not in args:
+        return None, args
+    i = args.index(flag)
+    value = args[i + 1] if i + 1 < len(args) else None
+    return value, args[:i] + args[i + 2:]
+
+
+def cmd_add(args):
+    """`--id` prints only the allocated id, so another tool can consume it
+    without parsing prose — `nm promote` is the caller."""
+    quiet = "--id" in args
+    ledger = "business" if "-b" in args else "platform"
+    top = "-n" in args
+    who, args = take_flag(args, "-f")
+    title = " ".join(a for a in args if a not in ("-b", "-n", "--id")).strip()
+    if not title:
+        raise Fail('usage: tm add [-b] [-n] [-f <name>] <title...>')
+    errors, warnings = title_problems(title)
+    if not quiet:
+        for w in warnings:
+            print(f"  ~ {w}")
+    if errors:
+        raise Fail(errors[0])
+    board = Board(ledger)
+    if not quiet:
+        show_related(title)  # before allocating, so a duplicate can be abandoned
+    task = Task(new_id(LEDGERS[ledger], all_known_ids()), title)
+    task.assign(slug(who))
+    # Write-once, and only ever by the branch that created the line — which is
+    # why this is exempt from the board's no-metadata rule. A field two sides
+    # can both edit conflicts; one that is set at birth and never touched again
+    # cannot, and the union rule for open lines already covers it.
+    task.tags.append(f"filed:{date.today().isoformat()}")
+    # Filing costs no ranking decision: everything lands in the pool, and
+    # deciding it is next is the separate, deliberate act `-n` performs.
+    if top:
+        board.prioritised.insert(0, task)
+    else:
+        board.backlog.append(task)
+    board.save()
+    if quiet:
+        print(task.id)
+        return
+    print(f"\n  {task.id}  {task.title}")
+    assigned = f" · @{task.assignee}" if task.assignee else ""
+    print(f"  {ledger} · {'top of prioritised' if top else 'backlog'}{assigned}")
+    skeleton_nudge()
+
+
+def cmd_go(args):
+    """WIP-1 is per person, not per board.
+
+    A single global in-progress slot assumes a single worker. Once tasks carry an
+    assignee, two people each having one in progress is the normal case — so
+    the limit follows the assignee.
+    """
+    named, rest = take_flag(args, "-f")  # -f <name>: start on someone's behalf
+    who = slug(named) if named else whoami()
+    tid = rest[0] if rest else None
+
+    for ledger in LEDGERS:
+        board = Board(ledger)
+        # An unassigned task in progress predates assignees, or was started with
+        # no git identity. Treat it as the caller's and assign it, rather than
+        # leaving it invisible to everyone — which would let a second task start
+        # and quietly break WIP-1.
+        mine = [t for t in board.in_progress if t.assignee in (who, None)]
+        if mine:
+            current = mine[0]
+            if tid and current.id.lower() != tid.lower():
+                raise Fail(
+                    f"{current.id} is already in progress — finish or park it first (WIP-1)"
+                )
+            if current.assignee is None and who:
+                current.assign(who)
+                board.save()
+            return show_task(board, current, started=False)
+    if tid:
+        for ledger in LEDGERS:
+            board = Board(ledger)
+            task, bucket = board.find(tid)
+            # Naming a task starts it from either section. Prioritising first
+            # would be ceremony — saying `go PLT-9puy` *is* the decision, and
+            # requiring the step would push people into the board to take it.
+            if task and bucket in (board.prioritised, board.backlog):
+                return start(board, task, who)
+            if task:
+                raise Fail(f"{task.id} is not open — it is in progress or completed")
+        raise Fail(f"no open task {tid}")
+    # Bare `go` reads the queue and nothing else. Picking out of an unordered
+    # pool would be the tool choosing your next task, which is the judgement
+    # the split exists to keep with a person (principle 7).
+    for ledger in LEDGERS:
+        board = Board(ledger)
+        for task in board.prioritised:
+            # Someone else's task is not yours to pick up; name it explicitly
+            # if you mean to take it over.
+            if task.assignee and task.assignee != who:
+                continue
+            if not board.is_blocked(task):
+                return start(board, task, who)
+    pooled = sum(len(Board(l).backlog) for l in LEDGERS)
+    raise Fail("nothing startable — every prioritised task is blocked, assigned or absent"
+               + (f"; {pooled} in the backlog, none prioritised" if pooled else ""))
+
+
+def start(board, task, who=None):
+    blocker = board.is_blocked(task)
+    if blocker:
+        raise Fail(f"{task.id} is blocked by {blocker} — finish that first")
+    task.assign(who)
+    (board.prioritised if task in board.prioritised else board.backlog).remove(task)
+    board.in_progress.append(task)
+    board.save()
+    show_task(board, task, started=True)
+
+
+def show_task(board, task, started):
+    print(f"\n  {task.id}  {task.title}")
+    who = f" · @{task.assignee}" if task.assignee else ""
+    print(f"  {board.ledger}{who} · {'started' if started else 'in progress'}")
+    blocker = board.is_blocked(task)
+    if blocker:
+        print(f"  ! blocked by {blocker}")
+    path = sidecar_path(board.ledger, task.id)
+    if path:
+        rel = os.path.relpath(path, REPO)
+        print(f"\n  detail: {rel}{'/' if os.path.isdir(path) else ''}")
+        for extra in sidecar_extras(path):
+            print(f"          {extra}")
+        pending = unchecked_acceptance(path)
+        if pending:
+            print("  acceptance:")
+            for item in pending:
+                print(f"    [ ] {item}")
+    show_related(task.title)
+    skeleton_nudge()
+
+
+def cmd_prioritise(args):
+    """backlog → prioritised, at the bottom of the queue (`-n` for the top).
+
+    By the reordering exemption this could be a hand edit — moving a line
+    between two open sections breaks no invariant, and `go <id>` already starts
+    anything from either, so the tool never traps you into needing it. It is a
+    command because triage is the one board edit that happens in bulk: ranking
+    a week's filings by hand is where a stray line ends up in `recent` with no
+    date, which `check` catches but only after the fact.
+
+    Hand editing stays entirely valid. This writes the same file the same way.
+    """
+    top = "-n" in args
+    rest = [a for a in args if a != "-n"]
+    if not rest:
+        raise Fail("usage: tm prioritise <id> [-n]")
+    for tid in rest:
+        moved = False
+        for ledger in LEDGERS:
+            board = Board(ledger)
+            task, bucket = board.find(tid)
+            if not task:
+                continue
+            if bucket is board.prioritised:
+                raise Fail(f"{task.id} is already prioritised")
+            if bucket is not board.backlog:
+                raise Fail(f"{task.id} is not in the backlog — "
+                           "it is in progress or completed")
+            board.backlog.remove(task)
+            board.prioritised.insert(0, task) if top else board.prioritised.append(task)
+            board.save()
+            print(f"  {task.id}  {task.title}")
+            print(f"  {ledger} · {'top' if top else 'bottom'} of prioritised")
+            blocker = board.is_blocked(task)
+            if blocker:
+                # Worth ranking anyway — you are saying it is next once the
+                # blocker clears — but a bare `go` will skip straight past it.
+                print(f"  ! blocked by {blocker}; `go` will skip it until that closes")
+            moved = True
+            break
+        if not moved:
+            raise Fail(f"no task {tid}")
+
+
+def cmd_park(args):
+    """in progress → backlog. The one transition the tool forces you into.
+
+    Moving a line between sections breaks no invariant, so by the reordering
+    exemption this could be a hand edit. It is a command because **WIP-1 creates
+    the need**: `go` refuses while something is in progress, so anyone switching
+    tasks is pushed by the tool's own guard into editing the board — exactly
+    what principle 2 exists to prevent. Nothing in `tm` blocks deleting a line,
+    which is why dropping stays a hand edit.
+
+    Returns to the *bottom* by default: a parked task is usually one you could
+    not continue, and putting it back on top means the next bare `go` restarts
+    it. `-n` for the case where it really is still next.
+    """
+    top = "-n" in args
+    rest = [a for a in args if a != "-n"]
+    tid = rest[0] if rest else None
+    for ledger in LEDGERS:
+        board = Board(ledger)
+        if tid:
+            task, bucket = board.find(tid)
+            if task and bucket is not board.in_progress:
+                raise Fail(f"{task.id} is not in progress")
+        else:
+            task = board.in_progress[0] if board.in_progress else None
+        if not task:
+            continue
+        board.in_progress.remove(task)
+        task.unassign()  # parked means available; assign again with `go`
+        # Back to the queue, not the pool. Something you started was decided
+        # work; parking says "not now", not "never ranked this".
+        board.prioritised.insert(0, task) if top else board.prioritised.append(task)
+        board.save()
+        print(f"  {task.id}  {task.title}")
+        print(f"  {ledger} · returned to {'top' if top else 'bottom'} of prioritised")
+        return
+    raise Fail(f"no task {tid} in progress" if tid else "nothing in progress")
+
+
+def cmd_done(args):
+    force = "--force" in args
+    rest = [a for a in args if a != "--force"]
+    tid = rest[0] if rest else None
+    for ledger in LEDGERS:
+        board = Board(ledger)
+        task, bucket = (board.find(tid) if tid else (None, None))
+        if not tid and board.in_progress:
+            task, bucket = board.in_progress[0], board.in_progress
+        if not task:
+            continue
+        if bucket is board.recent:
+            raise Fail(f"{task.id} is already done")
+        pending = unchecked_acceptance(sidecar_path(ledger, task.id))
+        if pending and not force:
+            print(f"  {task.id} has unmet acceptance criteria:")
+            for item in pending:
+                print(f"    [ ] {item}")
+            sys.stdout.flush()  # so the list lands above the error, not below
+            raise Fail("not done — check them off, or pass --force")
+        bucket.remove(task)
+        # A task completed straight from `open` was never assigned; the person
+        # finishing it is the honest answer, and matches the commit author.
+        finisher = task.assignee or whoami()
+        task.tags = [f"@{finisher}"] if finisher else []
+        task.done_on = date.today().isoformat()
+        board.recent.insert(0, task)
+        board.clear_blocker(task.id)
+        board.save()
+        history_append(task, ledger)
+        sent = notify(task, ledger)
+        print(f"  ✓ {task.id}  {task.title}")
+        who = f" · {task.assignee}" if task.assignee else ""
+        print(f"  {ledger}{who} · {task.done_on}"
+              + (f" · {sent} sent" if sent else ""))
+        print(f'\n  commit with:  closes {task.id}')
+        return
+    raise Fail(f"no task {tid}" if tid else "nothing in progress")
+
+
+def cmd_find(args):
+    if not args:
+        raise Fail("usage: tm find <term>")
+    hits = search(" ".join(args), limit=50)
+    if not hits:
+        print("  nothing in history")
+        return
+    for row in hits:
+        print("  " + history_line(row))
+
+
+# ---------------------------------------------------------------------- reset
+
+MARKER = "UNADOPTED.md"
+
+
+def marker_path():
+    return os.path.join(ROOT, MARKER)
+
+
+def skeleton_nudge():
+    """Present until `tm reset` runs. Without it, a new project silently
+    inherits the skeleton's task history and `find` returns someone else's
+    work as its own prior art.
+
+    A named markdown file rather than a dotfile: this is the one marker whose
+    entire audience is a human who has just cloned something and does not yet
+    know what any of it is. Nothing parses it, so it costs nothing to make it
+    say so in full."""
+    if os.path.exists(marker_path()):
+        print(f"\n  ~ these are the skeleton's own records — see tasks/{MARKER},"
+              "\n    or run `tm reset` if you cloned this to start a project")
+
+
+def cmd_reset(args):
+    """Destructive, so it is a dry run unless --yes. Clears what is specific to
+    a project; keeps what explains the design."""
+    boards, sidecars = [], []
+    for ledger in LEDGERS:
+        try:
+            board = Board(ledger)
+        except Fail:
+            continue
+        n = len(board.in_progress) + len(board.open) + len(board.recent)
+        boards.append((board, n))
+        sidecars += sidecar_all(ledger)
+    rows = len(history_rows())
+    decisions = []
+    dec_dir = os.path.join(REPO, "decisions")
+    if "--all" in args and os.path.isdir(dec_dir):
+        decisions = [
+            os.path.join(dec_dir, f) for f in sorted(os.listdir(dec_dir))
+            if f.startswith("DEC-")
+        ]
+
+    print("  clears:")
+    for board, n in boards:
+        print(f"    {board.ledger} board — {n} task line(s)")
+    print(f"    history.tsv — {rows} row(s)")
+    print(f"    sidecars — {len(sidecars)} item(s)")
+    if decisions:
+        print(f"    decisions — {len(decisions)} file(s)")
+    print("\n  keeps: ontology, principles, templates, tm, hooks" +
+          ("" if decisions else ", decisions"))
+    if not decisions:
+        print("    (decisions explain why the design is what it is — `--all` to drop them too)")
+
+    if "--yes" not in args:
+        print("\n  dry run. pass --yes to apply.")
+        return
+
+    for board, _ in boards:
+        board.in_progress, board.prioritised, board.backlog, board.recent = [], [], [], []
+        board.save()
+    with open(HISTORY, "w") as fh:
+        fh.write("#date\tid\tledger\ttitle\twho\n")
+    for path in sidecars + decisions:
+        shutil.rmtree(path) if os.path.isdir(path) else os.remove(path)
+    if os.path.exists(marker_path()):
+        os.remove(marker_path())
+    print("\n  ✓ reset. the boards are yours now.")
+
+
+# --------------------------------------------------------------------- checks
+#
+# `check` is not a fifth skill — it mutates nothing. It is the validator the
+# hooks and CI both call, so the same rules run everywhere (PLT-001).
+
+
+class Report:
+    def __init__(self):
+        self.errors, self.warnings = [], []
+
+    def error(self, msg):
+        self.errors.append(msg)
+
+    def warn(self, msg):
+        self.warnings.append(msg)
+
+    def emit(self):
+        for w in self.warnings:
+            print(f"  ~ {w}")
+        for e in self.errors:
+            print(f"  ! {e}", file=sys.stderr)
+        return 1 if self.errors else 0
+
+
+def git(*args, cwd=None):
+    try:
+        out = subprocess.run(
+            ["git", *args], cwd=cwd or REPO,
+            capture_output=True, text=True, timeout=10,
+        )
+        return out.stdout if out.returncode == 0 else ""
+    except Exception:
+        return ""
+
+
+def check_boards(rep):
+    seen = {}
+    for row in history_rows():
+        if row["id"] in seen:
+            rep.error(f"{row['id']} appears twice in history.tsv")
+        seen[row["id"]] = "history"
+    for ledger in LEDGERS:
+        try:
+            board = Board(ledger)
+        except Fail as exc:
+            rep.error(str(exc))
+            continue
+        seen_active = {}
+        for task in board.in_progress:
+            owner = task.assignee or "(unassigned)"
+            if owner in seen_active:
+                rep.error(f"{ledger}: {owner} has {seen_active[owner]} and {task.id} "
+                          "both in progress — WIP is 1 per person")
+            seen_active[owner] = task.id
+        if len(board.recent) > WINDOW:
+            rep.error(f"{ledger}: recent holds {len(board.recent)}, max is {WINDOW}")
+        dates = [t.done_on for t in board.recent]
+        if dates != sorted(dates, reverse=True):
+            rep.error(f"{ledger}: recent is not newest-first")
+        live = {t.id for t in board.in_progress + board.open}
+        for task in board.in_progress + board.open + board.recent:
+            if not ID_RE.match(task.id):
+                rep.error(f"{ledger}: malformed id {task.id!r}")
+            where = seen.get(task.id)
+            if where and not (where == "history" and task in board.recent):
+                rep.error(
+                    f"{task.id} appears twice on the {ledger} board"
+                    if where.endswith("board")
+                    else f"{task.id} is on the {ledger} board but already in {where}"
+                )
+            elif where is None:
+                seen[task.id] = f"{ledger} board"
+            b = task.blocker
+            if b and b not in live and b not in seen:
+                rep.error(f"{task.id} is blocked by {b}, which does not exist")
+            if task.has_detail and not sidecar_path(ledger, task.id):
+                rep.error(f"{task.id} is tagged detail but has no sidecar")
+            # A tag only stays a tag while it matches. `filed:tomorrow` fails
+            # TAG_RE, so `_split_tags` leaves it on the end of the title and the
+            # board still looks fine — the one failure mode of adding a dated
+            # tag, and invisible without this.
+            if re.search(r"\bfiled:\S*", task.title):
+                rep.error(f"{task.id} has a malformed filed: date in its title — "
+                          "the tag must read filed:YYYY-MM-DD to parse as one")
+
+
+def check_sidecars(rep):
+    for ledger in LEDGERS:
+        d = os.path.join(ROOT, ledger, "tasks")
+        if not os.path.isdir(d):
+            continue
+        try:
+            board = Board(ledger)
+        except Fail:
+            continue
+        tagged = {t.id for t in board.in_progress + board.open if t.has_detail}
+        closed = {t.id for t in board.recent} | {r["id"] for r in history_rows()}
+        for name in sorted(os.listdir(d)):
+            if name.startswith("_") or name.startswith("."):
+                continue
+            path = os.path.join(d, name)
+            if not (os.path.isdir(path) or name.endswith(".md")):
+                continue
+            parts = name.split("-")
+            if len(parts) < 2:
+                continue
+            tid = f"{parts[0]}-{parts[1]}"
+            doc = sidecar_doc(path)
+            if doc is None:
+                rep.error(f"{name}/: folder sidecar has no README.md — nothing to read, "
+                          "and acceptance criteria cannot be found")
+            else:
+                with open(doc) as fh:
+                    head = fh.read(400)
+                m = re.search(r"^id:\s*(\S+)", head, re.M)
+                if m and m.group(1) != tid:
+                    rep.error(f"{name}: frontmatter id {m.group(1)} does not match its name")
+            if tid not in tagged and tid not in closed:
+                rep.error(f"{name}: no board line tagged detail, and not completed")
+
+        for task in board.in_progress + board.open + board.recent:
+            errors, warnings = title_problems(task.title)
+            for e in errors:
+                rep.error(f"{task.id}: {e}")
+            for w in warnings:
+                rep.warn(f"{task.id}: {w}")
+
+
+def frontmatter_field(text, field):
+    m = re.search(rf"^{field}:\s*(.*)$", text, re.M)
+    return m.group(1).strip() if m else ""
+
+
+def check_decisions(rep, root):
+    """A decision is superseded, never rewritten. Typo-level edits pass; the
+    threshold is deliberately generous — this catches rewrites, not tidying."""
+    import difflib
+
+    changed = git("diff", "--cached", "--name-only", "--", "decisions/").split()
+    for path in changed:
+        old = git("show", f"HEAD:{path}")
+        if not old:
+            continue  # newly added
+        full = os.path.join(root, path)
+        if not os.path.exists(full):
+            continue
+        with open(full) as fh:
+            new = fh.read()
+        if frontmatter_field(old, "superseded_by") != frontmatter_field(new, "superseded_by"):
+            continue
+        if frontmatter_field(old, "status") != frontmatter_field(new, "status"):
+            continue
+        a, b = old.split(), new.split()
+        sm = difflib.SequenceMatcher(None, a, b)
+        moved = sum(
+            max(i2 - i1, j2 - j1)
+            for tag, i1, i2, j1, j2 in sm.get_opcodes() if tag != "equal"
+        )
+        if moved > 25:
+            rep.error(
+                f"{path}: {moved} words changed without superseding it. "
+                "Write a new decision that supersedes this one."
+            )
+
+
+def _dec_list(text, field):
+    raw = frontmatter_field(text, field).strip("[] ")
+    return [x.strip() for x in raw.split(",") if x.strip()]
+
+
+def check_decision_graph(rep, root):
+    """Supersession is a two-sided claim, and nothing until now checked the
+    second side. A human cannot hold twenty cross-references in their head, so
+    a hand-edit that half-supersedes something is silent and permanent — the
+    record still reads as current from one direction.
+
+    Runs over the whole folder, not the staged diff: the file that goes stale
+    is the *other* one, which by definition is not in this commit."""
+    d = os.path.join(root, "decisions")
+    if not os.path.isdir(d):
+        return
+    docs = {}
+    for name in sorted(os.listdir(d)):
+        if not name.startswith("DEC-") or not name.endswith(".md"):
+            continue
+        text = open(os.path.join(d, name)).read()
+        did = frontmatter_field(text, "id")
+        if not did:
+            rep.error(f"{name}: no id in frontmatter")
+            continue
+        if not name.startswith(did + "-"):
+            rep.error(f"{name}: filename does not match id {did}")
+        if did in docs:
+            rep.error(f"{did} is used by two files — ids are never reused")
+        docs[did] = text
+
+    for did, text in docs.items():
+        status = frontmatter_field(text, "status")
+        by = _dec_list(text, "superseded_by")
+        for other in _dec_list(text, "supersedes"):
+            if other not in docs:
+                rep.error(f"{did} supersedes {other}, which does not exist")
+            elif did not in _dec_list(docs[other], "superseded_by"):
+                rep.error(f"{did} supersedes {other}, but {other} does not say so — "
+                          "supersession is recorded on both sides")
+        for other in by:
+            if other not in docs:
+                rep.error(f"{did} is superseded by {other}, which does not exist")
+            elif did not in _dec_list(docs[other], "supersedes"):
+                rep.error(f"{did} says {other} supersedes it, but {other} does not say so")
+        if by and status != "superseded":
+            rep.error(f"{did} is superseded by {', '.join(by)} but status is {status!r}")
+        if not by and status == "superseded":
+            rep.error(f"{did} is marked superseded with nothing superseding it")
+
+
+# llmeep's own trees, relative to wherever it was installed. Everything else in
+# the repo is the platform — including a `platform/` directory, when there is
+# one. `adopt` is listed because it sits at the root and is llmeep's, not yours.
+SKELETON = ("tasks/", "notes/", "decisions/", "ontology/", ".notes/", ".claude/", "adopt")
+
+
+def platform_changes(*extra):
+    """The platform is **the repo minus llmeep's own paths**, not a directory.
+
+    `platform/` only exists in a fresh clone. A repo that adopted llmeep keeps
+    its code where it was, so a pathspec of `platform/` matched nothing and both
+    nudges below passed unconditionally — silently, which is the worse half
+    (`PLT-tdb5`).
+
+    Root-level `.md` files and dotfiles are excluded as well. They are the
+    README, the ignore file, the env sample: documentation and configuration
+    that belongs to no subsystem. Counting them would fire this on every README
+    edit, and a nudge that cries wolf on the most-edited file in a project is
+    worse than no nudge at all.
+    """
+    top = (git("rev-parse", "--show-toplevel") or REPO).strip()
+    # A nested install (`adopt --into ops`) puts the trees one level down, while
+    # git reports paths from the top. Prefix the skeleton with wherever we sit.
+    here = os.path.relpath(REPO, top)
+    prefix = "" if here == "." else here + "/"
+    # `.claude/` is never prefixed: agent adapters stay at the repo root even
+    # for a nested install, because that is the only place an agent looks.
+    ours = tuple(prefix + p for p in SKELETON) + (".claude/",)
+
+    out = []
+    for path in git("diff", "--cached", "--name-only", *extra).split():
+        if path.startswith(ours):
+            continue
+        # Documentation and configuration sitting loose at the top of the repo —
+        # or at the top of the install, which for a nested one holds the
+        # generated README. Neither is anybody's platform.
+        loose = path[len(prefix):] if path.startswith(prefix) else path
+        if "/" not in loose and (loose.startswith(".") or loose.endswith(".md")):
+            continue
+        out.append(path)
+    return out
+
+
+def check_ontology_currency(rep, root):
+    """New platform files suggest a new concept. Only *added* files are
+    considered — warning on every modification would be noise, and a noisy hook
+    gets bypassed, taking every other check with it. Warns, never blocks."""
+    added = platform_changes("--diff-filter=A")
+    if not added:
+        return
+    touched = git("diff", "--cached", "--name-only", "--", "ontology/domain/").split()
+    if touched:
+        return
+    rep.warn(
+        f"{len(added)} new file(s) in the platform but ontology/domain/ is unchanged — "
+        "add or update the concept if this introduced one"
+    )
+
+
+def check_hooks(rep):
+    """A hooks directory that has moved fails *silently* — git runs nothing and
+    says nothing. So the one check that cannot rely on a hook is the one that
+    asks whether the hooks are wired up at all."""
+    # Relative to the git toplevel, not to REPO: git resolves core.hooksPath
+    # from the top of the working tree, and llmeep may sit in a subdirectory of
+    # a repo it was adopted into.
+    top = (git("rev-parse", "--show-toplevel") or REPO).strip()
+    want = os.path.relpath(os.path.join(HERE, "hooks"), top)
+    have = (git("config", "core.hooksPath") or "").strip()
+    if not have:
+        rep.warn(f"no git hooks installed — `git config core.hooksPath {want}`")
+    elif not os.path.isdir(os.path.join(top, have)):
+        rep.warn(f"core.hooksPath={have} no longer exists — "
+                 f"`git config core.hooksPath {want}`")
+
+
+def check_untracked_work(rep, root):
+    """Work landing with no task is the drift that makes the board useless.
+
+    Warns rather than blocks, because commit time is already too late — the
+    work is done. The real catch is the agent creating the task when the user
+    says "let's build X". This is only the backstop."""
+    touched = platform_changes()
+    if not touched:
+        return
+    for ledger in LEDGERS:
+        try:
+            if Board(ledger).in_progress:
+                return
+        except Fail:
+            pass
+    rep.warn(
+        f"{len(touched)} platform file(s) changed with no task in progress — "
+        "`tm add <title>` then `tm go` if this was real work"
+    )
+
+
+def check_trailer(rep, msg_path):
+    with open(msg_path) as fh:
+        msg = fh.read()
+    known = {r["id"] for r in history_rows()}
+    for ledger in LEDGERS:
+        try:
+            known |= Board(ledger).all_ids()
+        except Fail:
+            pass
+    for tid in re.findall(r"\bcloses\s+([A-Z]{3}-\S+)", msg):
+        if tid.rstrip(".,;") not in known:
+            rep.error(
+                f'commit message says "closes {tid}" but no such task exists — '
+                "the trailer is the only link between task and commit"
+            )
+
+
+def check_nudge(rep, root):
+    for ledger in LEDGERS:
+        try:
+            board = Board(ledger)
+        except Fail:
+            continue
+        for task in board.in_progress:
+            rep.warn(f"{task.id} still in progress — run `tm done {task.id}` if that finished it")
+
+
+# `--no-verify` skips pre-commit and commit-msg but NOT post-commit. So the
+# trace cannot be "post-commit records success" — that would run on bypassed
+# commits too, erasing the evidence. Instead pre-commit drops a token and
+# post-commit checks whether it is there and fresh. Freshness rather than
+# sha-matching, because --amend and merges legitimately change the parent.
+TOKEN = "tm-precommit"
+BYPASSED = "tm-bypassed"
+TOKEN_TTL = 120  # seconds
+
+
+def _gitpath(root, name):
+    gitdir = (git("rev-parse", "--git-dir") or "").strip()
+    return os.path.join(root, gitdir, name) if gitdir else None
+
+
+def check_bypass(rep, root):
+    """Report the standing trace, then arm the token for this commit."""
+    log = _gitpath(root, BYPASSED)
+    if log and os.path.exists(log):
+        with open(log) as fh:
+            shas = [s for s in fh.read().split() if s]
+        if shas:
+            recent = " ".join(s[:7] for s in shas[-3:])
+            rep.warn(
+                f"{len(shas)} commit(s) bypassed these checks ({recent}) — "
+                f"run `tm check`, then clear .git/{BYPASSED}"
+            )
+    token = _gitpath(root, TOKEN)
+    if token:
+        with open(token, "w") as fh:
+            fh.write((git("rev-parse", "HEAD") or "root").strip())
+
+
+def record_verified(root):
+    """post-commit: was this commit validated, or did it skip the gate?"""
+    import time
+
+    token, log = _gitpath(root, TOKEN), _gitpath(root, BYPASSED)
+    if not token:
+        return
+    fresh = os.path.exists(token) and os.path.getmtime(token) > time.time() - TOKEN_TTL
+    if os.path.exists(token):
+        os.remove(token)
+    if not fresh and log:
+        head = (git("rev-parse", "HEAD") or "").strip()
+        if head:
+            with open(log, "a") as fh:
+                fh.write(head + "\n")
+            print(f"  ~ this commit skipped validation — recorded in .git/{BYPASSED}")
+
+
+def check_notify(send=False):
+    """Verify the configured channel, and walk its setup if it is missing.
+
+    Does **not** send unless asked. A command called `check` must not put a
+    message in front of a whole team every time someone validates config —
+    same reasoning as `reset` being a dry run without `--yes`.
+
+    Setup is inherently per-channel, so this dispatches; sending is not, so
+    everything after configuration goes through `notify()`."""
+    load_env()
+    name = (os.environ.get("NOTIFY") or "telegram").strip().lower()
+    if name == "none":
+        print("  NOTIFY=none — completions are not announced anywhere.")
+        return 0
+    if name not in NOTIFIERS:
+        print(f"  ! unknown NOTIFY={name!r}; known: {', '.join(NOTIFIERS)}")
+        return 1
+    if name != "telegram":
+        return check_generic(name, send)
+    return check_telegram(send)
+
+
+def check_generic(name, send=False):
+    """Non-Telegram channels need one URL and nothing else, so there is no
+    wizard to run — either it is set or it is not."""
+    var = {"slack": "SLACK_WEBHOOK_URL", "webhook": "NOTIFY_WEBHOOK_URL"}[name]
+    env = os.path.join(REPO, ".env")
+    if not os.environ.get(var):
+        print(f"  NOTIFY={name} but {var} is not set.\n")
+        print(f"  add it to {env}:\n")
+        print(f"       {var}=https://...")
+        return 1
+    if not send:
+        print(f"  ✓ {name} configured. `--send` to post a test message.")
+        return 0
+    if notify(task_probe(), "setup"):
+        print(f"  ✓ sent a test message via {name}")
+        return 0
+    print(f"  ! send failed — check {var}")
+    return 1
+
+
+def print_chats(chats, current):
+    """Group ids are negative and a supergroup's begins -100, which looks like a
+    mistake until you have seen it once. Naming the type says it is not."""
+    for cid, (kind, name) in chats.items():
+        mark = " ← configured" if current is not None and str(cid) == str(current) else ""
+        print(f"    {cid:<16} {kind:<10} {name}{mark}")
+
+
+def print_no_chats(indent=""):
+    print(f"{indent}  add the bot to your group and send /start@yourbotname —")
+    print(f"{indent}  group privacy hides ordinary messages from bots until they")
+    print(f"{indent}  are addressed. Then run this again, within the day: Telegram")
+    print(f"{indent}  drops updates nobody has collected after about 24 hours.")
+
+
+def task_probe():
+    return Task("TEST", "taskman is wired up", done_on=date.today().isoformat())
+
+
+def check_telegram(send=False):
+    """Setup helper. Walks the two-step configuration rather than just failing,
+    because the chat id is the part nobody can guess."""
+    load_env()
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    chat = os.environ.get("TELEGRAM_CHAT_ID")
+    env = os.path.join(REPO, ".env")
+
+    if not token:
+        print("  no TELEGRAM_BOT_TOKEN set.\n")
+        print("  1. message @BotFather in Telegram, send /newbot")
+        print("  2. pick a display name, then a username ending in 'bot'")
+        print(f"  3. put the token it gives you in {env}:\n")
+        print("       TELEGRAM_BOT_TOKEN=8123456789:AAH...")
+        return 1
+
+    try:
+        with urllib.request.urlopen(
+            f"https://api.telegram.org/bot{token}/getUpdates", timeout=10
+        ) as fh:
+            data = json.load(fh)
+    except (urllib.error.URLError, OSError) as exc:
+        print(f"  ! could not reach Telegram: {exc}")
+        return 1
+    if not data.get("ok"):
+        print(f"  ! Telegram rejected the token: {data.get('description')}")
+        return 1
+
+    chats = {}
+    for upd in data.get("result", []):
+        c = ((upd.get("message") or upd.get("channel_post")
+              or upd.get("my_chat_member") or {}).get("chat"))
+        if c:
+            chats[c["id"]] = (c.get("type", "?"),
+                              c.get("title") or c.get("username") or c.get("first_name", "?"))
+
+    if not chat:
+        print("  token works. no TELEGRAM_CHAT_ID set yet.\n")
+        if chats:
+            print_chats(chats, None)
+            print(f"\n  add the one you want to {env}:\n")
+            print(f"       TELEGRAM_CHAT_ID={list(chats)[0]}")
+        else:
+            print_no_chats()
+        return 1
+
+    where = chats.get(int(chat), ("", chat))[1] if str(chat).lstrip("-").isdigit() else chat
+    if not send:
+        print(f"  ✓ telegram configured — {where}")
+        # Always list what else the bot can see. A team group is usually made
+        # after someone has already wired this up alone, and a check that goes
+        # quiet once an id is set leaves them with nowhere to look (`PLT-4hck`).
+        others = {k: v for k, v in chats.items() if str(k) != str(chat)}
+        if others:
+            print("\n  this bot can also see:")
+            print_chats(others, chat)
+            print(f"\n  to move, change TELEGRAM_CHAT_ID in {env}")
+        else:
+            print("\n  no other chats visible. To point this at a group instead,")
+            print_no_chats(indent="  ")
+        print("\n  `--send` to post a test message.")
+        return 0
+    if notify(task_probe(), "setup"):
+        print(f"  ✓ sent a test message to {where}")
+        return 0
+    print("  ! send failed — check TELEGRAM_CHAT_ID is right")
+    return 1
+
+
+# Directories the layout promises but git cannot carry, because git tracks no
+# empty directory. Each needs a `.gitkeep`, and each has gone missing from a cut
+# before now.
+RELEASE_DIRS = [
+    "notes/raw", "tasks/platform/tasks", "tasks/business/tasks", "ontology/domain",
+]
+
+LINK_RE = re.compile(r"\]\((?!https?:|#|mailto:)([^)]+)\)")
+
+
+def dead_links(root):
+    """Relative links that resolve on `main` and not in a cut tree. Every one of
+    these so far pointed into `decisions/`, which `reset --all` empties — found
+    four times by eye and once by this function, which is why it exists."""
+    # From the git toplevel, not from REPO. Nested, REPO is the install folder,
+    # and the files most likely to hold a stale path — the repo's own README and
+    # `ontology/` — sit outside it. Scanning from REPO silently stopped checking
+    # exactly the ones the move broke.
+    top = (git("rev-parse", "--show-toplevel") or root).strip()
+    out = []
+    for path in git("ls-files", "*.md", cwd=top).split():
+        full = os.path.join(top, path)
+        if not os.path.exists(full):
+            continue
+        with open(full) as fh:
+            text = fh.read()
+        for target in LINK_RE.findall(text):
+            target = target.split("#")[0]
+            if not target:
+                continue
+            resolved = os.path.normpath(os.path.join(os.path.dirname(full), target))
+            if not os.path.exists(resolved):
+                out.append(f"{path} → {target}")
+    return out
+
+
+def check_release(rep, root):
+    """A cut tree is one that has never existed on `main`: records emptied,
+    decisions cleared, directories git could not carry. Nothing else validates
+    that difference, so every defect in it was found after publishing — v2
+    shipped this project's decisions, v3 broke ten links and lost two
+    directories, v5 broke fifteen more.
+
+    Run inside the cut, after both resets and before the commit. Never wired
+    into a hook: cutting a version is deliberate and rare, and `check` keeps its
+    no-side-effects contract (`DEC-009`)."""
+    for ledger in LEDGERS:
+        try:
+            board = Board(ledger)
+        except Fail:
+            continue
+        n = len(board.in_progress) + len(board.open) + len(board.recent)
+        if n:
+            rep.error(f"{ledger} board still has {n} task line(s) — run `tm reset --yes --all`")
+    if len(history_rows()):
+        rep.error("tasks history.tsv still has rows — run `tm reset --yes --all`")
+
+    notes_hist = os.path.join(root, "notes", "_tooling", "history.tsv")
+    if os.path.exists(notes_hist):
+        with open(notes_hist) as fh:
+            rows = [l for l in fh if l.strip() and not l.startswith("#")]
+        if rows:
+            rep.error(f"notes history.tsv still has {len(rows)} row(s) — run `nm reset --yes`")
+    archive = os.path.join(root, "notes", "notes.md")
+    if os.path.exists(archive):
+        with open(archive) as fh:
+            kept = [l for l in fh if l.strip() and not l.startswith("#")]
+        if kept:
+            rep.error(f"notes.md still holds {len(kept)} note(s) — run `nm reset --yes`")
+
+    for sub in ("tasks", "notes"):
+        if os.path.exists(os.path.join(root, sub, MARKER)):
+            rep.error(f"{sub}/{MARKER} is still here — its reset has not run")
+
+    dec = os.path.join(root, "decisions")
+    if os.path.isdir(dec):
+        left = [f for f in sorted(os.listdir(dec)) if f.startswith("DEC-")]
+        if left:
+            rep.error(f"decisions/ still holds {len(left)} record(s) — `tm reset --yes --all` "
+                      "drops them; a release belongs to nobody yet")
+        if not os.path.exists(os.path.join(dec, "_template.md")):
+            rep.error("decisions/_template.md is missing — `--all` keeps the template")
+
+    # `ontology/` stays at the repo root while the record trees live under the
+    # install folder, so these do not all resolve against the same base.
+    top = (git("rev-parse", "--show-toplevel") or root).strip()
+    for d in RELEASE_DIRS:
+        base = top if d.startswith("ontology/") else root
+        if not os.path.isdir(os.path.join(base, d)):
+            rep.error(f"{d}/ is absent — git carries no empty directory; it needs a .gitkeep")
+
+    for link in dead_links(root):
+        rep.error(f"dead link: {link}")
+
+
+def cmd_check(args):
+    if "--notify" in args:
+        sys.exit(check_notify(send="--send" in args))
+    root = REPO
+    rep = Report()
+    if "--release" in args:
+        check_release(rep, root)
+    elif "--msg" in args:
+        check_trailer(rep, args[args.index("--msg") + 1])
+    elif "--nudge" in args:
+        check_nudge(rep, root)
+        record_verified(root)
+    else:
+        check_boards(rep)
+        check_sidecars(rep)
+        check_hooks(rep)
+        if "--staged" in args:
+            check_bypass(rep, root)
+            check_decisions(rep, root)
+            check_decision_graph(rep, root)
+            check_untracked_work(rep, root)
+            check_ontology_currency(rep, root)
+    code = rep.emit()
+    if code == 0 and not rep.warnings and "--quiet" not in args:
+        print("  ✓ release tree is clean" if "--release" in args else "  ✓ records consistent")
+    sys.exit(code)
+
+
+USAGE = """tm — taskman
+
+  tm add [-b] [-n] [-f who]     file a task in the backlog (-b business,
+         [--id]                 -n prioritises it, -f assigns; --id prints the id)
+  tm go [id] [-f who]           show your current task, or start the next one
+  tm prioritise <id> [-n]       backlog → prioritised (-n puts it on top)
+  tm park [id] [-n]             return it to prioritised (-n puts it on top)
+  tm done [id] [--force]        complete it, then commit with "closes <id>"
+  tm find <term>                search every task ever completed
+  tm standup [--send]           report the period's work (--send posts it)
+  tm standup --cron             the crontab line, if you schedule it
+
+  tm check [--staged]           validate records; used by hooks and CI
+  tm check --notify [--send]    verify the notification channel (--send posts)
+  tm check --release            validate a cut tree before committing the version
+  tm reset [--yes] [--all]      clear task records when adopting the skeleton
+
+Listing is reading the board; reordering is moving a line in it.
+Model: tasks/_tooling/ontology.md"""
+
+
+def main():
+    argv = sys.argv[1:]
+    if not argv or argv[0] in ("-h", "--help", "help"):
+        print(USAGE)
+        return 0
+    commands = {
+        "add": cmd_add, "go": cmd_go, "park": cmd_park,
+        "prioritise": cmd_prioritise, "prioritize": cmd_prioritise,
+        "done": cmd_done, "find": cmd_find, "standup": cmd_standup,
+        "check": cmd_check, "reset": cmd_reset,
+    }
+    cmd = commands.get(argv[0])
+    if not cmd:
+        print(f"unknown command: {argv[0]}\n\n{USAGE}", file=sys.stderr)
+        return 2
+    try:
+        cmd(argv[1:])
+    except Fail as exc:
+        print(f"  ! {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -18,10 +18,10 @@ subsystem is named here.
 
 | Term          | Defined in                                        |
 | ------------- | ------------------------------------------------- |
-| **task**      | [`tasks/_tooling/ontology.md`](../tasks/_tooling/ontology.md) — with ledger, board, sidecar, window, history |
-| **note**      | [`notes/_tooling/ontology.md`](../notes/_tooling/ontology.md) — with capture, archive, distil, promote, prune |
+| **task**      | [`llmeep/tasks/_tooling/ontology.md`](../llmeep/tasks/_tooling/ontology.md) — with ledger, board, sidecar, window, history |
+| **note**      | [`llmeep/notes/_tooling/ontology.md`](../llmeep/notes/_tooling/ontology.md) — with capture, archive, distil, promote, prune |
 | **decision**  | below — it belongs to the project, not to a subsystem |
-| **scratch**   | [`.notes/README.md`](../.notes/README.md) — local, disposable, never a source of truth |
+| **scratch**   | [`llmeep/.notes/README.md`](../llmeep/.notes/README.md) — local, disposable, never a source of truth |
 | **platform**  | The system being built. Below — it is a rule, not a directory. Never "the app" or "the product". |
 | **business**  | Everything that is not the platform. Subject of `tasks/business/`. |
 
@@ -69,7 +69,7 @@ Not style policing — each of these has caused a real ambiguity.
 | TODO (as a tracker)  | Untracked work with no ID. Fine in code, not as a unit of work.  | a **task**                     |
 | archive (as a verb)  | Ambiguous: deleted, or done, or superseded?                      | `done`, `dropped`, `superseded` |
 
-Tasks has its own avoid-list — see [`tasks/_tooling/ontology.md`](../tasks/_tooling/ontology.md).
+Tasks has its own avoid-list — see [`llmeep/tasks/_tooling/ontology.md`](../llmeep/tasks/_tooling/ontology.md).
 
 ## Naming conventions
 

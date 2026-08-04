@@ -23,7 +23,7 @@ what this is. [The longer argument](#why-this-exists) is at the bottom.
 ```sh
 git clone --depth 1 https://github.com/stewartmegaw/llmeep.git my-project
 cd my-project && rm -rf .git && git init
-git config core.hooksPath tasks/_tooling/hooks     # validation on commit
+git config core.hooksPath llmeep/tasks/_tooling/hooks     # validation on commit
 ```
 
 That is the whole install — two Python 3 files, standard library only, nothing to build.
@@ -55,13 +55,13 @@ three that change something you cannot take back (`tm reset`, `tm check --notify
 ## Tracking work
 
 ```sh
-tasks/_tooling/tm add Fix flaky auth test   # file it in the backlog; -b for business, -n prioritises
-tasks/_tooling/tm prioritise PLT-9puy       # backlog → prioritised; -n for the top of the order
-tasks/_tooling/tm go                        # start the next task, or show the one in progress
-tasks/_tooling/tm park                      # put it back; unassigns it
-tasks/_tooling/tm done                      # complete the current task
-tasks/_tooling/tm find auth                 # search everything ever completed
-tasks/_tooling/tm standup                   # what closed this period; --send posts it
+llmeep/tasks/_tooling/tm add Fix flaky auth test   # file it in the backlog; -b for business, -n prioritises
+llmeep/tasks/_tooling/tm prioritise PLT-9puy       # backlog → prioritised; -n for the top of the order
+llmeep/tasks/_tooling/tm go                        # start the next task, or show the one in progress
+llmeep/tasks/_tooling/tm park                      # put it back; unassigns it
+llmeep/tasks/_tooling/tm done                      # complete the current task
+llmeep/tasks/_tooling/tm find auth                 # search everything ever completed
+llmeep/tasks/_tooling/tm standup                   # what closed this period; --send posts it
 ```
 
 Defaults do the work: `add` assumes platform, `go` and `done` assume the current task. Nothing
@@ -70,10 +70,10 @@ from your git config, and `done` records it.
 
 **Close the task, then commit** — code, board and history land together, and `closes <id>` in
 the message is the permanent link between the two. Listing is reading
-[the board](tasks/platform/board.md); reordering is moving a line in it. Neither needs a
+[the board](llmeep/tasks/platform/board.md); reordering is moving a line in it. Neither needs a
 command.
 
-Full model: [`tasks/_tooling/ontology.md`](tasks/_tooling/ontology.md).
+Full model: [`llmeep/tasks/_tooling/ontology.md`](llmeep/tasks/_tooling/ontology.md).
 
 ## Capturing work
 
@@ -81,7 +81,7 @@ Full model: [`tasks/_tooling/ontology.md`](tasks/_tooling/ontology.md).
 
 ```
 capture              distil               promote            prune
-notes/raw/*.md  ──▶  notes/notes.md  ──▶  tasks board    ──▶  git
+llmeep/notes/raw/*.md  ──▶  llmeep/notes/notes.md  ──▶  tasks board    ──▶  git
    (inbox)           (archive)                                 (archive)
                           └──▶ or stays as context, never promoted
 ```
@@ -90,14 +90,14 @@ Paste a call transcript into your agent and it captures what survives; the note 
 artifact, and the transcript is scaffolding that never gets committed.
 
 ```sh
-notes/_tooling/nm add --from acme-call "Acme want SSO before they will renew"
-notes/_tooling/nm promote NTE-shmy   # a note becomes a task, linked both ways
-notes/_tooling/nm drop <file>        # a capture in notes/raw/ is processed; git keeps it
-notes/_tooling/nm prune              # bound raw/ and the archive; dry without --yes
-notes/_tooling/nm find <term>        # search every note ever captured
+llmeep/notes/_tooling/nm add --from acme-call "Acme want SSO before they will renew"
+llmeep/notes/_tooling/nm promote NTE-shmy   # a note becomes a task, linked both ways
+llmeep/notes/_tooling/nm drop <file>        # a capture in llmeep/notes/raw/ is processed; git keeps it
+llmeep/notes/_tooling/nm prune              # bound raw/ and the archive; dry without --yes
+llmeep/notes/_tooling/nm find <term>        # search every note ever captured
 ```
 
-Full model: [`notes/_tooling/ontology.md`](notes/_tooling/ontology.md).
+Full model: [`llmeep/notes/_tooling/ontology.md`](llmeep/notes/_tooling/ontology.md).
 
 ## What it costs your agent
 
@@ -138,10 +138,10 @@ startup.
 1. [`ontology/principles.md`](ontology/principles.md) — the seven rules everything follows from.
 2. [`ontology/core.md`](ontology/core.md) — the entities that cut across subsystems. A
    self-contained subsystem keeps its vocabulary next to itself instead, like
-   [`tasks/_tooling/ontology.md`](tasks/_tooling/ontology.md).
-3. [`tasks/_tooling/ontology.md`](tasks/_tooling/ontology.md) — how work is tracked. One board file,
+   [`llmeep/tasks/_tooling/ontology.md`](llmeep/tasks/_tooling/ontology.md).
+3. [`llmeep/tasks/_tooling/ontology.md`](llmeep/tasks/_tooling/ontology.md) — how work is tracked. One board file,
    priority by position.
-4. [`notes/_tooling/ontology.md`](notes/_tooling/ontology.md) — how work arrives. Capture, distil, promote,
+4. [`llmeep/notes/_tooling/ontology.md`](llmeep/notes/_tooling/ontology.md) — how work arrives. Capture, distil, promote,
    prune.
 5. Describe your own project in [`ontology/domain/`](ontology/domain/README.md) — the
    extension point. You should not need to edit the core ontology.
@@ -154,8 +154,8 @@ startup.
 **Everything below is about llmeep itself, not about your project.** When you adopt this
 skeleton, delete from this line down and write your own — the sections above are the working
 agreement and are worth keeping. Nothing in the tooling reads this file, so you can cut it
-freely; the model lives in [`tasks/_tooling/ontology.md`](tasks/_tooling/ontology.md) and
-[`notes/_tooling/ontology.md`](notes/_tooling/ontology.md), which survive any rewrite.
+freely; the model lives in [`llmeep/tasks/_tooling/ontology.md`](llmeep/tasks/_tooling/ontology.md) and
+[`llmeep/notes/_tooling/ontology.md`](llmeep/notes/_tooling/ontology.md), which survive any rewrite.
 
 ## Why this exists
 
@@ -251,7 +251,7 @@ The rule generalises past Telegram: **before building an input surface, check wh
 with the repository already does it better.** Slack, email, a web UI — the answer is usually
 yes, and the surface you skip is one you never have to keep in sync.
 
-Full model: [`tasks/_tooling/ontology.md`](tasks/_tooling/ontology.md).
+Full model: [`llmeep/tasks/_tooling/ontology.md`](llmeep/tasks/_tooling/ontology.md).
 
 ### The standup
 
@@ -263,14 +263,14 @@ is the one question the working tree stops being able to answer. `tm standup` as
 case worth optimising for.
 
 ```sh
-tasks/_tooling/tm standup           # what closed this period, and what is still open
-tasks/_tooling/tm standup --send    # ...and post it to the team channel
+llmeep/tasks/_tooling/tm standup           # what closed this period, and what is still open
+llmeep/tasks/_tooling/tm standup --send    # ...and post it to the team channel
 ```
 
 Reports the day by default. Set `STANDUP_PERIOD` to `workday`, `bidaily` or `weekly` in
 `.env` for a longer window; `workday` is `daily` that skips weekends and covers them on Monday.
 
-**If you want it unattended**, `tasks/_tooling/blueprints/standup.sh` is a blueprint for an always-on
+**If you want it unattended**, `llmeep/tasks/_tooling/blueprints/standup.sh` is a blueprint for an always-on
 machine: it fetches, then reports. Nothing here runs it — `tm standup --cron` prints the line
 that would (at `STANDUP_AT`, default `09:00`), and you decide whether to schedule it
 ([`DEC-017`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-017-the-standup-is-usually-a-person.md)).
@@ -278,14 +278,14 @@ that would (at `STANDUP_AT`, default `09:00`), and you decide whether to schedul
 **Close the task, then commit** — code, board and history land together:
 
 ```sh
-tasks/_tooling/tm done PLT-007
+llmeep/tasks/_tooling/tm done PLT-007
 git commit -m "Fix flaky auth test. closes PLT-007"
 ```
 
 The trailer makes the commit self-identifying, so `find` can recover it later and no SHA is
 stored anywhere.
 
-Listing is reading [the board](tasks/platform/board.md); reordering is moving a line in it.
+Listing is reading [the board](llmeep/tasks/platform/board.md); reordering is moving a line in it.
 Neither needs a command. `add` and `go` search history automatically, so work that was already
 attempted surfaces without anyone deciding to look.
 
@@ -294,7 +294,7 @@ attempted surfaces without anyone deciding to look.
 ```sh
 git clone <this-repo> my-project && cd my-project
 rm -rf .git && git init
-git config core.hooksPath tasks/_tooling/hooks
+git config core.hooksPath llmeep/tasks/_tooling/hooks
 ```
 
 The default branch is **`release`** — a clean skeleton with empty boards, ready to use. It
@@ -383,8 +383,8 @@ so, and each tool repeats it until you deal with it. Run **both** resets — ado
 subsystem, because the two are meant to be liftable apart:
 
 ```sh
-tasks/_tooling/tm reset --yes   # clears boards, history, sidecars
-notes/_tooling/nm reset --yes   # clears the archive, its history, raw/
+llmeep/tasks/_tooling/tm reset --yes   # clears boards, history, sidecars
+llmeep/notes/_tooling/nm reset --yes   # clears the archive, its history, raw/
 ```
 
 Otherwise you inherit this project's task history and `find` returns the skeleton's work as
@@ -397,7 +397,8 @@ Whether to keep the decisions depends on which repo you are becoming. Improving 
 keep them — they explain why the design is what it is. Starting your own project, add `--all`:
 `decisions/` is then yours from `DEC-001`, rather than someone else's twenty-five records with
 your first decision filed behind them. The design is still described by `ontology/`,
-`tasks/_tooling/ontology.md` and `notes/_tooling/ontology.md`, which `reset` never touches.
+`llmeep/tasks/_tooling/ontology.md` and `llmeep/notes/_tooling/ontology.md`, which `reset`
+never touches.
 
 ### Cutting a version
 
@@ -409,10 +410,10 @@ Release branches are **write-once — never merged back**, which is what keeps `
 git checkout release
 git rm -rq .                          # or a rename leaves the old paths behind
 git checkout main -- .
-tasks/_tooling/tm reset --yes --all   # --all drops this project's decisions too;
-notes/_tooling/nm reset --yes         # a release is nobody's project yet
+llmeep/tasks/_tooling/tm reset --yes --all   # --all drops this project's decisions too;
+llmeep/notes/_tooling/nm reset --yes         # a release is nobody's project yet
 git add -A
-tasks/_tooling/tm check --release     # the checks a cut tree needs and main cannot run
+llmeep/tasks/_tooling/tm check --release     # the checks a cut tree needs and main cannot run
 git commit -m "v3: clean skeleton" && git tag v3
 git checkout main                     # work continues; history intact
 ```
@@ -445,8 +446,8 @@ Known limits, which are not bugs:
 - **Validation checks consistency, not truth.** The hooks cannot tell you a task was closed that
   should not have been — this has already happened once here, and is recorded in the history.
 - **Boards conflict on branches.** The resolution procedure in
-  [`tasks/_tooling/ontology.md`](tasks/_tooling/ontology.md) exists but has never been run in anger.
+  [`llmeep/tasks/_tooling/ontology.md`](llmeep/tasks/_tooling/ontology.md) exists but has never been run in anger.
 - **Telegram fires on `done`, not on push**, so on a branch the team hears about work before
   they can pull it.
 
-Open work is on the [platform board](tasks/platform/board.md).
+Open work is on the [platform board](llmeep/tasks/platform/board.md).
