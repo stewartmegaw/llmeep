@@ -10,6 +10,7 @@ PLT-3wjv Board could use a per-person filter
 ## backlog
 
 PLT-fqcz An update that fails partway leaves a half-installed repo  filed:2026-08-04
+PLT-6pvp Present the repo for community contributions — README and GitHub setup  filed:2026-08-05
 
 ## recent
 
