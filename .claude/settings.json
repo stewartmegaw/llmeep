@@ -1,6 +1,11 @@
 {
   "permissions": {
     "allow": [
+      "Skill(tm)",
+      "Skill(tm:*)",
+      "Skill(nm)",
+      "Skill(nm:*)",
+
       "Bash(./llmeep/tasks/_tooling/tm)",
       "Bash(./llmeep/tasks/_tooling/tm add *)",
       "Bash(./llmeep/tasks/_tooling/tm go *)",

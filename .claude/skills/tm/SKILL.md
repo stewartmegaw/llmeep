@@ -150,9 +150,9 @@ receives are the same report.
     BUS  Renew the Acme contract
 
     **Backlog (11)**
-    PLT  01-08-26  Replace the fixture loader
-    BUS  29-07-26  Draft the pricing page
-    PLT  —         Audit the retry timeouts
+    PLT  Replace the fixture loader
+    BUS  Draft the pricing page
+    PLT  Audit the retry timeouts
     …and 8 more
 
     **Captured, not yet work**
@@ -167,10 +167,9 @@ lines is not a contradiction — reproduce both the count and the `…and N more
 never recount from the lines you can see. `Priority (0)` appears only when nothing is ranked and
 the pool is not empty, which is the one state a standup most needs to say out loud.
 
-**Only `Backlog` carries dates, and only it is sorted.** Newest filing first, shown `DD-MM-YY`,
-with `—` for lines filed before the tag existed. The board stores ISO — never copy the displayed
-form back into a `filed:` tag. Keep the tool's order — do not re-sort it, do not read it as
-priority, and never suggest reordering the board to match. It is a view over an unordered pool.
+**Only `Backlog` is sorted, and it never shows what it sorted on.** Newest filing first, the
+date itself unprinted. Keep the tool's order — do not re-sort it, do not read it as priority,
+and never suggest reordering the board to match. It is a view over an unordered pool.
 
 Same constraints as the board: **never a code block** — it scrolls sideways on a phone — and a
 blank line after any `---`. No hint line; a standup is a report, not a menu.
@@ -213,9 +212,9 @@ over Remote Control — tested 2026-08-01. Plain bold ids only.
     ### backlog
     ---
 
-    **PLT-7t1p**  01-08-26  Drop legacy endpoint — *unassigned*
+    **PLT-7t1p**  Drop legacy endpoint — *unassigned*
 
-    **PLT-2m4x**  28-07-26  Replace the fixture loader — *unassigned*
+    **PLT-2m4x**  Replace the fixture loader — *unassigned*
 
     **PLT-021**  Audit the retry timeouts — *unassigned*
 
@@ -237,15 +236,11 @@ persistent order is just the queue again (`DEC-027`).
 Undated lines sort last, which under newest-first is where the oldest belong anyway. Still
 never say what is "top of the backlog" — sorted by date is not ranked by importance.
 
-**Backlog lines put their `filed:` date between the id and the title**, as `DD-MM-YY` — the
-same column order the standup uses, so the two read alike. It is the one real signal a pool
-line carries, and how long something has sat there is the question the section prompts. It
-leads rather than trails because that is what makes the dates scannable down the list; after
-the title they are a ragged right edge nobody compares.
-
-A line with no date simply omits the column — anything filed before the tag existed is undated
-forever, and inventing one would be worse than the gap. Prioritised lines never carry it:
-their position already says where they stand, and a date beside it competes with the ranking.
+**Never print the date** (`DEC-030`). It is the sort key and nothing more — a tiebreak for a
+list with no order of its own, not a fact anyone asks the board for. Printed beside the titles
+it reads as a deadline or a priority, which is exactly what a pool line does not carry, and it
+costs a column on the one surface with no room for one. If the user wants to know how long
+something has sat there, `board.md` has the tag.
 
 **End with the hint line** whenever the board is not empty — one italic line, no prompt, no
 blocking. The verbs already work in conversation; the hint exists because someone who did not
