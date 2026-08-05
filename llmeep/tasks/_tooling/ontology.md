@@ -99,7 +99,8 @@ PLT-021  Audit the retry timeouts         filed:2026-07-11
 
   `tm standup` displays the pool newest-`filed:` first. That is a **view, not an order** — it
   sorts what it prints and never writes the board back, because a pool that acquires a
-  persistent sequence is just the queue again.
+  persistent sequence is just the queue again. The date it sorts on stays unprinted: a pool
+  line carries no date anyone should act on, and showing one invites reading it as a deadline.
 - **Status is section.** `in progress` holds at most one task **per assignee**.
 - **First token is the task's own ID.** Everything after the title is a labelled tag.
 - **`blocked:PLT-007`** — cannot start until that task is done.

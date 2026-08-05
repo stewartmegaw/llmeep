@@ -720,32 +720,22 @@ def standup_next():
         # Undated lines predate `filed:` and sort last, which is where the
         # oldest belong under DESC anyway.
         pooled.sort(key=lambda t: t.filed or "", reverse=True)
-        out.append((f"BACKLOG ({len(pooled)})", standup_lines(pooled, dated=True)))
+        out.append((f"BACKLOG ({len(pooled)})", standup_lines(pooled)))
     return out
 
 
-def show_date(iso):
-    """`2026-08-31` → `31-08-26`, for reading. Storage stays ISO: the pool sorts
-    by lexical comparison on the tag, and `TAG_RE` and `check` both key on that
-    shape, so this reverses at the point of display and nowhere else."""
-    if not iso:
-        return "—"
-    year, month, day = iso.split("-")
-    return f"{day}-{month}-{year[2:]}"
-
-
-def standup_lines(tasks, dated=False):
+def standup_lines(tasks):
     """Body lines for one list of tasks — capped, tagged, and honest about what
     the cap hid. The heading carries the full count, so the trailing "…and N
     more" is what makes the truncation visible in the lines themselves.
 
-    `dated` shows the filing date, for the one list that is sorted by it. An
-    order with an invisible key reads as arbitrary, and the column is what makes
-    an undated line legible as undated rather than as a formatting slip."""
+    The filing date sorts the pool and is never printed (`DEC-030`). It is a
+    tiebreak for a list with no order of its own, not a fact anyone reads a
+    standup to learn, and a date column beside eight titles invites being read
+    as a deadline."""
     body = []
     for t in tasks[:STANDUP_LIST]:
-        when = f"{show_date(t.filed).ljust(8)}  " if dated else ""
-        body.append(f"{ledger_tag(t)}  {when}{t.title}"
+        body.append(f"{ledger_tag(t)}  {t.title}"
                     + (f" — @{t.assignee}" if t.assignee else ""))
     if len(tasks) > STANDUP_LIST:
         body.append(f"…and {len(tasks) - STANDUP_LIST} more")
