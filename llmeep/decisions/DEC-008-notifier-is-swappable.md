@@ -29,7 +29,7 @@ which room, who can see it, retention) belongs to the service and differs per te
 share is one line naming the channel and a secret. Which means the channel can be replaced
 without touching a record, an ontology file, or a task.
 
-The skeleton claims to be vendor-agnostic ([principle 3](../../ontology/principles.md)). A
+The skeleton claims to be vendor-agnostic ([principle 3](../ontology/principles.md)). A
 hardcoded Telegram call was the one place that was false.
 
 ## Decision

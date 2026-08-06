@@ -102,7 +102,7 @@ A note that fails that is noise wearing a summary's clothes.
 ### The split: `nm` is mechanical, the agent judges
 
 Reading a transcript and deciding what matters is judgement, which
-[principle 7](../../../../ontology/principles.md) puts in the agent. `nm` does only what is exact:
+[principle 7](../../../ontology/principles.md) puts in the agent. `nm` does only what is exact:
 
 | `nm` does | The agent does |
 |---|---|

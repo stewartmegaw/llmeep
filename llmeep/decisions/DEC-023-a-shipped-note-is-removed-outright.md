@@ -28,7 +28,7 @@ outlives promotion.
 
 And `DEC-012`'s justification is simply wrong. It claims provenance is something *"git cannot
 reconstruct"* — but the note was committed when it was written. `git log -S NTE-zuhc` finds it.
-That is [principle 6](../../ontology/principles.md#6-context-is-tiered-and-the-working-tree-is-bounded)
+That is [principle 6](../ontology/principles.md#6-context-is-tiered-and-the-working-tree-is-bounded)
 exactly, and it was not applied here.
 
 ## Decision

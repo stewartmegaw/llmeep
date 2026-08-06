@@ -14,6 +14,7 @@ PLT-6pvp Present the repo for community contributions — README and GitHub setu
 
 ## recent
 
+2026-08-06  PLT-8t5w Move llmeep's ontology under llmeep/ and make the project ontology a configured path  @stewart
 2026-08-06  PLT-eb7v Post-install ontology prompt reads as mandatory  @stewart
 2026-08-05  PLT-rg3w Pool lines sort by filing date but do not display it  @stewart
 2026-08-04  PLT-947q Order the pool by filing date when listing it  @stewart
@@ -28,4 +29,3 @@ PLT-6pvp Present the repo for community contributions — README and GitHub setu
 2026-08-04  PLT-s6zu Updating an existing install is broken by the llmeep/ move  @stewart
 2026-08-04  PLT-pq98 Install everything under an llmeep/ folder by default  @stewart
 2026-08-03  PLT-xt3h Record a filed date on tasks         @stewart
-2026-08-03  PLT-hu8m Standup should show the backlog, with counts in both headers  @stewart

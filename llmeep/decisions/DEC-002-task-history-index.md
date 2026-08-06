@@ -16,7 +16,7 @@ relates_to: [DEC-001, PLT-003, PLT-004]
 [`DEC-001`](DEC-001-taskman-design.md) bounds the board at 15 recent tasks, with everything
 older recoverable from git. That left a hazard named but unsolved: **an agent cannot see that
 an approach was already tried and will not think to look.** The instruction to search was
-written into [principle 6](../../ontology/principles.md) and the taskman README, but an
+written into [principle 6](../ontology/principles.md) and the taskman README, but an
 instruction an agent must *decide* to follow will lose that coin flip indefinitely. Bounded
 context without retrieval is forgetting on a schedule.
 
@@ -59,7 +59,7 @@ appears; one that is always present with weak matches gets skipped within a week
   It optimised for a principle at the cost of the thing the principle exists to enable.
 - **Index generated into `.notes/` on demand.** No repo growth, no redundancy — but every
   clone and every fresh agent rebuilds it cold, and `.notes/` is explicitly something nothing
-  may depend on ([principle 4](../../ontology/principles.md)).
+  may depend on ([principle 4](../ontology/principles.md)).
 - **Instruction only — keep the README wording, add nothing.** This was the status quo, and
   it is what prompted the question. Advisory retrieval does not survive context compaction.
 - **A `history:` pointer line on the board.** Rejected for now: it puts an instruction where

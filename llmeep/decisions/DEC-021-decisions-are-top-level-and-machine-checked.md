@@ -56,7 +56,7 @@ because the file that goes stale is by definition the other one — the one not 
 **Validation, not a writing tool, is the enforcement.** A `dm new` command would allocate ids and
 set both sides, and would do nothing whatsoever to stop someone opening the file in an editor.
 The check does. Writing the prose of a decision is pure judgement and belongs to whoever is
-holding the argument ([principle 7](../../ontology/principles.md#7-judgement-belongs-to-the-agent-mechanism-belongs-to-the-tool)).
+holding the argument ([principle 7](../ontology/principles.md#7-judgement-belongs-to-the-agent-mechanism-belongs-to-the-tool)).
 
 ## Alternatives considered
 
@@ -66,14 +66,14 @@ holding the argument ([principle 7](../../ontology/principles.md#7-judgement-bel
   catches both errors is smaller than a tool that avoids them — and unlike the tool, it also
   catches the hand-edit.
 - **Leave them in `notes/`.** `notes/` genuinely means *durable committed knowledge* against
-  `.notes/` meaning *disposable local*, which is [principle 4](../../ontology/principles.md#4-committed-knowledge-and-local-memory-are-different-things).
+  `.notes/` meaning *disposable local*, which is [principle 4](../ontology/principles.md#4-committed-knowledge-and-local-memory-are-different-things).
   Rejected: that axis is real but weaker than ownership, and it was costing five disclaimers.
 - **Move `check_decisions` out of `tm` instead of moving the folder.** Solves the coupling from
   the other end, but needs somewhere to put it, which is the third executable again.
 
 ## Consequences
 
-- **26 inbound links repointed**, plus 10 `../../ontology/` links inside the records themselves
+- **26 inbound links repointed**, plus 10 `../ontology/` links inside the records themselves
   becoming `../`. Editing committed decisions is permitted for this — a path is not substance —
   and the move registers as a rename, so `check_decisions` sees the files as new rather than
   rewritten.

@@ -14,13 +14,13 @@ record and violation — rather than relying on anyone remembering.
 
 ## Context
 
-[Principle 2](../../../../ontology/principles.md) says mutation flows through tooling, and
-[the `domain/` README](../../../../ontology/domain/README.md) says a stale ontology is worse than
+[Principle 2](../../../ontology/principles.md) says mutation flows through tooling, and
+[the `domain/` README](../../../ontology/domain-ontology.md) says a stale ontology is worse than
 none because agents trust it. Both are currently conventions, and conventions that depend on
 remembering decay.
 
 The commit is the one moment every change reliably passes through, so it is where enforcement
-belongs — and under [principle 6](../../../../ontology/principles.md) the commit is already the
+belongs — and under [principle 6](../../../ontology/principles.md) the commit is already the
 system of record. This is also where the Telegram notification fires (`PLT-005`).
 
 Blocked on `PLT-003`: hooks enforce whatever the skills do, so they cannot be written first.
@@ -48,7 +48,7 @@ Blocked on `PLT-003`: hooks enforce whatever the skills do, so they cannot be wr
       fine; false positives must be cheap to dismiss. **Warns, does not block** — this is the
       check most likely to become noise, and a noisy hook gets bypassed permanently.
 - [x] Hooks read records only, never platform source, and run without any toolchain
-      `platform/` needs ([principle 3](../../../../ontology/principles.md)).
+      `platform/` needs ([principle 3](../../../ontology/principles.md)).
 - [x] Installable in one documented step from a clean clone, since `.git/hooks` is not
       committed.
 - [x] Every check runs standalone outside the hook, so CI can run the same checks and a

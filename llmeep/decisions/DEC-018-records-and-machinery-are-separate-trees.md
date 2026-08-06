@@ -25,7 +25,7 @@ relates_to: [DEC-001, DEC-003]
 Nothing marked the boundary. A reader opening `tasks/` could not tell at a glance which files
 are the ledger the project depends on and which are the code that maintains it — and the
 distinction matters more here than usual, because
-[principle 2](../../ontology/principles.md#2-mutation-flows-through-tooling) says one side is
+[principle 2](../ontology/principles.md#2-mutation-flows-through-tooling) says one side is
 hand-editable (reordering a board) and the other is not.
 
 A committed `__pycache__/tmcpython-314.pyc` was found in the same directory, tracked in git and

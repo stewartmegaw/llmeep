@@ -4,7 +4,7 @@ This directory is intentionally empty.
 
 The skeleton makes **no assumption** about what fills it: language, framework, architecture,
 build system, deployment target, monorepo or single service. Per
-[principle 3](../ontology/principles.md), nothing outside this directory may depend on those
+[principle 3](../llmeep/ontology/principles.md), nothing outside this directory may depend on those
 choices.
 
 ## What to do

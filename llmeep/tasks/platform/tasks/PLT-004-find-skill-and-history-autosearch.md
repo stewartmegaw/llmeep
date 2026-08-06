@@ -17,7 +17,7 @@ Work that was already attempted surfaces on its own, without anyone deciding to 
 15 recent tasks ([`DEC-001`](../../../decisions/DEC-001-taskman-design.md)), so
 completed work leaves the working tree. An instruction to search history would lose that coin
 flip indefinitely, so retrieval is a side effect of `add` and `go` rather than a step —
-[principle 6](../../../../ontology/principles.md).
+[principle 6](../../../ontology/principles.md).
 
 ## Acceptance
 

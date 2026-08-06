@@ -1,11 +1,11 @@
 ---
 id: DEC-028
 title: Everything llmeep owns lives in one folder
-status: accepted
+status: superseded
 decided: 2026-08-04
 deciders: [stew]
 supersedes: []
-superseded_by: []
+superseded_by: [DEC-032]
 relates_to: [DEC-003, DEC-018, DEC-020]
 ---
 

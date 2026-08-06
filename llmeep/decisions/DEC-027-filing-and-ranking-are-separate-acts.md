@@ -50,7 +50,7 @@ actually made.
 
 **A bare `go` reads `prioritised` and nothing else.** With an empty queue and a full pool it
 starts nothing and says so. Picking out of an unordered pool would be the tool choosing your next
-task from lines whose order means nothing — [principle 7](../../ontology/principles.md) exactly
+task from lines whose order means nothing — [principle 7](../ontology/principles.md) exactly
 backwards.
 
 **`go <id>` starts anything, from either section.** Naming a task *is* the decision, and

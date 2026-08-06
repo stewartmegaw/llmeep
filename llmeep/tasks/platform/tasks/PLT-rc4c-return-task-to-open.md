@@ -18,7 +18,7 @@ ceremony") as legal, but `tm` has no operation for it. It came up twice on 2026-
 both times the board was edited by hand.
 
 That is the one transition where the design and the tool disagree, and hand-editing a status
-transition is exactly what [principle 2](../../../../ontology/principles.md) exists to prevent.
+transition is exactly what [principle 2](../../../ontology/principles.md) exists to prevent.
 
 ## Acceptance
 

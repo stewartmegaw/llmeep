@@ -37,8 +37,9 @@ cd my-project
 /tmp/llmeep/adopt --dry-run    # then again without --dry-run
 ```
 
-If your repo already has a `tasks/`, `notes/`, `decisions/` or `ontology/`, it stops and tells
-you to nest instead — `--into ops`. [More on adopting](#adopting-into-a-repo-that-already-exists).
+Your own `tasks/`, `notes/`, `decisions/` or `ontology/` are safe: everything llmeep ships
+lives under `llmeep/`, which `--into ops` renames if that name is taken too.
+[More on adopting](#adopting-into-a-repo-that-already-exists).
 
 **Now say to your agent.** "What am I on?", "lets start the next task", "that's done, commit it" —
 the commands below are what it runs for you, and the whole system is designed to be driven that
@@ -81,7 +82,7 @@ suggest the opposite next month?* Not for bug fixes or renames. `tm why <term>` 
 and is worth running **before** work that changes established behaviour.
 
 Full model: [`llmeep/tasks/_tooling/ontology.md`](llmeep/tasks/_tooling/ontology.md), and
-[`ontology/core.md`](ontology/core.md) for decisions.
+[`llmeep/ontology/core.md`](llmeep/ontology/core.md) for decisions.
 
 ## Capturing work
 
@@ -148,24 +149,26 @@ version and a checksum per file in its header, so updating needs no clone step:
 ```
 
 **Machinery is replaced; records never are.** Boards, notes, captures, decisions, both
-`history.tsv` files and `ontology/domain/` are not touched. A file you have edited since
+`history.tsv` files and any domain ontology of your own are not touched. A file you have edited since
 installing is reported and kept — the checksums are how it can tell — so re-run with `--force`
 once you have diffed it. Restart your agent session afterwards, since skills are read at
 startup.
 
 ## Start here
 
-1. [`ontology/principles.md`](ontology/principles.md) — the seven rules everything follows from.
-2. [`ontology/core.md`](ontology/core.md) — the entities that cut across subsystems. A
+1. [`llmeep/ontology/principles.md`](llmeep/ontology/principles.md) — the seven rules everything follows from.
+2. [`llmeep/ontology/core.md`](llmeep/ontology/core.md) — the entities that cut across subsystems. A
    self-contained subsystem keeps its vocabulary next to itself instead, like
    [`llmeep/tasks/_tooling/ontology.md`](llmeep/tasks/_tooling/ontology.md).
 3. [`llmeep/tasks/_tooling/ontology.md`](llmeep/tasks/_tooling/ontology.md) — how work is tracked. One board file,
    priority by position.
 4. [`llmeep/notes/_tooling/ontology.md`](llmeep/notes/_tooling/ontology.md) — how work arrives. Capture, distil, promote,
    prune.
-5. [`ontology/domain/`](ontology/domain/README.md) — the extension point, where you *may*
-   describe your own project. Optional, nothing reads it, and not an install step. Write it
-   when agents keep guessing your domain wrong. You should not need to edit the core ontology.
+5. [Writing a domain ontology](llmeep/ontology/domain-ontology.md) — the extension point, if you
+   *want* to describe your own project. Optional, kept wherever you like, nothing reads it, and
+   not an install step. Write it when agents keep guessing your domain wrong, then
+   `tm ontology <path>` so commits notice when it goes stale. You should not need to edit the
+   core ontology.
 6. Put your codebase in [`platform/`](platform/README.md).
 
 <!-- adopt:end -->
@@ -325,8 +328,8 @@ this project's boards, history and notes, and two resets to run before they stop
 by accident.
 
 That is the whole setup — nothing else is required before your first task.
-[`ontology/domain/README.md`](ontology/domain/README.md) is there when you want it, and is not
-part of getting started.
+[Writing a domain ontology](llmeep/ontology/domain-ontology.md) is there when you want it, and
+is not part of getting started.
 
 ### Adopting into a repo that already exists
 
@@ -356,8 +359,9 @@ has no directory of its own, and `README.md` there is yours. Either way it holds
 fresh clone is told to keep, extracted from the region between the `adopt:` markers in this
 file, so it cannot drift. Link to it from your own README.
 
-`tasks`, `notes`, `decisions` and `ontology` are ordinary words, so if your repo already uses
-one, `adopt` stops rather than merging into it:
+Everything llmeep ships goes under one folder, so a repo that already has its own `tasks/`,
+`notes/`, `decisions/` or `ontology/` collides with nothing. Rename the folder if `llmeep/`
+itself is taken, or just because you would rather call it something else:
 
 ```sh
 /tmp/llmeep/adopt --into ops    # ops/tasks/, ops/notes/, ops/decisions/, ops/ontology/
@@ -376,7 +380,7 @@ lets the same script update you later, from a fresh clone of the newer version:
 It replaces **machinery only** — the two `_tooling/` trees, the ontology's core and principles,
 the templates, the skills — and never a record. Both `history.tsv` files are excluded by name,
 because they are records that happen to live inside machinery; boards, notes, captures,
-decisions and `ontology/domain/` are never touched at all.
+decisions and any ontology of your own are never touched at all.
 
 A file you have edited since installing is **reported and kept**, not overwritten; the checksums
 are how it can tell. Re-run with `--force` once you have diffed it. Updates refuse to run
@@ -473,8 +477,8 @@ shipped wrong.
 
 Not yet done, and honest about it:
 
-- **`ontology/domain/`** is correctly empty, which also means nobody has followed its six steps
-  end to end.
+- **The domain-ontology guidance** has never been followed end to end on a real project, so
+  its six steps are advice rather than experience.
 - **Adopting into an existing repo** assumes you are starting fresh; a project with its own
   history has no path in yet (`PLT-7g78`).
 - **Decisions have no `find`.** Twenty-five records and no way to search them, which is the

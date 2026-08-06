@@ -23,6 +23,7 @@ llmeep/tasks/_tooling/tm why <term|DEC-000>         # search decisions, or expla
 llmeep/tasks/_tooling/tm why --stale [--yes]        # records nothing references; --yes prunes
 llmeep/tasks/_tooling/tm standup [--send]           # the period's work; --send posts it
 llmeep/tasks/_tooling/tm standup --cron             # the crontab line, if scheduling it
+llmeep/tasks/_tooling/tm ontology [<path>|--none]   # where this repo's domain ontology lives
 
 llmeep/tasks/_tooling/tm check                      # validate records (hooks and CI call this)
 llmeep/tasks/_tooling/tm check --context            # what an agent carries, measured
@@ -50,6 +51,7 @@ llmeep/tasks/_tooling/tm reset [--yes]              # clear task records when ad
 | "schedule the standup" / "how do I automate this" | `tm standup --cron`, and point at `llmeep/tasks/_tooling/blueprints/standup.sh` |
 | "I've just cloned this to start a project" | `tm reset` to see what goes, then `--yes` |
 | "is the Telegram bot set up" / "post to the group instead" | `tm check --notify` — it lists every chat the bot can see; add `--send` only if they want a test message |
+| "our domain model is in docs/" / a commit says no ontology is recorded | `tm ontology <path>`, or `--none` |
 
 **You are the mobile interface.** Telegram sends completion notifications and nothing reads
 its inbox — messages sent to the bot are ignored. Task management is this conversation,
@@ -284,3 +286,6 @@ on the line.
   dead relative links — and every one of those was a defect that shipped before it existed.
 - **`check` never sends anything.** `--notify` reports configuration; only `--send` posts, and
   that reaches a whole team. Do not add it casually.
+- **"no domain ontology is recorded" is a question for the user, not a job to do.** Ask where
+  theirs is, or whether they want one, then `tm ontology <path>` or `--none`. Never write one
+  because a warning mentioned it, and never answer `--none` for them (`DEC-032`).

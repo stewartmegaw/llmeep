@@ -6,9 +6,11 @@ a human and an agent, reading the same word, resolve it to the same thing.
 It is **descriptive, not aspirational**. If this file and reality disagree, one of them is a
 bug; say which.
 
-**Extend, do not modify.** Your project's entities go in [`domain/`](domain/README.md), which
-starts empty. If you find yourself editing this file to fit your project, that is the signal
-the concept belongs there instead — the exception being a genuine defect in the core model.
+**Extend, do not modify.** Your project's entities go in an ontology of your own, kept
+wherever you like — [`domain-ontology.md`](domain-ontology.md) explains how, and llmeep
+neither creates one nor requires it. If you find yourself editing this file to fit your
+project, that is the signal the concept belongs there instead — the exception being a genuine
+defect in the core model.
 
 ## Where things are defined
 

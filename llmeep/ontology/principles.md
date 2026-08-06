@@ -70,9 +70,10 @@ Hooks are expected to cover three things:
    landing with no task, or tasks left in progress with nothing behind them, is drift the
    hook can see and a person cannot.
 3. **Ontology currency.** A change to `platform/` that introduces or renames a domain
-   concept should not land while `ontology/domain/` still describes the old one. A stale
-   ontology is worse than none, because agents trust it — so staleness must be a build
-   failure, not a note-to-self.
+   concept should not land while the project's own ontology still describes the old one. A
+   stale ontology is worse than none, because agents trust it. But a project that has not
+   written one is not thereby stale, so the check watches a path the project records and
+   says nothing until it has one — a warning nobody can satisfy is one everybody bypasses.
 
 Hooks are checks on records, not on the platform's own code — they must stay agnostic to
 whatever language `platform/` is written in (principle 3). Where a check cannot be fully

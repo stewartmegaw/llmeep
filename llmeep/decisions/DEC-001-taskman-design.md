@@ -91,7 +91,7 @@ was genuinely not enough.
 - **History is no longer visible by default.** This is the real cost. An agent cannot see
   that an approach was already tried and will not think to look, so the instruction to
   search must be written where it will be encountered — see
-  [principle 6](../../ontology/principles.md).
+  [principle 6](../ontology/principles.md).
 - Hand-editing the board is now sanctioned for reordering, which required a bounded
   exemption to principle 2.
 

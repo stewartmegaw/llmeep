@@ -63,7 +63,7 @@ writing it somewhere is the operator's act, on a machine `tm` is probably not ru
   but it re-solves credentials and disposes of `.env` on every run. A long-lived checkout with a
   `.env` beside it is what an operator would build anyway.
 - **Ship a CI workflow instead.** Still rejected on `DEC-016`'s grounds — a workflow file names
-  a vendor in the committed core, against [principle 3](../../ontology/principles.md#3-agnostic-core).
+  a vendor in the committed core, against [principle 3](../ontology/principles.md#3-agnostic-core).
   The blueprint runs inside CI unchanged if that is what someone has.
 
 ## Consequences

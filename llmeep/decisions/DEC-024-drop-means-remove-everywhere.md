@@ -18,7 +18,7 @@ Two faults, one word.
 **There was no way to remove a note.** Every archive correction during the skeleton's own build
 was a hand edit of `notes.md` and `notes/_tooling/history.tsv` — five separate times, including
 removing invented example notes that had been sitting in the real archive for a day. That is
-precisely what [principle 2](../../ontology/principles.md#2-mutation-flows-through-tooling) exists
+precisely what [principle 2](../ontology/principles.md#2-mutation-flows-through-tooling) exists
 to prevent, and the gap was invisible because the hand edit always worked.
 
 **`drop` already meant something else.** `nm drop <file>` marked a raw capture processed, while
@@ -40,7 +40,7 @@ commands over more precise ones.
 
 **Dispatch on shape is not a guess.** An `NTE-` id and a filename cannot be mistaken for each
 other, so nothing is being inferred about intent — the distinction is in the argument, written
-down, exactly as [principle 7](../../ontology/principles.md#7-judgement-belongs-to-the-agent-mechanism-belongs-to-the-tool)
+down, exactly as [principle 7](../ontology/principles.md#7-judgement-belongs-to-the-agent-mechanism-belongs-to-the-tool)
 requires. A pair of forms that *could* collide would need two commands.
 
 **Dropping a note takes its history row with it.** A note that should not exist should not exist

@@ -4,7 +4,7 @@
 only file in this tree that is committed.
 
 The counterpart is [`notes/`](../notes/_tooling/ontology.md), which is shared and durable. The
-distinction is [principle 4](../../ontology/principles.md): `notes/` is what the project stands
+distinction is [principle 4](../ontology/principles.md): `notes/` is what the project stands
 behind; `.notes/` is one machine's thinking, in progress.
 
 ## Structure

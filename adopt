@@ -18,9 +18,9 @@ one already. Everything llmeep owns therefore goes in a single directory —
 
 That works because `tm` and `nm` derive their roots from where they sit
 (`REPO = dirname(ROOT)`), so the install folder needs no configuration and can
-be renamed afterwards. `ontology/` and `.claude/` stay at the repo root: the
-first is where you describe your own project, the second is the only place an
-agent looks.
+be renamed afterwards. Only `.claude/` stays at the repo root, because that is
+the only place an agent looks. Your own domain ontology lives wherever you keep
+it; `tm ontology <path>` records where, and nothing is created for you.
 """
 
 import json
@@ -44,11 +44,13 @@ DEFAULT_URL = "https://github.com/stewartmegaw/llmeep.git"
 # has its code, and it stays where it is.
 TREES = ["tasks", "notes", "decisions", "ontology"]
 
-# Of those, the ones that live under the install folder. `ontology/` stays at the
-# repo root: `ontology/domain/` is where an adopter describes *their* project, so
-# it is theirs rather than llmeep's, and burying it under the tooling folder says
-# the opposite.
-NESTED = ["tasks", "notes", "decisions"]
+# Of those, the ones that live under the install folder — which since `DEC-032`
+# is all of them. `ontology/` used to sit at the repo root on the grounds that
+# `ontology/domain/` was the adopter's, but the folder was three-quarters ours:
+# principles, the core model and the domain guidance are all llmeep's, managed,
+# and overwritten by `--update`. Claiming a repo-root `ontology/` to hold them
+# put 464 lines of our documentation under a name that reads as the project's.
+NESTED = ["tasks", "notes", "decisions", "ontology"]
 
 # Everything llmeep owns goes in one folder, by default this one. A repo gets a
 # single directory it can rename, rather than four it has to recognise.
@@ -164,7 +166,8 @@ def working_agreement(top, dest_root, into, report):
     body += (
         "\n---\n\nInstalled by [llmeep](https://github.com/stewartmegaw/llmeep). "
         "This file describes the tooling only —\nwhat *this* project is belongs in "
-        "`README.md`, and what it is made of belongs in `ontology/domain/`.\n"
+        "`README.md`, and what it is made of belongs in a domain ontology of your own —\n"
+        "optional, kept wherever you like, and pointed at with `tm ontology <path>`.\n"
     )
 
     if into:
@@ -231,17 +234,18 @@ def managed(src):
                 out.append(os.path.join(base, os.path.relpath(
                     os.path.join(dirpath, n), root)).replace(os.sep, "/"))
     out += ["ontology/principles.md", "ontology/core.md",
-            "ontology/domain/_template.md", "decisions/_template.md", ".env.example"]
+            "ontology/domain-ontology.md", "ontology/domain-template.md",
+            "decisions/_template.md", ".env.example"]
     return sorted(p for p in out if os.path.isfile(src_of(p, src)))
 
 
 def nested(rel_path):
     """Whether an install-relative path lives under the install folder.
 
-    Two things sit outside it and both are the adopter's rather than llmeep's:
-    `.claude/`, because that is the only place an agent looks, and `ontology/`,
-    whose `domain/` is where they describe their own project. Everything else
-    goes in the one folder they can rename.
+    One thing sits outside it — `.claude/`, because that is the only place an
+    agent looks. Everything llmeep ships goes in the one folder they can rename
+    (`DEC-032`). The adopter's own domain ontology is not shipped at all: they
+    keep it where they like and `.llmeep` records the path.
     """
     head = rel_path.split("/")[0]
     return head in NESTED or rel_path == ".env.example" or head == ".notes"
@@ -294,7 +298,7 @@ def render_manifest(doc):
     return BEGIN + "\n" + "\n".join("# " + l for l in body.split("\n")) + "\n" + END
 
 
-def install_self(top, dest_root, into, report, kept=()):
+def install_self(top, dest_root, into, report, kept=(), ontology=None):
     """`.llmeep` is this script, carrying what it installed as a header. One
     file in the adopted repo is both the tooling entry point and the record of
     what is there, and `./.llmeep --update` needs no clone step first.
@@ -321,6 +325,12 @@ def install_self(top, dest_root, into, report, kept=()):
         files[r] = sha(src) if r in kept and os.path.isfile(src) else sha(d)
     doc = {"version": version_of(SRC), "on": date.today().isoformat(),
            "into": into, "files": files}
+    # Where the adopter keeps their own domain ontology, set by `tm ontology`
+    # and never by us. It has to survive an update that rewrites this block
+    # wholesale, or every update silently unsets it and `tm` starts asking
+    # again for an answer already given.
+    if ontology is not None:
+        doc["ontology"] = ontology
 
     with open(os.path.join(SRC, "adopt")) as fh:
         script = fh.read()
@@ -478,26 +488,88 @@ def fetch_release(want, report):
     return tmp
 
 
-def migrate_ontology(top, dest_root, into, report):
-    """`DEC-028` moved `ontology/` to the repo root; a nested install from before
-    it has one inside the install folder.
+# What a pre-`DEC-032` install has at its repo root, mapped to where the file
+# now lives under the install folder. `domain/README.md` and `domain/_template.md`
+# were llmeep's guidance about writing an ontology, never anyone's ontology, so
+# they move with the rest rather than being left behind as the adopter's.
+ONTOLOGY_WAS = {
+    "ontology/principles.md": "ontology/principles.md",
+    "ontology/core.md": "ontology/core.md",
+    "ontology/domain/README.md": "ontology/domain-ontology.md",
+    "ontology/domain/_template.md": "ontology/domain-template.md",
+}
 
-    Moved rather than reinstalled, because `ontology/domain/` is the adopter's
-    own description of their system. Installing a fresh copy at the root would
-    leave that behind an empty duplicate — two ontologies, the populated one
-    orphaned and the one the tooling documents empty. That is the update
-    breaking its own promise not to touch records.
 
-    Only when the destination is clear. If both exist, someone has already
-    started migrating and merging them is not a decision this can make.
+def migrate_ontology(top, dest_root, into, report, recorded, dry=False):
+    """`DEC-032` moved `ontology/` under the install folder. An install from
+    before it has llmeep's four files at the repo root, possibly alongside the
+    adopter's own domain files in `ontology/domain/`.
+
+    Ours are **deleted, not moved** — the copy loop installs fresh ones under
+    `llmeep/ontology/` moments later, so moving them would only race that. But
+    deleting is only safe for a file we actually shipped, which is what the
+    manifest checksums are for: a root `ontology/core.md` the adopter has since
+    edited, or that predated the adoption entirely, is theirs and stays put
+    (`PLT-s9ea` is that exact case).
+
+    Anything of theirs left in `ontology/domain/` stays where it is and becomes
+    the recorded ontology path. Nobody's domain model gets moved by an update.
     """
-    if not into:
-        return
-    old, new = os.path.join(dest_root, "ontology"), os.path.join(top, "ontology")
-    if not os.path.isdir(old) or os.path.exists(new):
-        return
-    shutil.move(old, new)
-    report.append(("move", rel(new, top), f"was {into}/ontology/ — it is yours, not llmeep's"))
+    moved, kept, left = [], [], None
+    # Two possible homes, because two layouts predate this one. Post-`DEC-028`
+    # installs put `ontology/` at the repo root; the ones before it nested it,
+    # which is where it belongs again — but under the old *names*, so those
+    # still have to be swept or `domain/README.md` lingers beside the
+    # `domain-ontology.md` that replaces it.
+    bases = [top] if dest_root == top else [top, dest_root]
+    for base in bases:
+        for old, new in ONTOLOGY_WAS.items():
+            path = os.path.join(base, old)
+            if not os.path.isfile(path):
+                continue
+            here = rel(path, top)
+            src = src_of(new, SRC)
+            # Ours if it matches what we recorded at install, or failing that
+            # (an install too old to have recorded it) what the source ships
+            # today. Anything else is the adopter's and is not ours to delete.
+            ours = recorded.get(old) == sha(path) or (
+                os.path.isfile(src) and sha(src) == sha(path))
+            (moved if ours else kept).append(here)
+            if ours and not dry:
+                os.remove(path)
+
+    for base in bases:
+        ont = os.path.join(base, "ontology")
+        if not os.path.isdir(ont):
+            continue
+        theirs = [p for p in glob_tree(ont)
+                  if os.path.relpath(p, base) not in ONTOLOGY_WAS
+                  and os.path.basename(p) != ".gitkeep"]
+        if theirs and left is None:
+            # Their files are the reason the directory survives. Record the
+            # deepest common home rather than guessing per file.
+            left = rel(os.path.join(ont, "domain"), top) if os.path.isdir(
+                os.path.join(ont, "domain")) else rel(ont, top)
+        elif not theirs and not dry and base == top:
+            # Empty once ours are gone, and only at the repo root — the install
+            # folder's copy is about to be reinstalled into. Prune it, or the
+            # adopter is left with a directory that means nothing.
+            shutil.rmtree(ont, ignore_errors=True)
+
+    for p in moved:
+        report.append(("move", p, "llmeep's — reinstalled under the install folder"))
+    for p in kept:
+        report.append(("skip", p, "changed since install — left where it is"))
+    if left:
+        report.append(("edit", left, "your ontology — recorded in .llmeep, not moved"))
+    return left
+
+
+def glob_tree(root):
+    out = []
+    for dirpath, _, names in os.walk(root):
+        out += [os.path.join(dirpath, n) for n in names]
+    return out
 
 
 def do_update(top, force, dry):
@@ -542,16 +614,23 @@ def do_update(top, force, dry):
             "  in the clone, or `--force` if you mean to run unreleased code."
         )
 
-    # Before the comparison: it changes where `ontology/` files are looked for,
-    # and a dry run must report the move without performing it.
-    report = []
-    if not dry:
-        migrate_ontology(top, dest_root, into, report)
-    elif into and os.path.isdir(os.path.join(dest_root, "ontology")) \
-            and not os.path.exists(os.path.join(top, "ontology")):
-        print(f"\n  would move {into}/ontology/ to the repo root (DEC-028)")
-
     recorded = man.get("files", {})
+
+    # Before the comparison: it clears llmeep's files out of a repo-root
+    # `ontology/`, and the copy loop below is what puts them back under the
+    # install folder. A dry run reports the move without performing it.
+    report = []
+    ontology = man.get("ontology")
+    found = migrate_ontology(top, dest_root, into, report, recorded, dry)
+    # Only when they have not already said where theirs lives. An update must
+    # not overwrite an answer the adopter gave.
+    if found and ontology is None:
+        ontology = found
+    if dry and report:
+        print()
+        for kind, path, note in report:
+            print(f"  would {'keep' if kind == 'skip' else 'move'} {path}  — {note}")
+        report = []
     fresh, modified, added = [], [], []
     for r in managed(SRC) + AGENT_FILES:
         d = dest_of(r, top, dest_root)
@@ -591,10 +670,10 @@ def do_update(top, force, dry):
         working_agreement(top, dest_root, into, report)
 
     install_self(top, dest_root, into, report,
-                 kept=() if force else modified)
+                 kept=() if force else modified, ontology=ontology)
 
     for kind, path, note in report:
-        print(f"  {'~' if kind == 'edit' else '+'} {path}  {note}")
+        print(f"  {'~' if kind == 'edit' else '+' if kind != 'skip' else '!'} {path}  {note}")
     print(f"\n  ✓ updated to {want}. Records untouched — boards, notes, history, decisions.")
     if modified and not force:
         print(f"    {len(modified)} file(s) you had changed were kept. Diff them against")
@@ -629,10 +708,10 @@ def main(argv):
     dest_root = os.path.join(top, into) if into else top
     prefix = f"{into}/" if into else ""
 
-    # Only the nested trees can clash in a way nesting fixes. `ontology/`
-    # always lands at the repo root, so an adopter who already has one is
-    # not a conflict to refuse — `copy` leaves theirs alone, which is the
-    # right answer. Refusing sent them to `--into`, which cannot help.
+    # Every tree is nested now, so every clash is one nesting fixes. A repo that
+    # already has its own `ontology/` is the case this used to wave through and
+    # is now simply not a conflict: we no longer put anything at the repo root
+    # for it to collide with (`DEC-032`).
     clashes = [t for t in TREES
                if nested(t) and os.path.exists(dest_of(t, top, dest_root))]
     if clashes and not into:
@@ -665,8 +744,14 @@ def main(argv):
             skipped.add(t)
     for a in AGENT:
         src = os.path.join(SRC, a)
-        if os.path.exists(src):
-            copy(src, os.path.join(top, a), report, top)
+        # Skips were recorded for the trees and not for these, so an adopter who
+        # already had `.claude/settings.json` got it kept by `copy` and then
+        # recorded under *their* checksum — `PLT-s9ea` exactly, on the one path
+        # still installed at the repo root, where a pre-existing file is most
+        # likely of all. The ontology case that found it originally is gone;
+        # this one was always there behind it.
+        if os.path.exists(src) and not copy(src, os.path.join(top, a), report, top):
+            skipped.add(a)
 
     for b in BESIDE:
         if not copy(src_of(b, SRC), dest_of(b, top, dest_root), report, top):
@@ -676,8 +761,12 @@ def main(argv):
     append_ignores(top, prefix, report)
     reset(dest_root, "tasks", ["--all"], report)
     reset(dest_root, "notes", [], report)
+    # A managed file is the adopter's if it was skipped itself, if its tree was,
+    # or if any directory we skipped contains it — `.claude/skills/tm` is a
+    # skipped directory whose `SKILL.md` is what the manifest actually lists.
     kept = {r for r in managed(SRC) + AGENT_FILES
-            if r in skipped or r.split("/")[0] in skipped}
+            if r in skipped or r.split("/")[0] in skipped
+            or any(r.startswith(s + "/") for s in skipped)}
     install_self(top, dest_root, into, report, kept=kept)
 
     hooks = os.path.relpath(os.path.join(dest_root, "tasks", "_tooling", "hooks"), top)
@@ -700,7 +789,8 @@ def main(argv):
     # output took as its next instruction and acted on, writing a whole domain
     # ontology nobody asked for (`PLT-eb7v`). Nothing here requires one.
     print("\n    Optional, whenever you want it — not now, and not for the tooling to work:")
-    print("    ontology/domain/README.md, if you ever want to describe your domain for agents.")
+    print(f"    {prefix}ontology/domain-ontology.md explains writing one for your own project.")
+    print(f"    Already have one? {prefix}tasks/_tooling/tm ontology <path> records where.")
     return 0
 
 

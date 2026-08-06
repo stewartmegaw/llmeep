@@ -27,7 +27,9 @@ Deliberately not wired into the pre-commit hook: it is the first slow thing
 here, and a slow hook gets bypassed, taking `check` with it.
 """
 
+import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -134,12 +136,35 @@ class Fixture(unittest.TestCase):
                 return os.path.join(top, candidate)
         return top
 
+    def manifest(self, top):
+        """`.llmeep`'s header, parsed the way anything reading an install has to
+        — out of the file, without running it."""
+        with open(os.path.join(top, ".llmeep")) as fh:
+            m = re.search(r"# llmeep:manifest[^\n]*\n(.*?)\n# llmeep:manifest-end",
+                          fh.read(), re.S)
+        self.assertIsNotNone(m, ".llmeep carries no manifest header")
+        return json.loads("\n".join(l.lstrip("# ") for l in m.group(1).split("\n")))
+
     def ontology_root(self, top):
-        """Where `ontology/` is *now*. Pre-`DEC-028` installs keep it inside the
-        install folder; the migration is what moves it to the repo root, so a
-        fixture cannot assume the answer before running one."""
+        """Where `ontology/` is *before* an update. Pre-`DEC-028` installs keep
+        it inside the install folder and later ones at the repo root, so a
+        fixture writing the adopter's own file cannot assume the answer.
+
+        Useless for asserting *afterwards*: `DEC-032` puts llmeep's ontology in
+        the install folder and leaves theirs wherever it was, so both candidates
+        exist and this cannot tell you whose is whose. Use `their_domain_file`.
+        """
         nested = os.path.join(self.install_root(top), "ontology")
         return nested if os.path.isdir(nested) else os.path.join(top, "ontology")
+
+    def their_domain_file(self, top):
+        """The adopter's own domain file, wherever the migration left it — which
+        is wherever it already was, that being the whole point."""
+        for base in (top, self.install_root(top)):
+            p = os.path.join(base, "ontology", "domain", "orders.md")
+            if os.path.isfile(p):
+                return p
+        return None
 
     def quieten(self, top):
         """No test may reach Telegram. `done` notifies, and a suite that posts to
@@ -164,20 +189,29 @@ class Fixture(unittest.TestCase):
                           ("nm check", self.nm(top, "check"))):
             self.assertEqual(out.returncode, 0, f"{name} failed:\n{out.stdout}\n{out.stderr}")
 
+    # llmeep's own ontology files, which since `DEC-032` belong under the
+    # install folder and nowhere else. Named rather than checking the directory,
+    # because a repo-root `ontology/` holding the *adopter's* files is correct
+    # and must not be mistaken for a duplicate.
+    OURS = ("principles.md", "core.md", "domain-ontology.md", "domain-template.md")
+
     def assert_no_duplicates(self, top):
         """Exactly one of each tree. The v28 update installed a second
-        `ontology/` at the root and orphaned the adopter's behind it."""
+        `ontology/` at the root and orphaned the adopter's behind it; `DEC-032`
+        then moved ours in for good, so the root copy is the one that must go."""
         root = self.install_root(top)
-        for tree in ("tasks", "notes", "decisions"):
+        for tree in ("tasks", "notes", "decisions", "ontology"):
             here = os.path.isdir(os.path.join(root, tree))
             there = root != top and os.path.isdir(os.path.join(top, tree))
             self.assertTrue(here, f"{tree}/ missing from the install")
-            self.assertFalse(there, f"{tree}/ exists at the root *and* in the install")
-        self.assertTrue(os.path.isdir(os.path.join(top, "ontology")),
-                        "ontology/ is not at the repo root")
-        if root != top:
-            self.assertFalse(os.path.isdir(os.path.join(root, "ontology")),
-                             "ontology/ exists at the root *and* in the install")
+            if tree != "ontology":
+                self.assertFalse(there, f"{tree}/ exists at the root *and* in the install")
+        for name in self.OURS:
+            self.assertTrue(os.path.isfile(os.path.join(root, "ontology", name)),
+                            f"ontology/{name} missing from the install")
+            if root != top:
+                self.assertFalse(os.path.isfile(os.path.join(top, "ontology", name)),
+                                 f"ontology/{name} is llmeep's and was left at the repo root")
 
     def assert_paths_resolve(self, top):
         """Everything that names a path names one that is there. An allowlist
@@ -234,8 +268,8 @@ class Fixture(unittest.TestCase):
             self.assertIn("A task that must survive", fh.read(), "the board lost a task")
         self.assertTrue(os.path.exists(os.path.join(root, "notes", "raw", "capture.md")),
                         "a raw capture was lost")
-        domain = os.path.join(top, "ontology", "domain", "orders.md")
-        self.assertTrue(os.path.exists(domain), "the adopter's own domain file was lost")
+        domain = self.their_domain_file(top)
+        self.assertIsNotNone(domain, "the adopter's own domain file was lost")
         with open(domain) as fh:
             self.assertIn("our own domain model", fh.read(),
                           "the adopter's domain file was overwritten")
@@ -344,10 +378,53 @@ class TestUpgrade(Fixture):
         if PRE_DEC028 not in release_tags():
             self.skipTest(f"{PRE_DEC028} absent — nothing to migrate from")
         top, out = self.upgrade(PRE_DEC028, "--into", "ops")
-        self.assertFalse(os.path.isdir(os.path.join(top, "ops", "ontology")),
-                         "ontology/ was left in the install folder as well as the root")
-        self.assertTrue(os.path.exists(os.path.join(top, "ontology", "domain", "orders.md")),
-                        "the adopter's domain file did not come with the move")
+        for name in self.OURS:
+            self.assertTrue(os.path.isfile(os.path.join(top, "ops", "ontology", name)),
+                            f"ontology/{name} did not land in the install folder")
+
+    def test_upgrade_keeps_the_adopters_domain_files(self):
+        """The migration deletes llmeep's copies and reinstalls them one level
+        down. Everything it must *not* touch is the adopter's own model, which
+        for most repos is the only reason `ontology/` exists at all."""
+        for tag in self.tags:
+            with self.subTest(tag=tag):
+                top, _ = self.upgrade(tag)
+                theirs = self.their_domain_file(top)
+                self.assertIsNotNone(theirs,
+                                     "the adopter's domain file was moved or deleted")
+                with open(theirs) as fh:
+                    self.assertIn("our own domain model", fh.read(),
+                                  "the adopter's domain file was overwritten")
+
+    def test_upgrade_records_where_their_ontology_is(self):
+        """Having found their files, the update must say so in `.llmeep` — or
+        `tm` keeps asking a question the repo has already answered."""
+        for tag in self.tags:
+            with self.subTest(tag=tag):
+                top, _ = self.upgrade(tag)
+                where = self.manifest(top).get("ontology")
+                self.assertIsNotNone(where, "the update recorded no ontology path")
+                # Asserted by what is *at* the path rather than by the string,
+                # which differs per layout and would only be restating the code.
+                self.assertTrue(
+                    os.path.isfile(os.path.join(top, where, "orders.md")),
+                    f"the recorded ontology {where} does not hold their model")
+
+    def test_upgrade_carries_a_recorded_ontology_forward(self):
+        """An update rewrites the manifest block wholesale. An answer the
+        adopter gave with `tm ontology` has to survive that, or every update
+        silently unsets it. Forced same-version reinstall, because the command
+        that records the answer only exists from this version on."""
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        out = self.tm(top, "ontology", "docs/model")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "commit", "-qm", "adopt", cwd=top)
+        self.adopt(self.working_copy(), top, "--update", "--force")
+        self.assertEqual(self.manifest(top).get("ontology"), "docs/model",
+                         "the update discarded the recorded ontology path")
 
     def test_dry_run_changes_nothing(self):
         """It must describe the same run without performing any of it."""
@@ -413,12 +490,20 @@ class TestUpgrade(Fixture):
         changes" — a test using it would assert the wrong thing. Found on a real
         repo whose `ontology/core.md` predated its adoption by two weeks
         (`PLT-s9ea`).
+
+        That original path stopped being reachable at `DEC-032`: llmeep's
+        ontology installs under the install folder now, so a repo-root
+        `ontology/core.md` collides with nothing. The mechanism is unchanged and
+        still has to hold, so this moved to `.claude/settings.json` — a managed
+        file that genuinely can pre-exist, being the one thing still installed at
+        the repo root.
         """
         top = self.a_project()
-        os.makedirs(os.path.join(top, "ontology"), exist_ok=True)
-        mine = os.path.join(top, "ontology", "core.md")
+        target = ".claude/settings.json"
+        mine = os.path.join(top, *target.split("/"))
+        os.makedirs(os.path.dirname(mine), exist_ok=True)
         with open(mine, "w") as fh:
-            fh.write("# Core ontology — theirs, not llmeep's\n")
+            fh.write('{"permissions": {"allow": ["Bash(theirs, not llmeep\'s)"]}}\n')
         self.git_init(top)
 
         src = self.working_copy()
@@ -429,24 +514,18 @@ class TestUpgrade(Fixture):
                           "adopt overwrote a file that was already there")
 
         import hashlib
-        import json as _json
-        import re as _re
-        text = open(os.path.join(top, ".llmeep")).read()
-        m = _re.search(r"# llmeep:manifest[^\n]*\n(.*?)\n# llmeep:manifest-end", text, _re.S)
-        recorded = _json.loads(
-            "\n".join(l.lstrip("# ") for l in m.group(1).split("\n")))["files"]
+        recorded = self.manifest(top)["files"]
 
         def sha16(path):
             with open(path, "rb") as fh:
                 return hashlib.sha256(fh.read()).hexdigest()[:16]
 
         self.assertNotEqual(
-            recorded.get("ontology/core.md"), sha16(mine),
+            recorded.get(target), sha16(mine),
             "the manifest records their file's checksum as ours — a later "
             "update will call it unmodified and replace it")
         self.assertEqual(
-            recorded.get("ontology/core.md"),
-            sha16(os.path.join(src, "ontology", "core.md")),
+            recorded.get(target), sha16(os.path.join(src, *target.split("/"))),
             "a kept file should record what llmeep ships, so it always "
             "compares as modified")
 

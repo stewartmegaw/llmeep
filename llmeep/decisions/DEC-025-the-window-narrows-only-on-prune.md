@@ -53,7 +53,7 @@ it left view.
 **Storage and presentation are bounded separately, by different numbers.** The file keeps 200
 because an agent reads it whole cheaply. A rendered list shows the 20 most recent and says how
 many remain, because a person on a phone cannot scan 200. This is
-[principle 1](../../ontology/principles.md#1-machine-first-representation) — presentation is a
+[principle 1](../ontology/principles.md#1-machine-first-representation) — presentation is a
 separate concern from storage — and conflating them is what made 200 look like the problem.
 
 **200 stands.** With eviction now deliberate and the render bounded, the number governs only how
