@@ -695,7 +695,12 @@ def main(argv):
     print("    Restart your agent session first — it reads its skills at startup,")
     print("    so the two just installed are not loaded yet.")
     print(f"\n    Then:      {prefix}tasks/_tooling/tm add <the first thing you need to do>")
-    print("    And read:  ontology/domain/README.md — describe your project there")
+    # Phrased at the human and marked optional on purpose. This used to read
+    # "And read: ... — describe your project there", which an agent parsing this
+    # output took as its next instruction and acted on, writing a whole domain
+    # ontology nobody asked for (`PLT-eb7v`). Nothing here requires one.
+    print("\n    Optional, whenever you want it — not now, and not for the tooling to work:")
+    print("    ontology/domain/README.md, if you ever want to describe your domain for agents.")
     return 0
 
 

@@ -6,9 +6,23 @@ entities, its actors, its lifecycles, its units of value.
 The [core ontology](../core.md) describes the skeleton's machinery — tasks, notes, ledgers.
 It says nothing about what you are actually building. That is this directory's job.
 
+## This is optional, and it is not an install step
+
+**Nothing in llmeep reads this directory.** `tm` and `nm` work exactly the same against an
+empty one, and an adopter who never writes a line here loses no functionality. The only
+machinery that looks this way is a pre-commit check that *warns* — never blocks — when a
+commit adds files to the platform and leaves `ontology/domain/` untouched.
+
+Write it when you have a domain worth writing down and agents that keep guessing wrong about
+it — which is usually some weeks in, not the afternoon you installed the skeleton.
+
+**Agents: do not start this because you have read it.** The instructions below are addressed
+to a person who has decided to do the work. Filling this directory in is never a side effect
+of adopting llmeep, of a task about something else, or of finding this file.
+
 ## How to start
 
-Work in this order. It usually takes one sitting.
+Once you have decided to do it, work in this order. It usually takes one sitting.
 
 1. **Name the thing.** One paragraph in `overview.md`: what the platform does, for whom,
    and what would be lost if it did not exist. Written for someone with no context.

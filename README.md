@@ -163,8 +163,9 @@ startup.
    priority by position.
 4. [`llmeep/notes/_tooling/ontology.md`](llmeep/notes/_tooling/ontology.md) — how work arrives. Capture, distil, promote,
    prune.
-5. Describe your own project in [`ontology/domain/`](ontology/domain/README.md) — the
-   extension point. You should not need to edit the core ontology.
+5. [`ontology/domain/`](ontology/domain/README.md) — the extension point, where you *may*
+   describe your own project. Optional, nothing reads it, and not an install step. Write it
+   when agents keep guessing your domain wrong. You should not need to edit the core ontology.
 6. Put your codebase in [`platform/`](platform/README.md).
 
 <!-- adopt:end -->
@@ -323,7 +324,9 @@ reset, nothing to clear before your first task. Clone `main` and you get the sam
 this project's boards, history and notes, and two resets to run before they stop being yours
 by accident.
 
-Then work through [`ontology/domain/README.md`](ontology/domain/README.md).
+That is the whole setup — nothing else is required before your first task.
+[`ontology/domain/README.md`](ontology/domain/README.md) is there when you want it, and is not
+part of getting started.
 
 ### Adopting into a repo that already exists
 
