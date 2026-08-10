@@ -49,10 +49,32 @@ a standup.
 
 ## Acceptance
 
-- [ ] The set of repos to sweep is configuration, not discovery
-- [ ] One command prints every draft found, attributed to the repo it came from
-- [ ] A configured path that no longer exists is reported, not silently skipped
-- [ ] Nothing schedules itself; if periodic running is wanted it is a blueprint plus the user's
+- [x] The set of repos to sweep is configuration, not discovery
+- [x] One command prints every draft found, attributed to the repo it came from
+- [x] A configured path that no longer exists is reported, not silently skipped
+- [x] Nothing schedules itself; if periodic running is wanted it is a blueprint plus the user's
       own cron line, following the standup
-- [ ] The output shape does not assume the drafts came from a filesystem
-- [ ] A suggestion matching an existing decision is surfaced as such, not dropped
+- [x] The output shape does not assume the drafts came from a filesystem
+- [x] A suggestion matching an existing decision is surfaced as such, not dropped
+
+## Log
+
+- 2026-08-10 — Built as `tm feedback --sweep [--send]`, reading `FEEDBACK_REPOS` from `.env`.
+  `blueprints/sweep.sh` is the unattended shape, run by nothing here. Eight cases in
+  `TestSweep`.
+- 2026-08-10 — **Four states, not three.** The acceptance named *found*, *gone* and *quiet*;
+  building it turned up a fourth — a path that is fine with no llmeep in it — which is a
+  different thing to go and fix from a path that has vanished. All four are reported distinctly,
+  and the sweep prints how many repos it read every time, so a short report cannot be misread as
+  a quiet week.
+- 2026-08-10 — **No `--cron` flag**, deliberately, and a deviation from how the standup reads.
+  `standup --cron` earns its place by deriving the schedule from `STANDUP_PERIOD`, where getting
+  it wrong by hand is easy. A sweep has no period to derive from, so the flag would print a
+  constant and imply logic that is not there. The crontab line is in the blueprint's header
+  instead.
+- 2026-08-10 — **No second decision.** `DEC-033` already covers the transport and names this
+  task as its other half; the choices made here — configuration over discovery, matching rather
+  than filtering against decisions — are its implementation rather than a reversal of it. One
+  thing was worth adding to it: `--sweep --send` does send, and that had to be squared with
+  `DEC-033`'s "sent by nobody". It squares because the sending happens on the maintainer's
+  machine over drafts already collected. Nothing on an adopting repo ever gains a transport.

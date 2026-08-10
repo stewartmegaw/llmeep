@@ -104,6 +104,11 @@ be.
   **This is the one cost a repo pays without opting in.** Everything else here is behind the
   switch, but the skill loads whole whether or not the switch is on. Trimming the skill back
   under its budget is real work and belongs to its own task, not to this one.
+- **"Nothing sends" is a rule about the adopter's machine, and the sweep does not weaken it.**
+  `tm feedback --sweep --send` exists and posts to a channel — but it runs on the *maintainer's*
+  machine, over drafts already collected, to the maintainer's own `NOTIFY`. The guarantee that
+  matters is unchanged: nothing on an adopting repo has a transport, so a draft written there
+  cannot leave except by a person carrying it.
 - **Drafts accumulate with nothing clearing them.** One machine, one file, and a person deletes
   it. If that becomes annoying it is `PLT-6tpx`'s problem, since the sweep is what would re-read
   the same suggestion twice.

@@ -25,6 +25,7 @@ llmeep/tasks/_tooling/tm standup [--send]           # the period's work; --send 
 llmeep/tasks/_tooling/tm standup --cron             # the crontab line, if scheduling it
 llmeep/tasks/_tooling/tm ontology [<path>|--none]   # where this repo's domain ontology lives
 llmeep/tasks/_tooling/tm feedback [<text>|-]        # note what llmeep got wrong; opt-in, never sent
+llmeep/tasks/_tooling/tm feedback --sweep [--send]  # read configured repos' drafts back (maintainers)
 
 llmeep/tasks/_tooling/tm check                      # validate records (hooks and CI call this)
 llmeep/tasks/_tooling/tm check --context            # what an agent carries, measured
@@ -290,7 +291,8 @@ on the line.
 - **Resolving a board merge conflict** follows the table in `llmeep/tasks/_tooling/ontology.md`, not a
   textual merge.
 - **`tm standup` prints; `tm standup --send` broadcasts.** Nothing in the repo triggers a
-  send — a scheduler does. Never add `--send` on your own initiative.
+  send — a scheduler does. Never add `--send` on your own initiative. Same for
+  `feedback --sweep --send`.
 - **The standup is usually read aloud, not automated.** `--cron` prints a line for an
   always-on machine; scheduling it is the user's call, and nothing here does it for them.
 - **`tm check --release` runs inside a cut tree**, not here. It asserts what a release must be

@@ -636,6 +636,45 @@ Each entry is `## YYYY-MM-DD` and then the text. That shape is a contract, not a
 choice — the sweep reads this file from outside the repo, and a format that drifts produces an
 empty sweep indistinguishable from having no feedback.
 
+### Reading them back
+
+The other half, and only useful if you maintain llmeep or a fork: drafts sit in whichever repo
+hit the friction, and their author has moved on. `FEEDBACK_REPOS` in `.env` lists the repos to
+collect from — `:`-separated, like `PATH`.
+
+```sh
+tm feedback --sweep             # every draft, grouped by repo
+tm feedback --sweep --send      # ...and posted to whatever NOTIFY names
+```
+
+**Paths written down, never a scan of the disk.** A glob would be quicker to configure and would
+destroy the one distinction a sweep exists to make: it reports **four** states, and collapsing
+any pair of them makes a broken sweep look like a quiet week.
+
+| State | Reads |
+| --- | --- |
+| Drafts found | the repo, a count, and each entry |
+| Installed, drafted nothing | `nothing drafted` — not a problem, and not silence |
+| Path listed, no longer on disk | `! not there` |
+| Path fine, no llmeep in it | `! no llmeep install found` |
+
+It also prints how many repos it read, every time, so a short report cannot be misread as a
+quiet one. `--sweep` is not gated on `FEEDBACK`: that switch governs whether *this* checkout
+writes drafts, and someone sweeping is reading other people's.
+
+**A draft that lands on an existing decision is surfaced, not filtered out.** The sweep scores
+each draft against decision *titles* and prints what it matched as `~ maybe DEC-000`. It never
+drops anything: an adopter re-proposing something settled is the most useful signal in the pile,
+because it means the decision never persuaded anyone or has stopped being true — and they cannot
+have known, since `adopt` ships the principles and not the decisions. The pairing is a hint for
+the person triaging and decides nothing.
+
+**Nothing sweeps on a schedule** (`DEC-016`, `DEC-017`). You run it when you sit down to work on
+llmeep. `blueprints/sweep.sh` is the unattended shape if you want one, run by nothing here.
+There is deliberately no `--cron` flag: the standup has one because the schedule is derived from
+`STANDUP_PERIOD` and matching them by hand is an easy mistake, and here there is nothing to
+derive.
+
 ---
 
 ## Layout

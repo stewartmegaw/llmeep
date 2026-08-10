@@ -164,6 +164,24 @@ There is no git hook here and there will not be one. A hook cannot run a review,
 merely reminded would print into commit output, which nobody reads — least of all when the
 agent is doing the committing.
 
+**If you maintain llmeep or a fork of it**, the other end of the same pipe reads those drafts
+back out of every repo you have told it about. Set `FEEDBACK_REPOS` in `.env` to a `:`-separated
+list of repo paths — written down, not a scan of the disk:
+
+```sh
+llmeep/tasks/_tooling/tm feedback --sweep          # every draft, grouped by repo
+llmeep/tasks/_tooling/tm feedback --sweep --send   # ...and posted to your NOTIFY channel
+```
+
+It reports a listed repo that has since been deleted, and one with no llmeep in it, as distinct
+from one that simply drafted nothing — a broken sweep must never read like a quiet week. A draft
+that appears to land on a decision you have already made is flagged rather than filtered, since
+an adopter re-proposing something settled is the most useful thing in the pile: `adopt` ships the
+principles and not the decisions, so they could not have known.
+
+Nothing sweeps on a schedule. You run it when you sit down to work on the tooling;
+`llmeep/tasks/_tooling/blueprints/sweep.sh` is the unattended shape if you want one.
+
 ## Updating
 
 `adopt` installed `.llmeep` at the root of this repo. It is the installer itself, carrying the
