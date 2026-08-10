@@ -569,6 +569,75 @@ mechanical covers that. If it proves to be where duplicated work starts,
 
 ---
 
+## Feedback to llmeep — off unless switched on
+
+llmeep is used on real projects by people who never open an issue about it, and whose agent
+knows exactly where it chafes: it has run these commands all week and worked around the gaps.
+This is how that gets written down. **It is off by default**, because what it turns on spends
+the adopter's tokens.
+
+**The switch is `FEEDBACK=on` in `.env`** — per-checkout and gitignored, so it is one person's
+choice about their own spend and never a decision made for a teammate. `tm feedback` refuses
+outright when it is off, so the gate is mechanical rather than a convention. **When it is off,
+nothing in this section happens at all**: no pass, no prompt, no cost.
+
+### The trigger is the agent, and there is no hook
+
+**After committing, when the switch is on, spend one short pass on this and nothing else.**
+It belongs where `tm done` already is — in the commit flow, run by whoever is committing.
+
+There is no git hook, and there will not be one. A hook cannot run a review; it is a shell
+script, and the judgement here is the whole point. A hook that merely *reminded* would print
+into commit output, which [`DEC-016`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-016-cron-schedules-the-standup.md)
+already established is the emptiest room available — most so when an agent is doing the
+committing. So the trigger cannot block, slow or fail a commit, because there is nothing on the
+commit path to fail.
+
+Nothing every time. Most commits produce no note, and a pass that always finds something is
+producing noise to justify itself.
+
+### What is worth writing
+
+You have llmeep's [principles](../../ontology/principles.md) to hand — `adopt` installs them —
+so a note can say which one the friction contradicts rather than offering an opinion about what
+a tracker should be. That shared standard is what makes a note from someone else's project
+usable upstream. In rough order of value:
+
+| Worth writing | Why |
+| --- | --- |
+| **Missing functionality** — a record needed changing and no command did it | [Principle 2](../../ontology/principles.md) makes this a defect by construction: no command means a gap in the tooling. An adopter hitting it is the only way anyone finds out |
+| **Machinery contradicting its own principles** — a command that made hand-editing the easier path, a check that pushed toward a prettier record over a parseable one | The most valuable of all, and the hardest to see from inside the project |
+| **Friction** — a command run twice, a convention worked around, a message read as an instruction when it was a note | Cheap to notice, cheap to fix |
+
+Not worth writing: a preference with no principle behind it, and anything that only makes sense
+in this one domain.
+
+### Never this project
+
+**A note is about llmeep's machinery and carries nothing from this repo** — no code, no file or
+function names, no domain terms, no task titles, no commit contents. This is a hard constraint,
+not a redaction step at the end: if the point cannot be made without naming something here, it
+does not get written.
+
+That is also the useful version. A suggestion phrased in someone else's domain is not actionable
+upstream, so "carries no private context" and "is worth receiving" turn out to be the same rule.
+
+```sh
+tm feedback "go printed the sidecar path but not its acceptance, so I opened the file to find it"
+tm feedback -          # multi-line, from stdin
+tm feedback            # what has been drafted, and whether the switch is on
+```
+
+Drafts land in `feedback.md` beside `.env`, **gitignored**. Nothing sends them and nothing
+schedules a send: no network, no credentials, no egress from a private repo. Reading them and
+passing them on is a person's act, and llmeep's own side of the collection is `PLT-6tpx`.
+
+Each entry is `## YYYY-MM-DD` and then the text. That shape is a contract, not a rendering
+choice — the sweep reads this file from outside the repo, and a format that drifts produces an
+empty sweep indistinguishable from having no feedback.
+
+---
+
 ## Layout
 
 Records and machinery are separate trees. `tasks/` is what you edit while working; `_tooling/`

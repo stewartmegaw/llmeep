@@ -76,6 +76,9 @@ IGNORES = [
     "!{p}.notes/README.md",
     "{p}.env",
     "!{p}.env.example",
+    # Feedback about llmeep itself (DEC-033) — about the tooling, not this repo,
+    # so it never belongs in this repo's history or on its remote.
+    "{p}feedback.md",
 ]
 
 
@@ -669,6 +672,12 @@ def do_update(top, force, dry):
             os.remove(wa)
         working_agreement(top, dest_root, into, report)
 
+    # `IGNORES` grows with the machinery — `feedback.md` arrived after repos had
+    # already adopted (`DEC-033`). Without this an existing install gets the file
+    # and not the rule for it, and the first thing that happens is the adopter
+    # committing our feedback into their history. Appends only what is missing,
+    # so a run that has nothing to add says so and touches nothing.
+    append_ignores(top, f"{into}/" if into else "", report)
     install_self(top, dest_root, into, report,
                  kept=() if force else modified, ontology=ontology)
 
@@ -791,6 +800,12 @@ def main(argv):
     print("\n    Optional, whenever you want it — not now, and not for the tooling to work:")
     print(f"    {prefix}ontology/domain-ontology.md explains writing one for your own project.")
     print(f"    Already have one? {prefix}tasks/_tooling/tm ontology <path> records where.")
+    # Off, and described rather than offered. Anything here phrased as a step
+    # gets performed by the agent reading this output (`PLT-eb7v`), and this one
+    # would spend the adopter's tokens on every commit thereafter.
+    print(f"\n    Off unless you switch it on, in {prefix}.env.example: FEEDBACK=on asks your")
+    print("    agent to note what llmeep itself got wrong, after each commit. It costs")
+    print("    tokens and sends nothing — the notes are a local, gitignored file.")
     return 0
 
 

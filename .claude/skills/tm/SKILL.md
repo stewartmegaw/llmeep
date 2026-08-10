@@ -24,6 +24,7 @@ llmeep/tasks/_tooling/tm why --stale [--yes]        # records nothing references
 llmeep/tasks/_tooling/tm standup [--send]           # the period's work; --send posts it
 llmeep/tasks/_tooling/tm standup --cron             # the crontab line, if scheduling it
 llmeep/tasks/_tooling/tm ontology [<path>|--none]   # where this repo's domain ontology lives
+llmeep/tasks/_tooling/tm feedback [<text>|-]        # note what llmeep got wrong; opt-in, never sent
 
 llmeep/tasks/_tooling/tm check                      # validate records (hooks and CI call this)
 llmeep/tasks/_tooling/tm check --context            # what an agent carries, measured
@@ -52,6 +53,7 @@ llmeep/tasks/_tooling/tm reset [--yes]              # clear task records when ad
 | "I've just cloned this to start a project" | `tm reset` to see what goes, then `--yes` |
 | "is the Telegram bot set up" / "post to the group instead" | `tm check --notify` — it lists every chat the bot can see; add `--send` only if they want a test message |
 | "our domain model is in docs/" / a commit says no ontology is recorded | `tm ontology <path>`, or `--none` |
+| "llmeep should really do X" / friction with the tooling itself | `tm feedback "<what happened>"` — see below |
 
 **You are the mobile interface.** Telegram sends completion notifications and nothing reads
 its inbox — messages sent to the bot are ignored. Task management is this conversation,
@@ -94,6 +96,16 @@ llmeep's README title out and back in to keep two trailers honest.
 Committing when asked keeps `closes <id>` meaning one commit, which is what `tm find` recovers
 later. Two tasks in one commit is not fatal — two trailers in one message is legal — but the
 link stops being one-to-one and the history gets harder to read back.
+
+## After committing, if feedback is on
+
+Off by default, and `tm feedback` refuses while it is — so run it, and if it says off, this
+section is over. When on, one short pass on one question: **did llmeep's machinery get in the
+way, or is something missing its principles imply?** Usually nothing; a pass that always finds
+something is manufacturing noise. `tm feedback "<what happened>"`.
+
+**Never about this project** — no code, file names, domain terms or task titles. If the point
+needs one, do not write it. Rubric: `llmeep/tasks/_tooling/ontology.md`.
 
 ## A rejected alternative is a decision, and nobody will prompt you
 

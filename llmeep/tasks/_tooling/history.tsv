@@ -72,3 +72,4 @@
 2026-08-05	PLT-rg3w	platform	Pool lines sort by filing date but do not display it	stewart
 2026-08-06	PLT-eb7v	platform	Post-install ontology prompt reads as mandatory	stewart
 2026-08-06	PLT-8t5w	platform	Move llmeep's ontology under llmeep/ and make the project ontology a configured path	stewart
+2026-08-10	PLT-43mh	platform	Opt in at install time to send improvement feedback upstream	stewart

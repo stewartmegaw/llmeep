@@ -116,11 +116,11 @@ is what it chooses to read, so the standing cost is two lines:
 | Loaded             | When                         | Roughly         |
 | ------------------ | ---------------------------- | --------------- |
 | Skill descriptions | always, in every prompt      | **~150 tokens** |
-| `tm` skill         | when you mention tasks       | ~3,650          |
+| `tm` skill         | when you mention tasks       | ~4,200          |
 | `nm` skill         | when you mention notes       | ~1,900          |
 | A board            | when it lists or starts work | ~400            |
 
-A working session on tasks costs about **4,000 tokens** of context — the skill plus the board —
+A working session on tasks costs about **4,600 tokens** of context — the skill plus the board —
 and the board stays that size on purpose: `recent` is capped at 15 and everything older is
 searched with `find` rather than carried. That cap is the whole reason the cost is flat instead
 of growing with the project.
@@ -133,9 +133,36 @@ llmeep/tasks/_tooling/tm check --context
 ```
 
 It warns past 4,000 tokens for a skill, because a skill loads **whole** the moment its subject
-comes up. The models — `llmeep/tasks/_tooling/ontology.md` and its notes counterpart — are
+comes up — and the `tm` skill is over that line today, which is the warning doing its job rather
+than a number to quietly raise. The models — `llmeep/tasks/_tooling/ontology.md` and its notes counterpart — are
 deliberately absent from that table and from the budget. They are far larger (~8,600 tokens for
 tasks) and read on demand, when the model changes rather than when work happens.
+
+## Telling llmeep what it got wrong
+
+**Off, and it stays off unless you switch it on.** With `FEEDBACK=on` in `llmeep/.env`, your
+agent spends a short pass after each commit on one question: did llmeep's own machinery get in
+the way, and is something missing that its principles imply? What it notices goes in
+`llmeep/feedback.md`.
+
+```sh
+llmeep/tasks/_tooling/tm feedback                 # what has been drafted
+llmeep/tasks/_tooling/tm feedback "<what happened>"   # add one by hand
+```
+
+Two things this deliberately is not. **It costs tokens** — a review pass per commit, on your
+account — which is the entire reason it is opt-in rather than a default. And **nothing sends
+it**: `feedback.md` is gitignored and local, there is no network call, no credential and no
+schedule. Reading it and passing it on is your act, whenever you feel like it.
+
+A draft is about llmeep and never about your project — no code, no file names, no domain terms,
+no task titles. That is a hard rule and not a redaction pass at the end: a point that cannot be
+made without naming something in your repo does not get written. It is also the useful version,
+since a suggestion phrased in your domain is not actionable by anyone else.
+
+There is no git hook here and there will not be one. A hook cannot run a review, and one that
+merely reminded would print into commit output, which nobody reads — least of all when the
+agent is doing the committing.
 
 ## Updating
 

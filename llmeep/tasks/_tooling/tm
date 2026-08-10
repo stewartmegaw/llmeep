@@ -2217,6 +2217,7 @@ USAGE = """tm — taskman
   tm standup [--send]           report the period's work (--send posts it)
   tm standup --cron             the crontab line, if you schedule it
   tm ontology [<path>|--none]   where your domain ontology lives, or that there is none
+  tm feedback [<text...>|-]     note what llmeep itself got wrong (opt-in, local, never sent)
 
   tm check [--staged]           validate records; used by hooks and CI
   tm check --context            what an agent carries, measured
@@ -2286,6 +2287,120 @@ def cmd_ontology(args):
     print("  commits that add platform files now warn when it has not moved with them\n")
 
 
+# ------------------------------------------------------------------- feedback
+#
+# The people best placed to say what llmeep is missing are using it on a real
+# project, and are the least likely to open an issue about it. Their agent knows
+# already: it has run these commands all week and worked around the gaps.
+#
+# Three constraints shape everything here, and all three are `DEC-033`:
+#
+#   - **Nothing sends.** A draft is a local file. No credential, no network, no
+#     surprise egress from a private repo.
+#   - **Nothing triggers.** The review is the agent's, described in the ontology,
+#     and there is no hook — a hook cannot run a review, and commit output
+#     reaches nobody anyway (`DEC-016`).
+#   - **Off is the default**, and `off` means this command refuses. The gate is
+#     mechanical rather than a convention, because what is behind it spends the
+#     adopter's tokens.
+
+FEEDBACK = "feedback.md"
+
+FEEDBACK_INTRO = """# Feedback for llmeep
+
+Notes on llmeep's own machinery — where it got in the way, what it is missing,
+where it contradicts its own principles. Written after a commit by whoever was
+working, and **never** about this project: no code, no domain, no task titles.
+
+Gitignored and local. Nothing sends these; read them and take upstream what is
+worth taking.
+"""
+
+FEEDBACK_ENTRY = re.compile(r"^## (\d{4}-\d{2}-\d{2})$", re.M)
+
+
+def feedback_path():
+    return os.path.join(REPO, FEEDBACK)
+
+
+def feedback_on():
+    """The switch is `FEEDBACK` in `.env`, and its default is off.
+
+    `.env` rather than `.llmeep` on purpose. The manifest is committed, so a
+    flag there would opt a whole team in on one person's say-so — and what it
+    turns on costs each of them tokens. `.env` is gitignored and per-checkout,
+    which is the right shape for a choice about someone's own spend. It also
+    works in a plain clone of the skeleton, which has no manifest at all.
+    """
+    load_env()
+    return os.environ.get("FEEDBACK", "").strip().lower() in ("on", "1", "true", "yes")
+
+
+def feedback_entries():
+    """Every draft, newest last, as (date, text). The split is `## <date>` and
+    nothing else — `PLT-6tpx` reads this file from outside the repo, so the
+    format is a contract and a loose one costs a silent empty sweep."""
+    path = feedback_path()
+    if not os.path.isfile(path):
+        return []
+    with open(path) as fh:
+        text = fh.read()
+    parts = FEEDBACK_ENTRY.split(text)
+    return [(parts[i], parts[i + 1].strip()) for i in range(1, len(parts) - 1, 2)]
+
+
+def feedback_off_message():
+    where = os.path.relpath(os.path.join(REPO, ".env"), os.getcwd())
+    return ("feedback is off. It is opt-in because it spends your tokens:\n"
+            f"  a review pass after a commit, written by your agent.\n\n"
+            f"  Turn it on with `FEEDBACK=on` in {where} — see .env.example.\n"
+            "  Nothing is ever sent; drafts are a local, gitignored file.")
+
+
+def cmd_feedback(args):
+    """Append a note about llmeep, or show the ones already written.
+
+    The tool timestamps and appends. It does not judge what belongs here — that
+    is the agent's, working from the rubric in the ontology, and a script
+    guessing at it would be the failure `DEC-003` names (principle 7).
+    """
+    if args and args[0] == "-":
+        args = [sys.stdin.read()]
+    text = " ".join(args).strip() if args else ""
+
+    if not text:
+        entries = feedback_entries()
+        state = "on" if feedback_on() else "off"
+        print(f"\n  feedback: {state}")
+        if not feedback_on():
+            for line in feedback_off_message().split("\n"):
+                print(("  " + line).rstrip())
+            print()
+            return
+        if not entries:
+            print(f"  nothing drafted yet — {os.path.relpath(feedback_path(), os.getcwd())}\n")
+            return
+        print(f"  {len(entries)} draft(s) — {os.path.relpath(feedback_path(), os.getcwd())}\n")
+        for when, body in entries:
+            # A draft is free prose and often several lines; the list is an
+            # index to the file, so it gets one line each.
+            print(f"  {when}  {summarise(' '.join(body.split()))}")
+        print("\n  Nothing sends these. Read the file and take what is worth taking.\n")
+        return
+
+    if not feedback_on():
+        raise Fail(feedback_off_message())
+
+    path = feedback_path()
+    new = not os.path.isfile(path)
+    with open(path, "a") as fh:
+        if new:
+            fh.write(FEEDBACK_INTRO)
+        fh.write(f"\n## {date.today().isoformat()}\n\n{text}\n")
+    print(f"\n  noted — {os.path.relpath(path, os.getcwd())}")
+    print("  local and gitignored; nothing is sent.\n")
+
+
 def main():
     argv = sys.argv[1:]
     if not argv or argv[0] in ("-h", "--help", "help"):
@@ -2296,6 +2411,7 @@ def main():
         "prioritise": cmd_prioritise, "prioritize": cmd_prioritise,
         "done": cmd_done, "find": cmd_find, "why": cmd_why,
         "standup": cmd_standup, "ontology": cmd_ontology,
+        "feedback": cmd_feedback,
         "check": cmd_check, "reset": cmd_reset,
     }
     cmd = commands.get(argv[0])

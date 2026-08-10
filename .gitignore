@@ -29,5 +29,10 @@ Thumbs.db
 llmeep/.env
 llmeep/.env.*
 !llmeep/.env.example
+
+# Drafted feedback about llmeep itself (DEC-033). Local by design: it is about
+# the tooling, not this project, and committing it would put it in front of a
+# team it is not addressed to — and eventually on a remote.
+llmeep/feedback.md
 *.pem
 *.key
