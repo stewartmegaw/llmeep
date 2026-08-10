@@ -434,6 +434,21 @@ Nothing parses the trailer at commit time. It is written so the commit is **self
 `find` resolves it later with `git log --grep="closes PLT-007"`. That is why no SHA is stored
 anywhere.
 
+### One commit per closed task, and why the next one waits
+
+**A closed task is committed before another is started.** `done` writes its board and history
+rows the moment it runs, so a second close landing on top of the first leaves both sets of
+records in one working tree **with no way to split them by file**. Recovering one commit per
+task from there means reverting work by hand to stage it — which is what happened on 2026-08-03,
+cutting llmeep's README title out and back in so that two trailers stayed honest.
+
+The tell is an uncommitted change to `history.tsv`: `done` is the only command that writes a row
+there. `board.md` is no use for this, since `add`, `go` and `park` all write it and a task merely
+filed is not a task waiting on a commit.
+
+Two tasks in one commit is not fatal — two trailers in one message is legal — but the link stops
+being one-to-one and the history gets harder to read back.
+
 > **If you are an agent: run `done` before committing, and include `closes <id>` in the
 > message** when the acceptance criteria are met. You have the sidecar and the diff at that
 > moment — that is where the judgement belongs, and doing it in this order is what keeps the

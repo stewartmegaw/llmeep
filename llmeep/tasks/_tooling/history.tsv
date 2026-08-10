@@ -74,3 +74,4 @@
 2026-08-06	PLT-8t5w	platform	Move llmeep's ontology under llmeep/ and make the project ontology a configured path	stewart
 2026-08-10	PLT-43mh	platform	Opt in at install time to send improvement feedback upstream	stewart
 2026-08-10	PLT-6tpx	platform	Sweep a defined set of repos for upstream feedback drafts	stewart
+2026-08-10	PLT-fnxy	platform	Trim the tm skill back under its context budget	stewart

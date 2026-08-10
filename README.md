@@ -116,11 +116,11 @@ is what it chooses to read, so the standing cost is two lines:
 | Loaded             | When                         | Roughly         |
 | ------------------ | ---------------------------- | --------------- |
 | Skill descriptions | always, in every prompt      | **~150 tokens** |
-| `tm` skill         | when you mention tasks       | ~4,200          |
+| `tm` skill         | when you mention tasks       | ~3,650          |
 | `nm` skill         | when you mention notes       | ~1,900          |
 | A board            | when it lists or starts work | ~400            |
 
-A working session on tasks costs about **4,600 tokens** of context — the skill plus the board —
+A working session on tasks costs about **4,100 tokens** of context — the skill plus the board —
 and the board stays that size on purpose: `recent` is capped at 15 and everything older is
 searched with `find` rather than carried. That cap is the whole reason the cost is flat instead
 of growing with the project.
@@ -133,8 +133,7 @@ llmeep/tasks/_tooling/tm check --context
 ```
 
 It warns past 4,000 tokens for a skill, because a skill loads **whole** the moment its subject
-comes up — and the `tm` skill is over that line today, which is the warning doing its job rather
-than a number to quietly raise. The models — `llmeep/tasks/_tooling/ontology.md` and its notes counterpart — are
+comes up. The models — `llmeep/tasks/_tooling/ontology.md` and its notes counterpart — are
 deliberately absent from that table and from the budget. They are far larger (~8,600 tokens for
 tasks) and read on demand, when the model changes rather than when work happens.
 

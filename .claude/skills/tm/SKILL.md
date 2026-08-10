@@ -88,15 +88,8 @@ When you find them, **ask** — an `AskUserQuestion` with the closed task's id a
 *commit it now* (recommended) or *start anyway*. Do not commit unasked; a commit is the user's
 call. Do not stay silent either, which is the case this rule exists for.
 
-The cost of not asking is not a tidiness one. `done` writes the board and history rows the
-moment it runs, so a second task closed on top of the first leaves both sets of records in one
-working tree with no way to split them by file. Recovering one commit per task then means
-reverting work by hand to stage it — which is exactly what happened on 2026-08-03, cutting
-llmeep's README title out and back in to keep two trailers honest.
-
-Committing when asked keeps `closes <id>` meaning one commit, which is what `tm find` recovers
-later. Two tasks in one commit is not fatal — two trailers in one message is legal — but the
-link stops being one-to-one and the history gets harder to read back.
+Not a tidiness rule: two closes in one working tree cannot be split by file afterwards, so the
+one-to-one link `tm find` reads back is lost. The ontology's **Git** section has the incident.
 
 ## After committing, if feedback is on
 
@@ -111,8 +104,7 @@ needs one, do not write it. Rubric: `llmeep/tasks/_tooling/ontology.md`.
 ## A rejected alternative is a decision, and nobody will prompt you
 
 `check` enforces the *shape* of a decision and refuses a rewrite. Nothing prompts you to write
-one in the first place, so **this is on you** — the same shape as the rule about filing a task
-before starting work.
+one, so **this is on you.**
 
 **Before work that changes established behaviour, run `tm why <term>`.** If a decision already
 covers it you are superseding, not editing, and finding that out now is cheaper than at commit
@@ -135,11 +127,10 @@ the user said will split the command and silently truncate the title — `tm` ne
 and the board looks fine because the fragment is still a valid title.
 
 **120 characters, two sentences.** `tm add` refuses a longer title. When the user describes work
-in a paragraph, do not put the paragraph in the title — write a short handle and put the rest in
-a sidecar.
+in a paragraph, write a short handle and put the rest in a sidecar.
 
-A sidecar is `llmeep/tasks/<id>-<slug>.md`, or a **folder** `llmeep/tasks/<id>-<slug>/` with a `README.md`
-plus whatever else the task needs.
+A sidecar is `llmeep/tasks/<ledger>/tasks/<id>-<slug>.md` — note the ledger — or a **folder** of
+that name with a `README.md` plus whatever else the task needs.
 
 **Notes are a separate subsystem.** If the user pastes a transcript or wants something
 remembered rather than done, that is `nm` — see its skill. A note becomes a task with
@@ -177,14 +168,13 @@ receives are the same report.
 only thing saying which is which — keep it, keep the two-space gap, and never add one to a line
 the tool did not tag. Captured notes have no ledger and keep their `·`.
 
-**The bracketed counts are the full sections, not what is shown.** `Backlog (11)` above eight
-lines is not a contradiction — reproduce both the count and the `…and N more` line exactly, and
-never recount from the lines you can see. `Priority (0)` appears only when nothing is ranked and
-the pool is not empty, which is the one state a standup most needs to say out loud.
+**The bracketed counts are the full sections, not what is shown.** Reproduce the count and the
+`…and N more` line exactly; never recount from the lines you can see. `Priority (0)` appears only
+when nothing is ranked and the pool is not empty — the one state a standup most needs to say out
+loud.
 
-**Only `Backlog` is sorted, and it never shows what it sorted on.** Newest filing first, the
-date itself unprinted. Keep the tool's order — do not re-sort it, do not read it as priority,
-and never suggest reordering the board to match. It is a view over an unordered pool.
+**Keep the tool's order.** Do not re-sort, do not read `Backlog` as priority, do not suggest
+reordering the board to match.
 
 Same constraints as the board: **never a code block** — it scrolls sideways on a phone — and a
 blank line after any `---`. No hint line; a standup is a report, not a menu.
@@ -194,13 +184,11 @@ blank line after any `---`. No hint line; a standup is a report, not a menu.
 **Read `llmeep/tasks/*/board.md` first, every time** — never from memory, and never from the example
 below. Ids are four random characters, so a plausible wrong one reads exactly like a right one.
 
-Render the live state. **Nothing else** — no commentary on what is
-outstanding, no suggestions about what to file, no summary of recent work. If they wanted
-analysis they will ask for it.
+Render the live state. **Nothing else** — no commentary on what is outstanding, no suggestions
+about what to file, no summary of recent work. If they wanted analysis they will ask for it.
 
-**Render as markdown, never a code block.** A code block preserves column alignment but
-scrolls horizontally on a phone, and this is read on a phone. Vertical length is the cheaper
-cost — scrolling down is natural, scrolling sideways is not.
+**Render as markdown, never a code block.** A code block scrolls sideways on a phone, and this
+is read on a phone. Scrolling down is the cheaper cost.
 
 `###` heading, then `---` under it, above the list. Bold the id. Blank line between tasks.
 Tags become prose after an em dash.
@@ -229,8 +217,6 @@ over Remote Control — tested 2026-08-01. Plain bold ids only.
 
     **PLT-7t1p**  Drop legacy endpoint — *unassigned*
 
-    **PLT-2m4x**  Replace the fixture loader — *unassigned*
-
     **PLT-021**  Audit the retry timeouts — *unassigned*
 
     ---
@@ -239,33 +225,24 @@ over Remote Control — tested 2026-08-01. Plain bold ids only.
 
 Omit empty sections. Omit `recent` unless asked.
 
-**Never reorder `prioritised`.** Its position *is* the priority — someone put those lines in
-that order on purpose, and rearranging them overwrites a decision.
+**Never reorder `prioritised`.** Its position *is* the priority; rearranging it overwrites
+someone's decision.
 
-**Sort `backlog` newest-filed first**, matching the standup and `recent`. The pool has no
-order of its own, so the file's sequence is an accident of when things were added — sorting by
-the one real signal a pool line carries beats rendering that accident. This is a view: it
-changes what you print and never what is written to `board.md`. A pool that acquires a
-persistent order is just the queue again (`DEC-027`).
+**Sort `backlog` newest-filed first**, matching the standup. It is a view — it changes what you
+print, never what is in `board.md` (`DEC-027`). Undated lines sort last. Never call anything
+"top of the backlog": sorted by date is not ranked by importance.
 
-Undated lines sort last, which under newest-first is where the oldest belong anyway. Still
-never say what is "top of the backlog" — sorted by date is not ranked by importance.
-
-**Never print the date** (`DEC-030`). It is the sort key and nothing more — a tiebreak for a
-list with no order of its own, not a fact anyone asks the board for. Printed beside the titles
-it reads as a deadline or a priority, which is exactly what a pool line does not carry, and it
-costs a column on the one surface with no room for one. If the user wants to know how long
-something has sat there, `board.md` has the tag.
+**Never print the date** (`DEC-030`). It is the sort key and nothing else. Beside a title it
+reads as a deadline, which is exactly what a pool line does not carry.
 
 **End with the hint line** whenever the board is not empty — one italic line, no prompt, no
-blocking. The verbs already work in conversation; the hint exists because someone who did not
-design them has no way to know that.
+blocking. The verbs already work in conversation; someone who did not design them has no way
+to know that.
 
-**Do not number the lines.** Their order already conveys priority, and a number falsely
-suggests a handle you can pass to a command.
+**Do not number the lines.** A number falsely suggests a handle you can pass to a command.
 
-A line with no `@name` is **unassigned and available** — that is the normal state for anything
-nobody has started. Do not read it as missing data.
+A line with no `@name` is **unassigned and available** — the normal state for anything nobody
+has started, not missing data.
 
 Say "nothing in the backlog" and stop if both boards are clear.
 
@@ -286,20 +263,14 @@ on the line.
   Neither is a command; do not invent one. `prioritise` is the exception, and only for
   `backlog` → `prioritised` — reordering *within* `prioritised` is still a hand edit.
 - **`tm add` files into the pool, not the queue.** A bare `tm go` will not pick it up. If the
-  user says the thing they just filed is what they are doing next, that is `tm add -n` or a
-  following `tm prioritise` — say which you used.
-- **Resolving a board merge conflict** follows the table in `llmeep/tasks/_tooling/ontology.md`, not a
-  textual merge.
-- **`tm standup` prints; `tm standup --send` broadcasts.** Nothing in the repo triggers a
-  send — a scheduler does. Never add `--send` on your own initiative. Same for
-  `feedback --sweep --send`.
-- **The standup is usually read aloud, not automated.** `--cron` prints a line for an
-  always-on machine; scheduling it is the user's call, and nothing here does it for them.
-- **`tm check --release` runs inside a cut tree**, not here. It asserts what a release must be
-  — empty records, no `UNADOPTED.md`, decisions cleared, the directories git cannot carry, no
-  dead relative links — and every one of those was a defect that shipped before it existed.
-- **`check` never sends anything.** `--notify` reports configuration; only `--send` posts, and
-  that reaches a whole team. Do not add it casually.
+  user says the thing they just filed is next, that is `tm add -n` or a following
+  `tm prioritise` — say which you used.
+- **Resolving a board merge conflict** follows the table in the ontology, not a textual merge.
+- **Nothing sends on your initiative.** `standup --send`, `feedback --sweep --send` and
+  `check --notify --send` each reach a whole team; add them only when asked. `--cron` prints a
+  line for an always-on machine, and scheduling it is the user's call.
+- **`tm check --release` runs inside a cut tree**, not here. Every condition it asserts was a
+  defect that shipped before it existed.
 - **"no domain ontology is recorded" is a question for the user, not a job to do.** Ask where
   theirs is, or whether they want one, then `tm ontology <path>` or `--none`. Never write one
   because a warning mentioned it, and never answer `--none` for them (`DEC-032`).

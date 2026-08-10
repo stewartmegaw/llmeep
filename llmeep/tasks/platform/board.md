@@ -11,10 +11,10 @@ PLT-3wjv Board could use a per-person filter
 
 PLT-fqcz An update that fails partway leaves a half-installed repo  filed:2026-08-04
 PLT-6pvp Present the repo for community contributions — README and GitHub setup  filed:2026-08-05
-PLT-fnxy Trim the tm skill back under its context budget  filed:2026-08-10
 
 ## recent
 
+2026-08-10  PLT-fnxy Trim the tm skill back under its context budget  @stewart
 2026-08-10  PLT-6tpx Sweep a defined set of repos for upstream feedback drafts  @stewart
 2026-08-10  PLT-43mh Opt in at install time to send improvement feedback upstream  @stewart
 2026-08-06  PLT-8t5w Move llmeep's ontology under llmeep/ and make the project ontology a configured path  @stewart
@@ -29,4 +29,3 @@ PLT-fnxy Trim the tm skill back under its context budget  filed:2026-08-10
 2026-08-04  PLT-cajd Decisions need a find before they could ever be pruned  @stewart
 2026-08-04  PLT-brek Test the install lifecycle, not just the records  @stewart
 2026-08-04  PLT-zud9 Updating a nested install splits ontology in two  @stewart
-2026-08-04  PLT-s6zu Updating an existing install is broken by the llmeep/ move  @stewart
