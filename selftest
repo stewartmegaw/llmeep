@@ -547,6 +547,33 @@ class TestSweep(Fixture):
                         f"{os.path.relpath(path, top)} tells an adopter about "
                         f"the collecting half ({term})")
 
+    def test_a_released_tree_carries_no_maintainer_tooling(self):
+        """`PLT-8fmj`. `adopt` copies a manifest, so the repo root never reaches
+        an adopting repo — but the documented greenfield path is
+        `clone && rm -rf .git` **of a release**, which hands over that whole
+        tree. Keeping the sweep out of the installer is only half of `DEC-034`.
+
+        Checked against what was actually published, not against `main`, where
+        the sweep belongs. The gate that prevents a bad cut is
+        `check --release`; this is the one that notices a bad cut got out."""
+        tags = release_tags()
+        if not tags:
+            self.skipTest("no release tags in this checkout")
+        top = self.greenfield(self.clone_tag(tags[0]))
+        self.assertFalse(
+            os.path.exists(os.path.join(top, "sweep")),
+            f"{tags[0]} ships the maintainer sweep at its root")
+
+    def test_the_release_check_refuses_a_tree_holding_the_sweep(self):
+        """The cut is the only place the two install paths differ, so it is the
+        only place this can be caught."""
+        top = self.greenfield(self.working_copy())
+        with open(os.path.join(top, "sweep"), "w") as fh:
+            fh.write("#!/usr/bin/env python3\n")
+        out = self.tm(top, "check", "--release")
+        self.assertNotEqual(out.returncode, 0, "the cut check passed with sweep present")
+        self.assertIn("sweep", out.stdout + out.stderr)
+
     def test_the_sweep_has_no_transport_at_all(self):
         """It prints. Sending went with the move — the notifier lives in `tm`,
         and reaching it from here would mean either a second channel dispatcher

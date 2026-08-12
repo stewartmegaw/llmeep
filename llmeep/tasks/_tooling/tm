@@ -2068,6 +2068,14 @@ def dead_links(root):
     return out
 
 
+# Root scripts a cloner must never receive. `adopt` and `selftest` are also
+# llmeep's own, and stay: one is how you install into another repo and the other
+# is how you check that it worked, so a fork needs both and neither says
+# anything about llmeep having an upstream. `sweep` does — it is addressed to
+# whoever maintains this, about repos that are not yours (`DEC-034`).
+MAINTAINER_ONLY = ("sweep",)
+
+
 def check_release(rep, root):
     """A cut tree is one that has never existed on `main`: records emptied,
     decisions cleared, directories git could not carry. Nothing else validates
@@ -2105,6 +2113,17 @@ def check_release(rep, root):
     for sub in ("tasks", "notes"):
         if os.path.exists(os.path.join(root, sub, MARKER)):
             rep.error(f"{sub}/{MARKER} is still here — its reset has not run")
+
+    # `adopt` copies a fixed manifest, so nothing at the repo root reaches an
+    # adopting repo — but the greenfield path is `clone && rm -rf .git`, which
+    # hands over the whole tree. A cut is the only place that difference can be
+    # caught, and `DEC-034` is not satisfied by keeping maintainer tooling out
+    # of the *installer* alone (`PLT-8fmj`).
+    top = os.path.dirname(root)
+    for script in MAINTAINER_ONLY:
+        if os.path.exists(os.path.join(top, script)):
+            rep.error(f"{script} is maintainer tooling and must not ship — "
+                      f"`git rm -q {script}` before committing the cut (`DEC-034`)")
 
     dec = os.path.join(root, "decisions")
     if os.path.isdir(dec):

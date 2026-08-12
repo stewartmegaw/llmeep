@@ -80,6 +80,15 @@ real adopted repo and reads with the real `./sweep`.
   in it contains `FEEDBACK_REPOS`, `--sweep` or `cmd_sweep`.
 - **This needs a release to reach anyone.** v34 shipped the leaky version, so every repo updated
   to it still carries the maintainer-facing text until they take the next one.
+- **The root is safe for `adopt` only because of how `adopt` works.** It copies a fixed manifest,
+  so nothing at the repo root reaches an adopting repo — but the greenfield path is
+  `clone && rm -rf .git`, which hands over the entire tree, root scripts included. Keeping a
+  script out of the installer is therefore only half of this decision; the cut has to drop it
+  too. `tm check --release` refuses a tree still holding one, which is the only place the
+  difference between the two install paths can be caught (`PLT-8fmj`).
+- **`adopt` and `selftest` stay in the release.** A fork needs both — one installs into another
+  repo, the other checks that it worked — and neither reveals that llmeep has an upstream, which
+  is the thing being kept out.
 - **A general rule now exists** for a category that had no home: llmeep tooling that is not part
   of what llmeep gives you. `adopt`, `selftest` and `sweep` are that category.
 - **The root gets busier.** Three scripts now, and nothing stops a fourth being added carelessly.
