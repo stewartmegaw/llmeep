@@ -1,0 +1,311 @@
+#!/usr/bin/env python3
+"""sweep — read feedback drafts back out of the repos that wrote them.
+
+**llmeep's own tooling, and it does not ship.** It sits at the repo root beside
+`adopt` and `selftest` because that is where the things a maintainer runs live;
+`adopt` walks `tasks/_tooling` and `notes/_tooling`, so nothing here reaches an
+adopting repo (`DEC-034`).
+
+That placement is the whole point. This began as `tm feedback --sweep`, which
+put it in the shipped executable, its `--help`, the shipped `.env.example`, the
+shipped ontology, the shipped skill and a shipped blueprint. A client project
+read all that and offered its owner to point their install at a fork — a feature
+addressed to us, surfacing in a repo it has no business existing in (`PLT-gpq8`).
+Adopters have the drafting half and only ever needed that.
+
+    FEEDBACK_REPOS=~/Sites/one:~/Sites/another ./sweep
+
+Configuration lives in llmeep's own `llmeep/.env`, which is gitignored, so the
+list of repos never leaves this machine either.
+
+**It prints and does nothing else.** `tm feedback --sweep --send` posted to the
+notify channel, and that went with the move: the notifier lives in `tm` and
+`DEC-008` keeps one of it, so sending from here would mean either duplicating a
+channel dispatcher or adding a *post this text* command to the executable every
+client installs — putting back the surface this change exists to remove. What is
+lost is small. The report goes to the one person who ran it, and if it is ever
+scheduled, cron mails its stdout like any other job.
+"""
+
+import os
+import re
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+# Where llmeep keeps its own records. `adopt` installs into `llmeep/` by
+# default and a fork is still an install of llmeep, so that is the first guess;
+# the root is the fallback for a tree laid out some other way.
+ROOT = next((p for p in (os.path.join(HERE, "llmeep"), HERE)
+             if os.path.isdir(os.path.join(p, "decisions"))), HERE)
+
+FEEDBACK = "feedback.md"
+FEEDBACK_REPOS = "FEEDBACK_REPOS"
+
+# The contract with `tm feedback`, which writes these files. Split on the date
+# heading and nothing else. It is duplicated here rather than shared because the
+# two halves genuinely run in different repos — the guard against drift is
+# `selftest`, which writes with a real `tm` and reads with this.
+FEEDBACK_ENTRY = re.compile(r"^## (\d{4}-\d{2}-\d{2})$", re.M)
+
+# Read out of the target's own `tm` rather than compared against the version
+# that introduced the command. A version test needs a release to exist before it
+# can be written and goes stale at every rename; asking an install what it can
+# do is true whatever it was cut from.
+FEEDBACK_CAPABILITY = "def cmd_feedback"
+
+MANIFEST = ".llmeep"
+MANIFEST_RE = re.compile(
+    r"# llmeep:manifest — rewritten by --update; do not edit\n(.*?)\n# llmeep:manifest-end",
+    re.S)
+
+# Enough to keep an overlap score from being carried by grammar. Deliberately
+# short: this ranks a hint for a person, not a decision.
+STOPWORDS = frozenset("""
+a an and are as at be been but by can could do does for from had has have how
+in into is it its not of on one or should so than that the their them then
+there these they this to too was were what when where which who why will with
+would you your it's llmeep tm
+""".split())
+
+MIN_OVERLAP = 2
+
+
+class Fail(Exception):
+    pass
+
+
+def load_env():
+    """llmeep's own `.env`, for `FEEDBACK_REPOS` and the notify channel."""
+    path = os.path.join(ROOT, ".env")
+    if not os.path.exists(path):
+        return
+    with open(path) as fh:
+        for line in fh:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip().strip("'\""))
+
+
+def switched_on(value):
+    return (value or "").strip().lower() in ("on", "1", "true", "yes")
+
+
+def sweep_paths():
+    """Absolute paths, `:`-separated like `PATH`, `~` expanded. Nothing is
+    globbed: a pattern that matches nothing looks identical to a pattern that
+    matched something now deleted, and reporting that difference is most of the
+    value here."""
+    load_env()
+    raw = os.environ.get(FEEDBACK_REPOS, "").strip()
+    return [os.path.expanduser(p.strip()) for p in raw.split(":") if p.strip()]
+
+
+def manifest(top):
+    """`.llmeep` carries what `adopt` installed, as a commented JSON header.
+    Read by pattern rather than by running the script."""
+    import json
+    path = os.path.join(top, MANIFEST)
+    if not os.path.isfile(path):
+        return {}
+    with open(path) as fh:
+        m = MANIFEST_RE.search(fh.read())
+    if not m:
+        return {}
+    try:
+        return json.loads("\n".join(l.lstrip("# ") for l in m.group(1).split("\n")))
+    except ValueError:
+        return {}
+
+
+def install_root_of(top):
+    """Where llmeep sits inside another repo, or None if it does not.
+
+    `.llmeep` records the folder, so an install under `--into ops` is found
+    without having to remember what anyone called it. Presence is
+    `tasks/_tooling/tm`, not `feedback.md`, so *no llmeep here* stays
+    distinguishable from *nothing drafted*.
+    """
+    into = manifest(top).get("into")
+    for c in ([into] if into is not None else ["llmeep", ""]):
+        root = os.path.join(top, c) if c else top
+        if os.path.isfile(os.path.join(root, "tasks", "_tooling", "tm")):
+            return root
+    return None
+
+
+def writes_feedback(root):
+    """Whether this install has the drafting half at all.
+
+    Fails closed. A probe that cannot read the file reports *too old*, which
+    sends someone to run `--update` on a repo that did not need it. The opposite
+    error is the one worth removing: an install that physically cannot produce a
+    draft, read as a repo with nothing to say (`PLT-a92c`).
+    """
+    try:
+        with open(os.path.join(root, "tasks", "_tooling", "tm")) as fh:
+            return FEEDBACK_CAPABILITY in fh.read()
+    except OSError:
+        return False
+
+
+def env_value(root, key):
+    """One key out of another install's `.env`, without importing the rest.
+
+    Deliberately not `load_env`: that populates this process's environment, and
+    pulling a second repo's `NOTIFY` and bot token in would mean a sweep could
+    post through somebody else's channel. Nothing read here is ever printed —
+    the file holds secrets, and only the switch is our business.
+    """
+    path = os.path.join(root, ".env")
+    if not os.path.isfile(path):
+        return None
+    with open(path) as fh:
+        for line in fh:
+            line = line.strip()
+            if line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            if k.strip() == key:
+                return v.strip().strip("'\"")
+    return None
+
+
+def feedback_entries(path):
+    """Every draft in one file, newest last, as (date, text)."""
+    if not os.path.isfile(path):
+        return []
+    with open(path) as fh:
+        text = fh.read()
+    parts = FEEDBACK_ENTRY.split(text)
+    return [(parts[i], parts[i + 1].strip()) for i in range(1, len(parts) - 1, 2)]
+
+
+def sweep(paths):
+    """(drafts, problems).
+
+    A draft is `{source, when, text}` and carries no path, no repo layout and
+    nothing else a filesystem-shaped reader would supply. When these come from
+    issues instead, only this loop changes and everything below it — matching,
+    rendering, sending — reads the same records.
+    """
+    drafts, problems = [], []
+    for top in paths:
+        label = os.path.basename(top.rstrip("/")) or top
+        if not os.path.isdir(top):
+            problems.append((label, "not there — listed in "
+                                    f"{FEEDBACK_REPOS}, gone from the disk"))
+            continue
+        root = install_root_of(top)
+        if root is None:
+            problems.append((label, "no llmeep install found"))
+            continue
+        entries = feedback_entries(os.path.join(root, FEEDBACK))
+        # Only when it has nothing to show. A repo that has already drafted
+        # something plainly can and did, and telling someone their switch is off
+        # underneath the drafts it just produced is worse than saying nothing.
+        if not entries:
+            if not writes_feedback(root):
+                problems.append((label, "llmeep too old to write feedback — "
+                                        "`./.llmeep --update` in that repo"))
+                continue
+            if not switched_on(env_value(root, "FEEDBACK")):
+                problems.append((label, "feedback is off there — nobody opted in"))
+                continue
+        for when, text in entries:
+            drafts.append({"source": label, "when": when, "text": text})
+    return drafts, problems
+
+
+# ------------------------------------------------------------------- decisions
+
+
+def frontmatter_field(text, field):
+    m = re.search(rf"(?m)^{field}:\s*(.*)$", text)
+    return m.group(1).strip() if m else ""
+
+
+def decisions():
+    d = os.path.join(ROOT, "decisions")
+    if not os.path.isdir(d):
+        return []
+    out = []
+    for f in sorted(os.listdir(d)):
+        if not f.endswith(".md") or f.startswith("_"):
+            continue
+        with open(os.path.join(d, f)) as fh:
+            text = fh.read()
+        out.append({"id": frontmatter_field(text, "id"),
+                    "title": frontmatter_field(text, "title")})
+    return out
+
+
+def words_of(text):
+    return {w for w in re.findall(r"[a-z]{3,}", text.lower()) if w not in STOPWORDS}
+
+
+def settled_by(text, all_decs):
+    """Decisions this draft may already have an answer in, best first.
+
+    Titles only. A decision's body argues at length and would match nearly
+    anything on vocabulary alone; its title is one sentence chosen to say what
+    was decided, which is the highest-signal text in the corpus.
+
+    This ranks a hint and decides nothing. A draft landing on an existing
+    decision is the valuable case, not the discardable one — it means the
+    decision never persuaded anyone, or has stopped being true — and an adopter
+    could not have known, since `adopt` ships the principles and not these.
+    """
+    have = words_of(text)
+    scored = []
+    for d in all_decs:
+        overlap = have & words_of(d["title"])
+        if len(overlap) >= MIN_OVERLAP:
+            scored.append((len(overlap), d))
+    scored.sort(key=lambda p: (-p[0], p[1]["id"]))
+    return [d for _, d in scored[:2]]
+
+
+def render(drafts, problems, all_decs):
+    out = []
+    for label in sorted({d["source"] for d in drafts}):
+        mine = [d for d in drafts if d["source"] == label]
+        out.append(f"{label} ({len(mine)})")
+        for d in mine:
+            out.append(f"  {d['when']}  {' '.join(d['text'].split())}")
+            for dec in settled_by(d["text"], all_decs):
+                out.append(f"            ~ maybe {dec['id']} — {dec['title']}")
+        out.append("")
+    for label, why in problems:
+        out.append(f"! {label}  {why}")
+    return "\n".join(out).rstrip()
+
+
+def main(argv):
+    paths = sweep_paths()
+    if not paths:
+        raise Fail(f"no repos to sweep. Set {FEEDBACK_REPOS} in "
+                   f"{os.path.relpath(os.path.join(ROOT, '.env'), os.getcwd())} to a "
+                   "`:`-separated\n  list of repo paths.")
+    drafts, problems = sweep(paths)
+    if not drafts and not problems:
+        print(f"\n  nothing drafted in {len(paths)} repo(s)\n")
+        return 0
+    body = render(drafts, problems, decisions())
+    print()
+    for line in body.split("\n"):
+        print(f"  {line}".rstrip())
+    # How many were read, always. Without it a short report is ambiguous
+    # between "two repos, quiet week" and "eight repos, six unreadable" —
+    # and the second is the one you need to act on.
+    print(f"\n  {len(paths)} repo(s) swept\n")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except Fail as e:
+        print(f"\n  ! {e}\n", file=sys.stderr)
+        sys.exit(1)

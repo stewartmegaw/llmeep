@@ -14,6 +14,7 @@ PLT-6pvp Present the repo for community contributions — README and GitHub setu
 
 ## recent
 
+2026-08-12  PLT-gpq8 Client installs are shown the maintainer-only sweep and offered to configure it  @stewart
 2026-08-12  PLT-tud8 The ontology move left core.md linking through a doubled llmeep/ path  @stewart
 2026-08-12  PLT-a92c An install too old to write feedback sweeps as a quiet one  @stewart
 2026-08-10  PLT-fnxy Trim the tm skill back under its context budget  @stewart
@@ -28,4 +29,3 @@ PLT-6pvp Present the repo for community contributions — README and GitHub setu
 2026-08-04  PLT-c4zq The taskman ontology is the file that actually fills context  @stewart
 2026-08-04  PLT-hmy5 Nothing tells an agent when to write a decision  @stewart
 2026-08-04  PLT-4jg2 Prune decisions by staleness, not by superseded status  @stewart
-2026-08-04  PLT-cajd Decisions need a find before they could ever be pruned  @stewart
