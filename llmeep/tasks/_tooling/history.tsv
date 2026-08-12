@@ -75,3 +75,4 @@
 2026-08-10	PLT-43mh	platform	Opt in at install time to send improvement feedback upstream	stewart
 2026-08-10	PLT-6tpx	platform	Sweep a defined set of repos for upstream feedback drafts	stewart
 2026-08-10	PLT-fnxy	platform	Trim the tm skill back under its context budget	stewart
+2026-08-12	PLT-a92c	platform	An install too old to write feedback sweeps as a quiet one	stewart

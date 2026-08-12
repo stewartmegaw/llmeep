@@ -471,6 +471,53 @@ class TestSweep(Fixture):
         self.assertIn("the standup should fire from a commit hook", out.stdout,
                       "the draft was dropped rather than paired with the decision")
 
+    def test_an_install_too_old_to_draft_is_not_read_as_quiet(self):
+        """`PLT-a92c`. Every install since long before this feature has a
+        `tasks/_tooling/tm`, so presence alone says nothing about whether a repo
+        *can* produce a draft. Read as quiet, the most likely breakage in the
+        whole pipe is the one that looks healthiest."""
+        tags = release_tags()
+        if not tags:
+            self.skipTest("no release tags in this checkout")
+        top = self.a_project(name="stale")
+        self.adopt(self.clone_tag(tags[0]), top)
+        out = self.sweep(self.adopted("mine"), top)
+        self.assertIn("too old", out.stdout)
+        self.assertNotIn("nothing drafted", out.stdout)
+
+    def test_a_repo_that_never_opted_in_says_so(self):
+        """The other half of the same defect, and the commoner one: current
+        llmeep, switch never touched. It can draft and never will, which is not
+        the same as having nothing to say."""
+        mine = self.adopted("mine")
+        off = self.adopted("off")
+        with open(os.path.join(self.install_root(off), ".env"), "w") as fh:
+            fh.write("NOTIFY=none\n")
+        out = self.sweep(mine, off)
+        self.assertIn("off there", out.stdout)
+
+    def test_a_repo_with_drafts_is_never_scolded_about_its_switch(self):
+        """Drafts are proof the repo can and did. Reporting the switch
+        underneath them would be telling someone to fix what just worked."""
+        mine = self.adopted("mine")
+        theirs = self.adopted("theirs", drafts=("something worth reading",))
+        with open(os.path.join(self.install_root(theirs), ".env"), "w") as fh:
+            fh.write("NOTIFY=none\n")
+        out = self.sweep(mine, theirs)
+        self.assertIn("something worth reading", out.stdout)
+        self.assertNotIn("off there", out.stdout)
+
+    def test_another_repos_env_never_reaches_this_process(self):
+        """The switch is read out of their `.env`; the rest of that file is
+        their notification channel and its token. Importing it would let a
+        sweep post through somebody else's bot."""
+        mine = self.adopted("mine")
+        theirs = self.adopted("theirs")
+        with open(os.path.join(self.install_root(theirs), ".env"), "w") as fh:
+            fh.write("NOTIFY=telegram\nTELEGRAM_BOT_TOKEN=not-ours\n")
+        out = self.sweep(mine, theirs)
+        self.assertNotIn("not-ours", out.stdout + out.stderr)
+
     def test_nothing_is_sent_without_asking(self):
         mine = self.adopted("mine")
         theirs = self.adopted("theirs", drafts=("something worth reading",))

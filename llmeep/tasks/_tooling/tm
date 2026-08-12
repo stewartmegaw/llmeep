@@ -2334,7 +2334,14 @@ def feedback_on():
     works in a plain clone of the skeleton, which has no manifest at all.
     """
     load_env()
-    return os.environ.get("FEEDBACK", "").strip().lower() in ("on", "1", "true", "yes")
+    return switched_on(os.environ.get("FEEDBACK"))
+
+
+# One reader for the switch, because the sweep asks the same question of other
+# repos' `.env` files. Two parsers would eventually disagree, and the direction
+# that hurts is a repo whose switch reads *on* here and *off* where it is used.
+def switched_on(value):
+    return (value or "").strip().lower() in ("on", "1", "true", "yes")
 
 
 def feedback_entries(path=None):
@@ -2462,6 +2469,51 @@ def install_root_of(top):
     return None
 
 
+# Read out of the target's own `tm`, rather than compared against the version
+# that introduced the command. A version comparison needs a release to exist
+# before it can be written and goes stale at every rename; asking the install
+# what it can do is true whatever it was cut from.
+FEEDBACK_CAPABILITY = "def cmd_feedback"
+
+
+def writes_feedback(root):
+    """Whether this install has the drafting half at all.
+
+    Fails closed. A probe that cannot read the file, or that misses because the
+    marker moved, reports *too old* — which sends someone to run `--update` on a
+    repo that did not need it. The opposite error is the one this whole task
+    exists to remove: an install that physically cannot produce a draft, read as
+    a repo with nothing to say (`PLT-a92c`).
+    """
+    try:
+        with open(os.path.join(root, "tasks", "_tooling", "tm")) as fh:
+            return FEEDBACK_CAPABILITY in fh.read()
+    except OSError:
+        return False
+
+
+def env_value(root, key):
+    """One key out of another install's `.env`, without importing the rest.
+
+    Deliberately not `load_env`: that populates this process's environment, and
+    pulling a second repo's `NOTIFY` and bot token into the sweeper would mean a
+    sweep could post through somebody else's channel. Nothing read here is ever
+    printed either — the file holds secrets, and only the switch is our business.
+    """
+    path = os.path.join(root, ".env")
+    if not os.path.isfile(path):
+        return None
+    with open(path) as fh:
+        for line in fh:
+            line = line.strip()
+            if line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            if k.strip() == key:
+                return v.strip().strip("'\"")
+    return None
+
+
 def sweep(paths=None):
     """(drafts, problems).
 
@@ -2481,7 +2533,19 @@ def sweep(paths=None):
         if root is None:
             problems.append((label, "no llmeep install found"))
             continue
-        for when, text in feedback_entries(os.path.join(root, FEEDBACK)):
+        entries = feedback_entries(os.path.join(root, FEEDBACK))
+        # Only when it has nothing to show. A repo that has already drafted
+        # something plainly can and did, and telling someone their switch is off
+        # underneath the drafts it just produced is worse than saying nothing.
+        if not entries:
+            if not writes_feedback(root):
+                problems.append((label, "llmeep too old to write feedback — "
+                                        "`./.llmeep --update` in that repo"))
+                continue
+            if not switched_on(env_value(root, "FEEDBACK")):
+                problems.append((label, "feedback is off there — nobody opted in"))
+                continue
+        for when, text in entries:
             drafts.append({"source": label, "when": when, "text": text})
     return drafts, problems
 

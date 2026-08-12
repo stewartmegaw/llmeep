@@ -14,6 +14,7 @@ PLT-6pvp Present the repo for community contributions — README and GitHub setu
 
 ## recent
 
+2026-08-12  PLT-a92c An install too old to write feedback sweeps as a quiet one  @stewart
 2026-08-10  PLT-fnxy Trim the tm skill back under its context budget  @stewart
 2026-08-10  PLT-6tpx Sweep a defined set of repos for upstream feedback drafts  @stewart
 2026-08-10  PLT-43mh Opt in at install time to send improvement feedback upstream  @stewart
@@ -28,4 +29,3 @@ PLT-6pvp Present the repo for community contributions — README and GitHub setu
 2026-08-04  PLT-4jg2 Prune decisions by staleness, not by superseded status  @stewart
 2026-08-04  PLT-cajd Decisions need a find before they could ever be pruned  @stewart
 2026-08-04  PLT-brek Test the install lifecycle, not just the records  @stewart
-2026-08-04  PLT-zud9 Updating a nested install splits ontology in two  @stewart

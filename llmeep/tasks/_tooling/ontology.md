@@ -663,15 +663,32 @@ tm feedback --sweep --send      # ...and posted to whatever NOTIFY names
 ```
 
 **Paths written down, never a scan of the disk.** A glob would be quicker to configure and would
-destroy the one distinction a sweep exists to make: it reports **four** states, and collapsing
-any pair of them makes a broken sweep look like a quiet week.
+destroy the one distinction a sweep exists to make. Collapsing any pair of these makes a broken
+sweep look like a quiet week:
 
 | State | Reads |
 | --- | --- |
 | Drafts found | the repo, a count, and each entry |
-| Installed, drafted nothing | `nothing drafted` — not a problem, and not silence |
+| Installed, opted in, drafted nothing | `nothing drafted` — not a problem, and not silence |
+| llmeep predates `tm feedback` | `! too old` — it *cannot* draft |
+| Switch never turned on | `! off there` — it can and never will |
 | Path listed, no longer on disk | `! not there` |
 | Path fine, no llmeep in it | `! no llmeep install found` |
+
+The middle two were a defect before they were a feature (`PLT-a92c`). Every install for months
+has had a `tasks/_tooling/tm`, so finding one says nothing about whether that repo *can* produce
+a draft — and read as quiet, the likeliest breakage in the pipe was the one that looked
+healthiest. Capability is read out of the target's own `tm`, not compared against the version
+that introduced the command: a version test needs a release before it can be written and goes
+stale at every rename, while asking an install what it can do is true whatever it was cut from.
+It fails closed, so a probe that misses sends you to update a repo that did not need it.
+
+**A repo with drafts is never told about its switch.** The drafts are proof it can and did;
+reporting the setting underneath them is telling someone to fix what just worked.
+
+Only the switch is read out of another repo's `.env`, into a local variable and never into this
+process's environment. That file also holds their notification channel and its token, and a
+sweep that imported them could post through somebody else's bot.
 
 It also prints how many repos it read, every time, so a short report cannot be misread as a
 quiet one. `--sweep` is not gated on `FEEDBACK`: that switch governs whether *this* checkout

@@ -172,8 +172,10 @@ llmeep/tasks/_tooling/tm feedback --sweep          # every draft, grouped by rep
 llmeep/tasks/_tooling/tm feedback --sweep --send   # ...and posted to your NOTIFY channel
 ```
 
-It reports a listed repo that has since been deleted, and one with no llmeep in it, as distinct
-from one that simply drafted nothing — a broken sweep must never read like a quiet week. A draft
+A broken sweep must never read like a quiet week, so it separates the ways a repo can produce
+nothing: deleted, no llmeep in it, an llmeep too old to have `tm feedback` at all, and a switch
+nobody ever turned on. Only a repo that is current, opted in and had nothing to say reports as
+quiet. A draft
 that appears to land on a decision you have already made is flagged rather than filtered, since
 an adopter re-proposing something settled is the most useful thing in the pile: `adopt` ships the
 principles and not the decisions, so they could not have known.
