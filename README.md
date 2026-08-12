@@ -498,7 +498,8 @@ python3 selftest                      # the install lifecycle still works
 git checkout release
 git rm -rq .                          # or a rename leaves the old paths behind
 git checkout main -- .
-git rm -q sweep                       # maintainer tooling; a greenfield clone takes the whole tree
+git rm -qf sweep                      # maintainer tooling; a greenfield clone takes the whole tree
+                                      # -f because the line above just staged it
 llmeep/tasks/_tooling/tm reset --yes --all   # --all drops this project's decisions too;
 llmeep/notes/_tooling/nm reset --yes         # a release is nobody's project yet
 git add -A
