@@ -3,7 +3,7 @@
 The whole of task tracking: vocabulary, format and operation, in one file.
 
 It lives here rather than in `ontology/core.md` because it describes one subsystem —
-[`ontology/core.md`](../../../ontology/core.md) explains the convention. The project-wide
+[`ontology/core.md`](../../ontology/core.md) explains the convention. The project-wide
 ontology holds only what cuts across subsystems.
 
 **Why any of this exists** — Jira friction, PRs with one developer, git as a database — is in
@@ -39,7 +39,7 @@ A tracked stream of work. There are exactly two.
 - **Identity:** the literal strings `platform` and `business`.
 - **Relates to:** has exactly one [Board](#board).
 - **Notes:** both share one structure, one lifecycle and one set of skills. The split is about
-  ownership and cadence, not mechanism — see [principle 5](../../../ontology/principles.md).
+  ownership and cadence, not mechanism — see [principle 5](../../ontology/principles.md).
 
 **Routing.** Code, infra, tooling, tests, tech debt and incident follow-ups are platform —
 including work on taskman itself. Pricing, positioning, contracts, hiring, vendor selection,
@@ -122,7 +122,7 @@ One file holds both the tasks and their order, so moving a line cannot create dr
 no second place for it to disagree with. The highest-frequency operation in the system
 therefore needs no tooling: **open the board, move the line.**
 
-This is a deliberate, bounded exemption from [principle 2](../../../ontology/principles.md).
+This is a deliberate, bounded exemption from [principle 2](../../ontology/principles.md).
 Anything with an invariant to break — allocating IDs, transitioning status, pruning — still
 goes through a skill.
 
@@ -224,7 +224,7 @@ of this ontology. It carries no guidance, because guidance you delete on every u
 The `recent` section of a Board: the last 15 completed Tasks, newest first.
 
 - **Notes:** the Board's bound. When a sixteenth completes, the oldest is **pruned** — out of
-  the working tree entirely. See [principle 6](../../../ontology/principles.md).
+  the working tree entirely. See [principle 6](../../ontology/principles.md).
 
 ## History
 
@@ -322,7 +322,7 @@ Moving a line between `in progress` and `prioritised` breaks no invariant, so by
 [reordering exemption](#reordering-is-a-hand-edit) it could be a hand edit. It is a command
 because **WIP-1 creates the need**: `go` refuses while something is in progress, so anyone switching
 tasks is pushed by the tool's own guard into editing the board — precisely what
-[principle 2](../../../ontology/principles.md) exists to prevent. A tool that forces you to break its
+[principle 2](../../ontology/principles.md) exists to prevent. A tool that forces you to break its
 own rule has to provide the way out.
 
 Nothing in `tm` blocks deleting a line, so **dropping stays a hand edit**. The test is not "is
@@ -338,7 +338,7 @@ restarts it immediately. `-n` for the case where it genuinely is still next.
 `add` defaults to `platform` and takes `-b` for business. It does **not** guess the ledger from
 the title.
 
-This is [principle 7](../../../ontology/principles.md) — judgement belongs to the agent, mechanism to
+This is [principle 7](../../ontology/principles.md) — judgement belongs to the agent, mechanism to
 the tool. The routing rule is written down under [Ledger](#ledger); an agent invoking `tm` has
 that rule and the surrounding context, so it classifies properly and passes `-b`. A script
 inferring intent from keywords would be unpredictable *and* unintelligent, and wrong silently.
@@ -356,7 +356,7 @@ and carries a header saying so:
 ```
 
 If an adapter contains behaviour, someone using a different agent gets a different system —
-the exact failure [principle 3](../../../ontology/principles.md) exists to prevent.
+the exact failure [principle 3](../../ontology/principles.md) exists to prevent.
 
 ### Discovery
 
@@ -434,6 +434,21 @@ Nothing parses the trailer at commit time. It is written so the commit is **self
 `find` resolves it later with `git log --grep="closes PLT-007"`. That is why no SHA is stored
 anywhere.
 
+### One commit per closed task, and why the next one waits
+
+**A closed task is committed before another is started.** `done` writes its board and history
+rows the moment it runs, so a second close landing on top of the first leaves both sets of
+records in one working tree **with no way to split them by file**. Recovering one commit per
+task from there means reverting work by hand to stage it — which is what happened on 2026-08-03,
+cutting llmeep's README title out and back in so that two trailers stayed honest.
+
+The tell is an uncommitted change to `history.tsv`: `done` is the only command that writes a row
+there. `board.md` is no use for this, since `add`, `go` and `park` all write it and a task merely
+filed is not a task waiting on a commit.
+
+Two tasks in one commit is not fatal — two trailers in one message is legal — but the link stops
+being one-to-one and the history gets harder to read back.
+
 > **If you are an agent: run `done` before committing, and include `closes <id>` in the
 > message** when the acceptance criteria are met. You have the sidecar and the diff at that
 > moment — that is where the judgement belongs, and doing it in this order is what keeps the
@@ -489,12 +504,16 @@ line or a mismatched frontmatter id, a decision rewritten in substance without b
 and a `closes` trailer naming nothing.
 
 **Warns** — a task still in progress after a commit, `platform/` changed with nothing in progress,
-new files under `platform/` while `ontology/domain/` is untouched, and commits that bypassed the
-checks.
+new files under `platform/` while the recorded domain ontology is untouched, and commits that
+bypassed the checks.
+
+The ontology path is the repo's, recorded in `.llmeep` by `tm ontology <path>`. Three states:
+a path is watched, `--none` is silence, and never-asked warns with the command that ends it.
+llmeep neither ships an ontology directory nor guesses where yours is (`DEC-031`, `DEC-032`).
 
 Checks read **records only**, never `platform/` source — the ontology-currency warning looks at
 which files were added, not what is in them. That is what keeps hooks working regardless of the
-language `platform/` is written in ([principle 3](../../../ontology/principles.md)).
+language `platform/` is written in ([principle 3](../../ontology/principles.md)).
 
 `--no-verify` skips `pre-commit` and `commit-msg` but **not** `post-commit`, so bypassing is
 noticed and appended to `.git/tm-bypassed`. Every later commit reports the standing count until
@@ -535,7 +554,7 @@ The agent translates intent into commands; the commands stay mechanical.
 "commit task"          →   tm done PLT-123  &&  git commit -m "…. closes PLT-123"
 ```
 
-This is [principle 7](../../../ontology/principles.md) again. The agent interprets; `tm` allocates IDs,
+This is [principle 7](../../ontology/principles.md) again. The agent interprets; `tm` allocates IDs,
 prunes to exactly 15 and appends rows — pure mechanism, where an off-by-one fails silently. An
 agent editing the board by hand would still be a hand edit.
 
@@ -562,6 +581,131 @@ are none** — a section that is usually absent gets read when it appears.
 **The residual gap:** free-form discussion invokes no skill and so triggers no search. Nothing
 mechanical covers that. If it proves to be where duplicated work starts,
 [`DEC-002`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-002-task-history-index.md) names the fix.
+
+---
+
+## Feedback to llmeep — off unless switched on
+
+llmeep is used on real projects by people who never open an issue about it, and whose agent
+knows exactly where it chafes: it has run these commands all week and worked around the gaps.
+This is how that gets written down. **It is off by default**, because what it turns on spends
+the adopter's tokens.
+
+**The switch is `FEEDBACK=on` in `.env`** — per-checkout and gitignored, so it is one person's
+choice about their own spend and never a decision made for a teammate. `tm feedback` refuses
+outright when it is off, so the gate is mechanical rather than a convention. **When it is off,
+nothing in this section happens at all**: no pass, no prompt, no cost.
+
+### The trigger is the agent, and there is no hook
+
+**After committing, when the switch is on, spend one short pass on this and nothing else.**
+It belongs where `tm done` already is — in the commit flow, run by whoever is committing.
+
+There is no git hook, and there will not be one. A hook cannot run a review; it is a shell
+script, and the judgement here is the whole point. A hook that merely *reminded* would print
+into commit output, which [`DEC-016`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-016-cron-schedules-the-standup.md)
+already established is the emptiest room available — most so when an agent is doing the
+committing. So the trigger cannot block, slow or fail a commit, because there is nothing on the
+commit path to fail.
+
+Nothing every time. Most commits produce no note, and a pass that always finds something is
+producing noise to justify itself.
+
+### What is worth writing
+
+You have llmeep's [principles](../../ontology/principles.md) to hand — `adopt` installs them —
+so a note can say which one the friction contradicts rather than offering an opinion about what
+a tracker should be. That shared standard is what makes a note from someone else's project
+usable upstream. In rough order of value:
+
+| Worth writing | Why |
+| --- | --- |
+| **Missing functionality** — a record needed changing and no command did it | [Principle 2](../../ontology/principles.md) makes this a defect by construction: no command means a gap in the tooling. An adopter hitting it is the only way anyone finds out |
+| **Machinery contradicting its own principles** — a command that made hand-editing the easier path, a check that pushed toward a prettier record over a parseable one | The most valuable of all, and the hardest to see from inside the project |
+| **Friction** — a command run twice, a convention worked around, a message read as an instruction when it was a note | Cheap to notice, cheap to fix |
+
+Not worth writing: a preference with no principle behind it, and anything that only makes sense
+in this one domain.
+
+### Never this project
+
+**A note is about llmeep's machinery and carries nothing from this repo** — no code, no file or
+function names, no domain terms, no task titles, no commit contents. This is a hard constraint,
+not a redaction step at the end: if the point cannot be made without naming something here, it
+does not get written.
+
+That is also the useful version. A suggestion phrased in someone else's domain is not actionable
+upstream, so "carries no private context" and "is worth receiving" turn out to be the same rule.
+
+```sh
+tm feedback "go printed the sidecar path but not its acceptance, so I opened the file to find it"
+tm feedback -          # multi-line, from stdin
+tm feedback            # what has been drafted, and whether the switch is on
+```
+
+Drafts land in `feedback.md` beside `.env`, **gitignored**. Nothing sends them and nothing
+schedules a send: no network, no credentials, no egress from a private repo. Reading them and
+passing them on is a person's act, and llmeep's own side of the collection is `PLT-6tpx`.
+
+Each entry is `## YYYY-MM-DD` and then the text. That shape is a contract, not a rendering
+choice — the sweep reads this file from outside the repo, and a format that drifts produces an
+empty sweep indistinguishable from having no feedback.
+
+### Reading them back
+
+The other half, and only useful if you maintain llmeep or a fork: drafts sit in whichever repo
+hit the friction, and their author has moved on. `FEEDBACK_REPOS` in `.env` lists the repos to
+collect from — `:`-separated, like `PATH`.
+
+```sh
+tm feedback --sweep             # every draft, grouped by repo
+tm feedback --sweep --send      # ...and posted to whatever NOTIFY names
+```
+
+**Paths written down, never a scan of the disk.** A glob would be quicker to configure and would
+destroy the one distinction a sweep exists to make. Collapsing any pair of these makes a broken
+sweep look like a quiet week:
+
+| State | Reads |
+| --- | --- |
+| Drafts found | the repo, a count, and each entry |
+| Installed, opted in, drafted nothing | `nothing drafted` — not a problem, and not silence |
+| llmeep predates `tm feedback` | `! too old` — it *cannot* draft |
+| Switch never turned on | `! off there` — it can and never will |
+| Path listed, no longer on disk | `! not there` |
+| Path fine, no llmeep in it | `! no llmeep install found` |
+
+The middle two were a defect before they were a feature (`PLT-a92c`). Every install for months
+has had a `tasks/_tooling/tm`, so finding one says nothing about whether that repo *can* produce
+a draft — and read as quiet, the likeliest breakage in the pipe was the one that looked
+healthiest. Capability is read out of the target's own `tm`, not compared against the version
+that introduced the command: a version test needs a release before it can be written and goes
+stale at every rename, while asking an install what it can do is true whatever it was cut from.
+It fails closed, so a probe that misses sends you to update a repo that did not need it.
+
+**A repo with drafts is never told about its switch.** The drafts are proof it can and did;
+reporting the setting underneath them is telling someone to fix what just worked.
+
+Only the switch is read out of another repo's `.env`, into a local variable and never into this
+process's environment. That file also holds their notification channel and its token, and a
+sweep that imported them could post through somebody else's bot.
+
+It also prints how many repos it read, every time, so a short report cannot be misread as a
+quiet one. `--sweep` is not gated on `FEEDBACK`: that switch governs whether *this* checkout
+writes drafts, and someone sweeping is reading other people's.
+
+**A draft that lands on an existing decision is surfaced, not filtered out.** The sweep scores
+each draft against decision *titles* and prints what it matched as `~ maybe DEC-000`. It never
+drops anything: an adopter re-proposing something settled is the most useful signal in the pile,
+because it means the decision never persuaded anyone or has stopped being true — and they cannot
+have known, since `adopt` ships the principles and not the decisions. The pairing is a hint for
+the person triaging and decides nothing.
+
+**Nothing sweeps on a schedule** (`DEC-016`, `DEC-017`). You run it when you sit down to work on
+llmeep. `blueprints/sweep.sh` is the unattended shape if you want one, run by nothing here.
+There is deliberately no `--cron` flag: the standup has one because the schedule is derived from
+`STANDUP_PERIOD` and matching them by hand is an easy mistake, and here there is nothing to
+derive.
 
 ---
 

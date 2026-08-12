@@ -27,7 +27,9 @@ Deliberately not wired into the pre-commit hook: it is the first slow thing
 here, and a slow hook gets bypassed, taking `check` with it.
 """
 
+import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -134,12 +136,35 @@ class Fixture(unittest.TestCase):
                 return os.path.join(top, candidate)
         return top
 
+    def manifest(self, top):
+        """`.llmeep`'s header, parsed the way anything reading an install has to
+        — out of the file, without running it."""
+        with open(os.path.join(top, ".llmeep")) as fh:
+            m = re.search(r"# llmeep:manifest[^\n]*\n(.*?)\n# llmeep:manifest-end",
+                          fh.read(), re.S)
+        self.assertIsNotNone(m, ".llmeep carries no manifest header")
+        return json.loads("\n".join(l.lstrip("# ") for l in m.group(1).split("\n")))
+
     def ontology_root(self, top):
-        """Where `ontology/` is *now*. Pre-`DEC-028` installs keep it inside the
-        install folder; the migration is what moves it to the repo root, so a
-        fixture cannot assume the answer before running one."""
+        """Where `ontology/` is *before* an update. Pre-`DEC-028` installs keep
+        it inside the install folder and later ones at the repo root, so a
+        fixture writing the adopter's own file cannot assume the answer.
+
+        Useless for asserting *afterwards*: `DEC-032` puts llmeep's ontology in
+        the install folder and leaves theirs wherever it was, so both candidates
+        exist and this cannot tell you whose is whose. Use `their_domain_file`.
+        """
         nested = os.path.join(self.install_root(top), "ontology")
         return nested if os.path.isdir(nested) else os.path.join(top, "ontology")
+
+    def their_domain_file(self, top):
+        """The adopter's own domain file, wherever the migration left it — which
+        is wherever it already was, that being the whole point."""
+        for base in (top, self.install_root(top)):
+            p = os.path.join(base, "ontology", "domain", "orders.md")
+            if os.path.isfile(p):
+                return p
+        return None
 
     def quieten(self, top):
         """No test may reach Telegram. `done` notifies, and a suite that posts to
@@ -164,20 +189,29 @@ class Fixture(unittest.TestCase):
                           ("nm check", self.nm(top, "check"))):
             self.assertEqual(out.returncode, 0, f"{name} failed:\n{out.stdout}\n{out.stderr}")
 
+    # llmeep's own ontology files, which since `DEC-032` belong under the
+    # install folder and nowhere else. Named rather than checking the directory,
+    # because a repo-root `ontology/` holding the *adopter's* files is correct
+    # and must not be mistaken for a duplicate.
+    OURS = ("principles.md", "core.md", "domain-ontology.md", "domain-template.md")
+
     def assert_no_duplicates(self, top):
         """Exactly one of each tree. The v28 update installed a second
-        `ontology/` at the root and orphaned the adopter's behind it."""
+        `ontology/` at the root and orphaned the adopter's behind it; `DEC-032`
+        then moved ours in for good, so the root copy is the one that must go."""
         root = self.install_root(top)
-        for tree in ("tasks", "notes", "decisions"):
+        for tree in ("tasks", "notes", "decisions", "ontology"):
             here = os.path.isdir(os.path.join(root, tree))
             there = root != top and os.path.isdir(os.path.join(top, tree))
             self.assertTrue(here, f"{tree}/ missing from the install")
-            self.assertFalse(there, f"{tree}/ exists at the root *and* in the install")
-        self.assertTrue(os.path.isdir(os.path.join(top, "ontology")),
-                        "ontology/ is not at the repo root")
-        if root != top:
-            self.assertFalse(os.path.isdir(os.path.join(root, "ontology")),
-                             "ontology/ exists at the root *and* in the install")
+            if tree != "ontology":
+                self.assertFalse(there, f"{tree}/ exists at the root *and* in the install")
+        for name in self.OURS:
+            self.assertTrue(os.path.isfile(os.path.join(root, "ontology", name)),
+                            f"ontology/{name} missing from the install")
+            if root != top:
+                self.assertFalse(os.path.isfile(os.path.join(top, "ontology", name)),
+                                 f"ontology/{name} is llmeep's and was left at the repo root")
 
     def assert_paths_resolve(self, top):
         """Everything that names a path names one that is there. An allowlist
@@ -234,8 +268,8 @@ class Fixture(unittest.TestCase):
             self.assertIn("A task that must survive", fh.read(), "the board lost a task")
         self.assertTrue(os.path.exists(os.path.join(root, "notes", "raw", "capture.md")),
                         "a raw capture was lost")
-        domain = os.path.join(top, "ontology", "domain", "orders.md")
-        self.assertTrue(os.path.exists(domain), "the adopter's own domain file was lost")
+        domain = self.their_domain_file(top)
+        self.assertIsNotNone(domain, "the adopter's own domain file was lost")
         with open(domain) as fh:
             self.assertIn("our own domain model", fh.read(),
                           "the adopter's domain file was overwritten")
@@ -287,6 +321,217 @@ class TestFreshInstall(Fixture):
             self.assertEqual(fh.read(), before)
         with open(app) as fh:
             self.assertEqual(fh.read(), "print('theirs')\n")
+
+
+class TestFeedback(Fixture):
+    """`DEC-033`. Every assertion here is about what an adopter who never asked
+    for this is protected from — a default that spends their tokens, and a file
+    about our tooling turning up in their history."""
+
+    def install(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        return top
+
+    def switch_on(self, top):
+        with open(os.path.join(self.install_root(top), ".env"), "a") as fh:
+            fh.write("FEEDBACK=on\n")
+
+    def drafts(self, top):
+        return os.path.join(self.install_root(top), "feedback.md")
+
+    def test_off_by_default_and_the_command_refuses(self):
+        """Off is not a suggestion. If `tm feedback` wrote while off, the switch
+        would be a convention an agent could miss, and what is behind it costs
+        the adopter money."""
+        top = self.install()
+        out = self.tm(top, "feedback")
+        self.assertEqual(out.returncode, 0)
+        self.assertIn("off", out.stdout)
+
+        out = self.tm(top, "feedback", "llmeep made me do this twice")
+        self.assertNotEqual(out.returncode, 0, "wrote a draft with the switch off")
+        self.assertFalse(os.path.exists(self.drafts(top)),
+                         "a repo that never opted in has a feedback file")
+
+    def test_on_writes_a_dated_entry(self):
+        """The `## YYYY-MM-DD` split is the contract `PLT-6tpx` reads from
+        outside the repo, so it is asserted rather than assumed."""
+        top = self.install()
+        self.switch_on(top)
+        self.assertEqual(self.tm(top, "feedback", "go hid the acceptance").returncode, 0)
+        with open(self.drafts(top)) as fh:
+            body = fh.read()
+        self.assertRegex(body, r"(?m)^## \d{4}-\d{2}-\d{2}$")
+        self.assertIn("go hid the acceptance", body)
+        self.assertIn("1 draft", self.tm(top, "feedback").stdout)
+
+    def test_drafts_never_enter_the_adopters_history(self):
+        """It is about our tooling, not their project. Committed, it would reach
+        a team it is not addressed to and then a remote."""
+        top = self.install()
+        self.switch_on(top)
+        self.tm(top, "feedback", "a note about llmeep")
+        self.assertEqual(
+            sh("git", "check-ignore", "-q",
+               os.path.relpath(self.drafts(top), top), cwd=top).returncode, 0,
+            "feedback.md is not gitignored in an adopted repo")
+
+    def test_nothing_reaches_the_commit_path(self):
+        """`DEC-033` puts the trigger in the agent, not a hook. A committing
+        adopter with the switch on must see no new gate and no new output."""
+        top = self.install()
+        self.switch_on(top)
+        self.tm(top, "feedback", "a note about llmeep")
+        sh("git", "add", "-A", cwd=top)
+        out = sh("git", "commit", "-m", "ordinary work", cwd=top)
+        self.assertEqual(out.returncode, 0,
+                         f"committing broke with feedback on:\n{out.stdout}\n{out.stderr}")
+        self.assertNotIn("feedback", (out.stdout + out.stderr).lower(),
+                         "the commit path grew feedback output")
+
+
+class TestSweep(Fixture):
+    """The collecting half of `DEC-033`. A draft is written where the friction
+    happened and sent by nobody, so everything here is about a maintainer being
+    able to read other people's repos back — and being told when they cannot."""
+
+    def adopted(self, name, *args, drafts=()):
+        top = self.a_project(name=name)
+        self.adopt(self.working_copy(), top, *args)
+        with open(os.path.join(self.install_root(top), ".env"), "w") as fh:
+            fh.write("NOTIFY=none\nFEEDBACK=on\n")
+        for text in drafts:
+            out = self.tm(top, "feedback", text)
+            self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        return top
+
+    def sweep(self, sweeper, *paths):
+        env = dict(os.environ, FEEDBACK_REPOS=":".join(paths), NOTIFY="none")
+        return sh(os.path.join(self.install_root(sweeper), "tasks", "_tooling", "tm"),
+                  "feedback", "--sweep", cwd=sweeper, env=env)
+
+    def test_reads_every_configured_repo_and_attributes_each_draft(self):
+        one = self.adopted("one", drafts=("the first thing that annoyed me",))
+        two = self.adopted("two", drafts=("the second thing", "and a third"))
+        out = self.sweep(one, one, two)
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertIn("the first thing that annoyed me", out.stdout)
+        self.assertIn("and a third", out.stdout)
+        self.assertIn("one (1)", out.stdout)
+        self.assertIn("two (2)", out.stdout)
+
+    def test_finds_a_nested_install_under_its_own_name(self):
+        """`--into ops` is a supported install, so the sweeper cannot assume
+        `llmeep/`. `.llmeep` records the folder; that is what it is for."""
+        theirs = self.adopted("theirs", "--into", "ops", drafts=("from a nested install",))
+        mine = self.adopted("mine")
+        self.assertIn("from a nested install", self.sweep(mine, theirs).stdout)
+
+    def test_a_path_that_is_gone_is_reported_not_skipped(self):
+        """The reason this is a list and not a glob. A pattern matching nothing
+        is indistinguishable from a repo you moved last week."""
+        mine = self.adopted("mine")
+        out = self.sweep(mine, self.path("no-such-repo"))
+        self.assertIn("no-such-repo", out.stdout)
+        self.assertIn("not there", out.stdout)
+
+    def test_a_repo_without_llmeep_is_reported_separately(self):
+        """Distinct from both *gone* and *quiet*: the path is fine and the
+        install is not there, which is a different thing to go and fix."""
+        mine = self.adopted("mine")
+        plain = self.a_project(name="plain")
+        out = self.sweep(mine, plain)
+        self.assertIn("no llmeep install", out.stdout)
+
+    def test_quiet_is_not_the_same_as_unreadable(self):
+        """An installed repo that drafted nothing contributes nothing and is
+        not a problem. If these read alike, a broken sweep looks like a quiet
+        week and nobody investigates."""
+        mine = self.adopted("mine")
+        quiet = self.adopted("quiet")
+        out = self.sweep(mine, quiet)
+        self.assertIn("nothing drafted", out.stdout)
+        self.assertNotIn("!", out.stdout)
+
+    def test_a_draft_landing_on_an_existing_decision_is_surfaced(self):
+        """The valuable case, not the discardable one: it means the decision
+        never persuaded anyone, or has stopped being true. Written against a
+        decision this test owns, so llmeep's real corpus can change freely."""
+        mine = self.adopted("mine")
+        theirs = self.adopted("theirs", drafts=("the standup should fire from a commit hook",))
+        with open(os.path.join(self.install_root(mine), "decisions",
+                               "DEC-001-scheduler.md"), "w") as fh:
+            fh.write("---\nid: DEC-001\ntitle: A scheduler triggers the standup,"
+                     " not a commit hook\nstatus: accepted\ndecided: 2026-08-01\n"
+                     "---\n\n# DEC-001\n")
+        out = self.sweep(mine, theirs)
+        self.assertIn("DEC-001", out.stdout)
+        self.assertIn("the standup should fire from a commit hook", out.stdout,
+                      "the draft was dropped rather than paired with the decision")
+
+    def test_an_install_too_old_to_draft_is_not_read_as_quiet(self):
+        """`PLT-a92c`. Every install since long before this feature has a
+        `tasks/_tooling/tm`, so presence alone says nothing about whether a repo
+        *can* produce a draft. Read as quiet, the most likely breakage in the
+        whole pipe is the one that looks healthiest."""
+        tags = release_tags()
+        if not tags:
+            self.skipTest("no release tags in this checkout")
+        top = self.a_project(name="stale")
+        self.adopt(self.clone_tag(tags[0]), top)
+        out = self.sweep(self.adopted("mine"), top)
+        self.assertIn("too old", out.stdout)
+        self.assertNotIn("nothing drafted", out.stdout)
+
+    def test_a_repo_that_never_opted_in_says_so(self):
+        """The other half of the same defect, and the commoner one: current
+        llmeep, switch never touched. It can draft and never will, which is not
+        the same as having nothing to say."""
+        mine = self.adopted("mine")
+        off = self.adopted("off")
+        with open(os.path.join(self.install_root(off), ".env"), "w") as fh:
+            fh.write("NOTIFY=none\n")
+        out = self.sweep(mine, off)
+        self.assertIn("off there", out.stdout)
+
+    def test_a_repo_with_drafts_is_never_scolded_about_its_switch(self):
+        """Drafts are proof the repo can and did. Reporting the switch
+        underneath them would be telling someone to fix what just worked."""
+        mine = self.adopted("mine")
+        theirs = self.adopted("theirs", drafts=("something worth reading",))
+        with open(os.path.join(self.install_root(theirs), ".env"), "w") as fh:
+            fh.write("NOTIFY=none\n")
+        out = self.sweep(mine, theirs)
+        self.assertIn("something worth reading", out.stdout)
+        self.assertNotIn("off there", out.stdout)
+
+    def test_another_repos_env_never_reaches_this_process(self):
+        """The switch is read out of their `.env`; the rest of that file is
+        their notification channel and its token. Importing it would let a
+        sweep post through somebody else's bot."""
+        mine = self.adopted("mine")
+        theirs = self.adopted("theirs")
+        with open(os.path.join(self.install_root(theirs), ".env"), "w") as fh:
+            fh.write("NOTIFY=telegram\nTELEGRAM_BOT_TOKEN=not-ours\n")
+        out = self.sweep(mine, theirs)
+        self.assertNotIn("not-ours", out.stdout + out.stderr)
+
+    def test_nothing_is_sent_without_asking(self):
+        mine = self.adopted("mine")
+        theirs = self.adopted("theirs", drafts=("something worth reading",))
+        self.assertIn("not sent", self.sweep(mine, theirs).stdout)
+
+    def test_no_configured_repos_is_an_error_not_an_empty_report(self):
+        """A sweep reading nothing must not look like a sweep finding nothing —
+        the blueprint runs unattended and that difference is the whole signal."""
+        mine = self.adopted("mine")
+        out = sh(os.path.join(self.install_root(mine), "tasks", "_tooling", "tm"),
+                 "feedback", "--sweep", cwd=mine,
+                 env=dict(os.environ, FEEDBACK_REPOS="", NOTIFY="none"))
+        self.assertNotEqual(out.returncode, 0)
+        self.assertIn("FEEDBACK_REPOS", out.stdout + out.stderr)
 
 
 class TestUpgrade(Fixture):
@@ -344,10 +589,62 @@ class TestUpgrade(Fixture):
         if PRE_DEC028 not in release_tags():
             self.skipTest(f"{PRE_DEC028} absent — nothing to migrate from")
         top, out = self.upgrade(PRE_DEC028, "--into", "ops")
-        self.assertFalse(os.path.isdir(os.path.join(top, "ops", "ontology")),
-                         "ontology/ was left in the install folder as well as the root")
-        self.assertTrue(os.path.exists(os.path.join(top, "ontology", "domain", "orders.md")),
-                        "the adopter's domain file did not come with the move")
+        for name in self.OURS:
+            self.assertTrue(os.path.isfile(os.path.join(top, "ops", "ontology", name)),
+                            f"ontology/{name} did not land in the install folder")
+
+    def test_upgrade_keeps_the_adopters_domain_files(self):
+        """The migration deletes llmeep's copies and reinstalls them one level
+        down. Everything it must *not* touch is the adopter's own model, which
+        for most repos is the only reason `ontology/` exists at all."""
+        for tag in self.tags:
+            with self.subTest(tag=tag):
+                top, _ = self.upgrade(tag)
+                theirs = self.their_domain_file(top)
+                self.assertIsNotNone(theirs,
+                                     "the adopter's domain file was moved or deleted")
+                with open(theirs) as fh:
+                    self.assertIn("our own domain model", fh.read(),
+                                  "the adopter's domain file was overwritten")
+
+    def test_upgrade_adds_ignore_rules_that_did_not_exist_at_install(self):
+        """A repo adopted before `DEC-033` has no rule for `feedback.md`. If the
+        update ships the feature without the rule, the first thing that happens
+        is our tooling's feedback committed into their history."""
+        top, _ = self.upgrade(self.tags[0])
+        self.assertEqual(
+            sh("git", "check-ignore", "-q", "llmeep/feedback.md", cwd=top).returncode, 0,
+            "an updated install does not ignore feedback.md")
+
+    def test_upgrade_records_where_their_ontology_is(self):
+        """Having found their files, the update must say so in `.llmeep` — or
+        `tm` keeps asking a question the repo has already answered."""
+        for tag in self.tags:
+            with self.subTest(tag=tag):
+                top, _ = self.upgrade(tag)
+                where = self.manifest(top).get("ontology")
+                self.assertIsNotNone(where, "the update recorded no ontology path")
+                # Asserted by what is *at* the path rather than by the string,
+                # which differs per layout and would only be restating the code.
+                self.assertTrue(
+                    os.path.isfile(os.path.join(top, where, "orders.md")),
+                    f"the recorded ontology {where} does not hold their model")
+
+    def test_upgrade_carries_a_recorded_ontology_forward(self):
+        """An update rewrites the manifest block wholesale. An answer the
+        adopter gave with `tm ontology` has to survive that, or every update
+        silently unsets it. Forced same-version reinstall, because the command
+        that records the answer only exists from this version on."""
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        out = self.tm(top, "ontology", "docs/model")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "commit", "-qm", "adopt", cwd=top)
+        self.adopt(self.working_copy(), top, "--update", "--force")
+        self.assertEqual(self.manifest(top).get("ontology"), "docs/model",
+                         "the update discarded the recorded ontology path")
 
     def test_dry_run_changes_nothing(self):
         """It must describe the same run without performing any of it."""
@@ -413,12 +710,20 @@ class TestUpgrade(Fixture):
         changes" — a test using it would assert the wrong thing. Found on a real
         repo whose `ontology/core.md` predated its adoption by two weeks
         (`PLT-s9ea`).
+
+        That original path stopped being reachable at `DEC-032`: llmeep's
+        ontology installs under the install folder now, so a repo-root
+        `ontology/core.md` collides with nothing. The mechanism is unchanged and
+        still has to hold, so this moved to `.claude/settings.json` — a managed
+        file that genuinely can pre-exist, being the one thing still installed at
+        the repo root.
         """
         top = self.a_project()
-        os.makedirs(os.path.join(top, "ontology"), exist_ok=True)
-        mine = os.path.join(top, "ontology", "core.md")
+        target = ".claude/settings.json"
+        mine = os.path.join(top, *target.split("/"))
+        os.makedirs(os.path.dirname(mine), exist_ok=True)
         with open(mine, "w") as fh:
-            fh.write("# Core ontology — theirs, not llmeep's\n")
+            fh.write('{"permissions": {"allow": ["Bash(theirs, not llmeep\'s)"]}}\n')
         self.git_init(top)
 
         src = self.working_copy()
@@ -429,24 +734,18 @@ class TestUpgrade(Fixture):
                           "adopt overwrote a file that was already there")
 
         import hashlib
-        import json as _json
-        import re as _re
-        text = open(os.path.join(top, ".llmeep")).read()
-        m = _re.search(r"# llmeep:manifest[^\n]*\n(.*?)\n# llmeep:manifest-end", text, _re.S)
-        recorded = _json.loads(
-            "\n".join(l.lstrip("# ") for l in m.group(1).split("\n")))["files"]
+        recorded = self.manifest(top)["files"]
 
         def sha16(path):
             with open(path, "rb") as fh:
                 return hashlib.sha256(fh.read()).hexdigest()[:16]
 
         self.assertNotEqual(
-            recorded.get("ontology/core.md"), sha16(mine),
+            recorded.get(target), sha16(mine),
             "the manifest records their file's checksum as ours — a later "
             "update will call it unmodified and replace it")
         self.assertEqual(
-            recorded.get("ontology/core.md"),
-            sha16(os.path.join(src, "ontology", "core.md")),
+            recorded.get(target), sha16(os.path.join(src, *target.split("/"))),
             "a kept file should record what llmeep ships, so it always "
             "compares as modified")
 

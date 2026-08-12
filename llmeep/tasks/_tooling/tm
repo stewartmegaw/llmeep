@@ -1702,18 +1702,84 @@ def platform_changes(*extra):
     return out
 
 
+MANIFEST = ".llmeep"
+MANIFEST_RE = re.compile(
+    r"# llmeep:manifest — rewritten by --update; do not edit\n(.*?)\n# llmeep:manifest-end",
+    re.S)
+
+
+def manifest(top):
+    """`.llmeep` carries what `adopt` installed as a commented JSON header. Read
+    by pattern rather than by running the script: inspecting an install and
+    trusting it should not be the same act.
+
+    Absent for a clone of the skeleton, which was never adopted into anything.
+    An empty dict is the honest answer there, not an error.
+    """
+    path = os.path.join(top, MANIFEST)
+    if not os.path.isfile(path):
+        return {}
+    with open(path) as fh:
+        m = MANIFEST_RE.search(fh.read())
+    if not m:
+        return {}
+    try:
+        return json.loads("\n".join(l.lstrip("# ") for l in m.group(1).split("\n")))
+    except json.JSONDecodeError:
+        return {}
+
+
+def ontology_path(top):
+    """Where this repo keeps its domain ontology, as `tm ontology` recorded it.
+
+    Three states, and the difference between the last two is the whole point:
+    a path means check it, `""` means they were asked and said no, and `None`
+    means nobody has ever been asked.
+    """
+    return manifest(top).get("ontology")
+
+
 def check_ontology_currency(rep, root):
     """New platform files suggest a new concept. Only *added* files are
     considered — warning on every modification would be noise, and a noisy hook
-    gets bypassed, taking every other check with it. Warns, never blocks."""
+    gets bypassed, taking every other check with it. Warns, never blocks.
+
+    Until `DEC-032` this checked a hardcoded `ontology/domain/` that `adopt`
+    created empty in every repo. In an adopted repo — where the platform *is*
+    the codebase — that fired on every commit adding a source file and could not
+    be satisfied except by writing an ontology nobody had asked for. llmeep's own
+    `platform/` is empty, so llmeep never saw its own noise (`PLT-8t5w`).
+
+    So the path is configured now, and an unconfigured repo gets asked once per
+    triggering commit rather than told off. Both messages name the command that
+    ends them, because a warning with no way to satisfy it is the one that
+    teaches people to pass `--no-verify`.
+    """
     added = platform_changes("--diff-filter=A")
     if not added:
         return
-    touched = git("diff", "--cached", "--name-only", "--", "ontology/domain/").split()
-    if touched:
+    top = (git("rev-parse", "--show-toplevel") or root).strip()
+    where = ontology_path(top)
+    if where == "":          # asked, declined. Never mention it again.
+        return
+    if where is None:
+        rep.warn(
+            f"{len(added)} new file(s) in the platform and no domain ontology is "
+            "recorded — `tm ontology <path>` to point at yours, or `tm ontology --none`"
+        )
+        return
+    if not os.path.exists(os.path.join(top, where)):
+        rep.warn(f"the recorded ontology {where} is not there — `tm ontology <path>` to fix it")
+        return
+    # `cwd=top`, not the default `REPO`. Output paths are toplevel-relative from
+    # anywhere, but a **pathspec** resolves against the working directory — so a
+    # recorded `ontology` matched `llmeep/ontology/` from the install folder and
+    # the check passed on llmeep's own files instead of theirs. Silently, which
+    # is the half that matters.
+    if git("diff", "--cached", "--name-only", "--", where, cwd=top).split():
         return
     rep.warn(
-        f"{len(added)} new file(s) in the platform but ontology/domain/ is unchanged — "
+        f"{len(added)} new file(s) in the platform but {where} is unchanged — "
         "add or update the concept if this introduced one"
     )
 
@@ -1967,8 +2033,10 @@ def check_telegram(send=False):
 # Directories the layout promises but git cannot carry, because git tracks no
 # empty directory. Each needs a `.gitkeep`, and each has gone missing from a cut
 # before now.
+# `ontology/domain` was here until `DEC-032`. There is no such directory now:
+# llmeep ships guidance on writing a domain ontology, not a hole to put one in.
 RELEASE_DIRS = [
-    "notes/raw", "tasks/platform/tasks", "tasks/business/tasks", "ontology/domain",
+    "notes/raw", "tasks/platform/tasks", "tasks/business/tasks",
 ]
 
 LINK_RE = re.compile(r"\]\((?!https?:|#|mailto:)([^)]+)\)")
@@ -2047,12 +2115,10 @@ def check_release(rep, root):
         if not os.path.exists(os.path.join(dec, "_template.md")):
             rep.error("decisions/_template.md is missing — `--all` keeps the template")
 
-    # `ontology/` stays at the repo root while the record trees live under the
-    # install folder, so these do not all resolve against the same base.
-    top = (git("rev-parse", "--show-toplevel") or root).strip()
+    # All under the install root since `DEC-032` — nothing llmeep ships lands at
+    # the repo root any more, so one base answers for every entry.
     for d in RELEASE_DIRS:
-        base = top if d.startswith("ontology/") else root
-        if not os.path.isdir(os.path.join(base, d)):
+        if not os.path.isdir(os.path.join(root, d)):
             rep.error(f"{d}/ is absent — git carries no empty directory; it needs a .gitkeep")
 
     for link in dead_links(root):
@@ -2150,6 +2216,9 @@ USAGE = """tm — taskman
   tm why --stale [--yes]        records nothing references; --yes prunes to a stub
   tm standup [--send]           report the period's work (--send posts it)
   tm standup --cron             the crontab line, if you schedule it
+  tm ontology [<path>|--none]   where your domain ontology lives, or that there is none
+  tm feedback [<text...>|-]     note what llmeep itself got wrong (opt-in, local, never sent)
+  tm feedback --sweep [--send]  read every configured repo's drafts back
 
   tm check [--staged]           validate records; used by hooks and CI
   tm check --context            what an agent carries, measured
@@ -2161,6 +2230,407 @@ Listing is reading the board; reordering is moving a line in it.
 Model: tasks/_tooling/ontology.md"""
 
 
+def write_ontology_path(top, value):
+    """Rewrite the one key inside `.llmeep`'s manifest header, leaving the rest
+    of the script untouched. `adopt --update` regenerates that block wholesale
+    and carries this key forward, so the two writers agree on the format without
+    sharing code — the alternative was `tm` importing the installer, which is a
+    dependency in the wrong direction (`DEC-003`)."""
+    path = os.path.join(top, MANIFEST)
+    if not os.path.isfile(path):
+        raise Fail(f"no {MANIFEST} here — this repo was not installed by `adopt`.\n"
+                   "  A clone of the skeleton has nothing to record it in.")
+    with open(path) as fh:
+        text = fh.read()
+    m = MANIFEST_RE.search(text)
+    if not m:
+        raise Fail(f"{MANIFEST} carries no manifest — is it a copy of `adopt`?")
+    doc = json.loads("\n".join(l.lstrip("# ") for l in m.group(1).split("\n")))
+    doc["ontology"] = value
+    body = json.dumps(doc, indent=2, sort_keys=True)
+    with open(path, "w") as fh:
+        fh.write(text[:m.start(1)] + "\n".join("# " + l for l in body.split("\n"))
+                 + text[m.end(1):])
+
+
+def cmd_ontology(args):
+    """Record where this repo's domain ontology lives, so the currency check has
+    something real to watch. llmeep never creates one and never guesses: an
+    ontology written before anyone knows the domain is the failure `DEC-031`
+    exists to prevent."""
+    top = (git("rev-parse", "--show-toplevel") or REPO).strip()
+    if not args:
+        where = ontology_path(top)
+        if where is None:
+            print("\n  no domain ontology recorded")
+            print("  `tm ontology <path>` to point at one, `tm ontology --none` to stop asking")
+            here = os.path.relpath(REPO, top)
+            print(f"  how to write one: {'' if here == '.' else here + '/'}"
+                  "ontology/domain-ontology.md\n")
+        elif where == "":
+            print("\n  no domain ontology, on purpose — `tm ontology <path>` changes that\n")
+        else:
+            missing = "" if os.path.exists(os.path.join(top, where)) else "  ! not found"
+            print(f"\n  {where}{missing}\n")
+        return
+    if args[0] == "--none":
+        write_ontology_path(top, "")
+        print("\n  recorded: no domain ontology. The currency check stays quiet.\n")
+        return
+    where = args[0].strip("/")
+    # Warn rather than refuse. Someone may well record the path first and write
+    # the ontology next, and refusing would make the tool the arbiter of an
+    # order that is theirs to choose.
+    note = "" if os.path.exists(os.path.join(top, where)) else \
+        "  ! nothing there yet — recorded anyway"
+    write_ontology_path(top, where)
+    print(f"\n  recorded: {where}{note}")
+    print("  commits that add platform files now warn when it has not moved with them\n")
+
+
+# ------------------------------------------------------------------- feedback
+#
+# The people best placed to say what llmeep is missing are using it on a real
+# project, and are the least likely to open an issue about it. Their agent knows
+# already: it has run these commands all week and worked around the gaps.
+#
+# Three constraints shape everything here, and all three are `DEC-033`:
+#
+#   - **Nothing sends.** A draft is a local file. No credential, no network, no
+#     surprise egress from a private repo.
+#   - **Nothing triggers.** The review is the agent's, described in the ontology,
+#     and there is no hook — a hook cannot run a review, and commit output
+#     reaches nobody anyway (`DEC-016`).
+#   - **Off is the default**, and `off` means this command refuses. The gate is
+#     mechanical rather than a convention, because what is behind it spends the
+#     adopter's tokens.
+
+FEEDBACK = "feedback.md"
+
+FEEDBACK_INTRO = """# Feedback for llmeep
+
+Notes on llmeep's own machinery — where it got in the way, what it is missing,
+where it contradicts its own principles. Written after a commit by whoever was
+working, and **never** about this project: no code, no domain, no task titles.
+
+Gitignored and local. Nothing sends these; read them and take upstream what is
+worth taking.
+"""
+
+FEEDBACK_ENTRY = re.compile(r"^## (\d{4}-\d{2}-\d{2})$", re.M)
+
+
+def feedback_path():
+    return os.path.join(REPO, FEEDBACK)
+
+
+def feedback_on():
+    """The switch is `FEEDBACK` in `.env`, and its default is off.
+
+    `.env` rather than `.llmeep` on purpose. The manifest is committed, so a
+    flag there would opt a whole team in on one person's say-so — and what it
+    turns on costs each of them tokens. `.env` is gitignored and per-checkout,
+    which is the right shape for a choice about someone's own spend. It also
+    works in a plain clone of the skeleton, which has no manifest at all.
+    """
+    load_env()
+    return switched_on(os.environ.get("FEEDBACK"))
+
+
+# One reader for the switch, because the sweep asks the same question of other
+# repos' `.env` files. Two parsers would eventually disagree, and the direction
+# that hurts is a repo whose switch reads *on* here and *off* where it is used.
+def switched_on(value):
+    return (value or "").strip().lower() in ("on", "1", "true", "yes")
+
+
+def feedback_entries(path=None):
+    """Every draft, newest last, as (date, text). The split is `## <date>` and
+    nothing else — the sweep reads this file from outside the repo, so the
+    format is a contract and a loose one costs a silent empty sweep.
+
+    Takes a path because the sweep reads other repos' files with the same
+    parser. One reader means the contract cannot drift between the side that
+    writes it and the side that depends on it."""
+    path = path or feedback_path()
+    if not os.path.isfile(path):
+        return []
+    with open(path) as fh:
+        text = fh.read()
+    parts = FEEDBACK_ENTRY.split(text)
+    return [(parts[i], parts[i + 1].strip()) for i in range(1, len(parts) - 1, 2)]
+
+
+def feedback_off_message():
+    where = os.path.relpath(os.path.join(REPO, ".env"), os.getcwd())
+    return ("feedback is off. It is opt-in because it spends your tokens:\n"
+            f"  a review pass after a commit, written by your agent.\n\n"
+            f"  Turn it on with `FEEDBACK=on` in {where} — see .env.example.\n"
+            "  Nothing is ever sent; drafts are a local, gitignored file.")
+
+
+def cmd_feedback(args):
+    """Append a note about llmeep, or show the ones already written.
+
+    The tool timestamps and appends. It does not judge what belongs here — that
+    is the agent's, working from the rubric in the ontology, and a script
+    guessing at it would be the failure `DEC-003` names (principle 7).
+    """
+    if "--sweep" in args:
+        return cmd_sweep([a for a in args if a != "--sweep"])
+    if args and args[0] == "-":
+        args = [sys.stdin.read()]
+    text = " ".join(args).strip() if args else ""
+
+    if not text:
+        entries = feedback_entries()
+        state = "on" if feedback_on() else "off"
+        print(f"\n  feedback: {state}")
+        if not feedback_on():
+            for line in feedback_off_message().split("\n"):
+                print(("  " + line).rstrip())
+            print()
+            return
+        if not entries:
+            print(f"  nothing drafted yet — {os.path.relpath(feedback_path(), os.getcwd())}\n")
+            return
+        print(f"  {len(entries)} draft(s) — {os.path.relpath(feedback_path(), os.getcwd())}\n")
+        for when, body in entries:
+            # A draft is free prose and often several lines; the list is an
+            # index to the file, so it gets one line each.
+            print(f"  {when}  {summarise(' '.join(body.split()))}")
+        print("\n  Nothing sends these. Read the file and take what is worth taking.\n")
+        return
+
+    if not feedback_on():
+        raise Fail(feedback_off_message())
+
+    path = feedback_path()
+    new = not os.path.isfile(path)
+    with open(path, "a") as fh:
+        if new:
+            fh.write(FEEDBACK_INTRO)
+        fh.write(f"\n## {date.today().isoformat()}\n\n{text}\n")
+    print(f"\n  noted — {os.path.relpath(path, os.getcwd())}")
+    print("  local and gitignored; nothing is sent.\n")
+
+
+# --------------------------------------------------------------------- sweep
+#
+# The collecting half of `DEC-033`. Drafts are written into whichever repo hit
+# the friction and nothing sends them, so without this they sit in repos their
+# author has moved on from. One command reads them all back.
+#
+# **Configuration, never discovery.** `FEEDBACK_REPOS` is a list of paths
+# someone wrote down. Scanning the disk for installs would be slower, would
+# surprise, and would make "that repo is gone" indistinguishable from "that repo
+# was never listed" — which is the one thing a sweep has to be able to say.
+
+FEEDBACK_REPOS = "FEEDBACK_REPOS"
+
+# Enough to keep an overlap score from being carried by grammar. Deliberately
+# short: this ranks a hint for a person, not a decision, so precision past this
+# point buys nothing anyone would act on differently.
+SWEEP_STOPWORDS = frozenset("""
+a an and are as at be been but by can could do does for from had has have how
+in into is it its not of on one or should so than that the their them then
+there these they this to too was were what when where which who why will with
+would you your it's llmeep tm
+""".split())
+
+SWEEP_MIN_OVERLAP = 2
+
+
+def sweep_paths():
+    """Absolute paths, `:`-separated like `PATH`, `~` expanded. Nothing is
+    globbed: a pattern that matches nothing looks identical to a pattern that
+    matched something now deleted, and reporting that difference is most of the
+    value here."""
+    load_env()
+    raw = os.environ.get(FEEDBACK_REPOS, "").strip()
+    return [os.path.expanduser(p.strip()) for p in raw.split(":") if p.strip()]
+
+
+def install_root_of(top):
+    """Where llmeep sits inside another repo, or None if it does not.
+
+    `.llmeep` records the folder, so an install under `--into ops` is found
+    without the sweeper having to remember what anyone called it. A repo with no
+    manifest — a clone of the skeleton rather than an adoption — gets the two
+    conventional places tried instead. Presence is `tasks/_tooling/tm`, not
+    `feedback.md`, so *no llmeep here* stays distinguishable from *nothing
+    drafted*.
+    """
+    into = manifest(top).get("into")
+    for c in ([into] if into is not None else ["llmeep", ""]):
+        root = os.path.join(top, c) if c else top
+        if os.path.isfile(os.path.join(root, "tasks", "_tooling", "tm")):
+            return root
+    return None
+
+
+# Read out of the target's own `tm`, rather than compared against the version
+# that introduced the command. A version comparison needs a release to exist
+# before it can be written and goes stale at every rename; asking the install
+# what it can do is true whatever it was cut from.
+FEEDBACK_CAPABILITY = "def cmd_feedback"
+
+
+def writes_feedback(root):
+    """Whether this install has the drafting half at all.
+
+    Fails closed. A probe that cannot read the file, or that misses because the
+    marker moved, reports *too old* — which sends someone to run `--update` on a
+    repo that did not need it. The opposite error is the one this whole task
+    exists to remove: an install that physically cannot produce a draft, read as
+    a repo with nothing to say (`PLT-a92c`).
+    """
+    try:
+        with open(os.path.join(root, "tasks", "_tooling", "tm")) as fh:
+            return FEEDBACK_CAPABILITY in fh.read()
+    except OSError:
+        return False
+
+
+def env_value(root, key):
+    """One key out of another install's `.env`, without importing the rest.
+
+    Deliberately not `load_env`: that populates this process's environment, and
+    pulling a second repo's `NOTIFY` and bot token into the sweeper would mean a
+    sweep could post through somebody else's channel. Nothing read here is ever
+    printed either — the file holds secrets, and only the switch is our business.
+    """
+    path = os.path.join(root, ".env")
+    if not os.path.isfile(path):
+        return None
+    with open(path) as fh:
+        for line in fh:
+            line = line.strip()
+            if line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            if k.strip() == key:
+                return v.strip().strip("'\"")
+    return None
+
+
+def sweep(paths=None):
+    """(drafts, problems).
+
+    A draft is `{source, when, text}` and carries no path, no repo layout and
+    nothing else a filesystem-shaped reader would supply. That is on purpose:
+    when these come from issues instead, only the loop above this changes and
+    everything below it — matching, rendering, sending — reads the same records.
+    """
+    drafts, problems = [], []
+    for top in paths if paths is not None else sweep_paths():
+        label = os.path.basename(top.rstrip("/")) or top
+        if not os.path.isdir(top):
+            problems.append((label, "not there — listed in "
+                                    f"{FEEDBACK_REPOS}, gone from the disk"))
+            continue
+        root = install_root_of(top)
+        if root is None:
+            problems.append((label, "no llmeep install found"))
+            continue
+        entries = feedback_entries(os.path.join(root, FEEDBACK))
+        # Only when it has nothing to show. A repo that has already drafted
+        # something plainly can and did, and telling someone their switch is off
+        # underneath the drafts it just produced is worse than saying nothing.
+        if not entries:
+            if not writes_feedback(root):
+                problems.append((label, "llmeep too old to write feedback — "
+                                        "`./.llmeep --update` in that repo"))
+                continue
+            if not switched_on(env_value(root, "FEEDBACK")):
+                problems.append((label, "feedback is off there — nobody opted in"))
+                continue
+        for when, text in entries:
+            drafts.append({"source": label, "when": when, "text": text})
+    return drafts, problems
+
+
+def words_of(text):
+    return {w for w in re.findall(r"[a-z]{3,}", text.lower()) if w not in SWEEP_STOPWORDS}
+
+
+def settled_by(text, all_decs):
+    """Decisions this draft may already have an answer in, best first.
+
+    Titles only. A decision's body argues at length and would match nearly
+    anything on vocabulary alone; its title is one sentence chosen to say what
+    was decided, which is the highest-signal text in the corpus.
+
+    This ranks a hint and decides nothing. A draft landing on an existing
+    decision is the valuable case, not the discardable one — it means the
+    decision never persuaded anyone, or has stopped being true — so the sweep
+    surfaces the pairing and leaves the judgement where it belongs.
+    """
+    have = words_of(text)
+    scored = []
+    for d in all_decs:
+        overlap = have & words_of(d["title"])
+        if len(overlap) >= SWEEP_MIN_OVERLAP:
+            scored.append((len(overlap), d))
+    scored.sort(key=lambda p: (-p[0], p[1]["id"]))
+    return [d for _, d in scored[:2]]
+
+
+def render_sweep(drafts, problems, all_decs):
+    out = []
+    for label in sorted({d["source"] for d in drafts}):
+        mine = [d for d in drafts if d["source"] == label]
+        out.append(f"{label} ({len(mine)})")
+        for d in mine:
+            out.append(f"  {d['when']}  {' '.join(d['text'].split())}")
+            for dec in settled_by(d["text"], all_decs):
+                out.append(f"            ~ maybe {dec['id']} — {dec['title']}")
+        out.append("")
+    for label, why in problems:
+        out.append(f"! {label}  {why}")
+    return "\n".join(out).rstrip()
+
+
+def cmd_sweep(args):
+    """Read every configured repo's drafts back. Never gated on `FEEDBACK`:
+    that switch says whether *this* checkout writes feedback, and the person
+    sweeping is collecting other people's."""
+    paths = sweep_paths()
+    if not paths:
+        raise Fail(f"no repos to sweep. Set {FEEDBACK_REPOS} in "
+                   f"{os.path.relpath(os.path.join(REPO, '.env'), os.getcwd())} to a "
+                   "`:`-separated\n  list of repo paths — see .env.example.")
+    drafts, problems = sweep(paths)
+    body = render_sweep(drafts, problems, decisions())
+    if not drafts and not problems:
+        print(f"\n  nothing drafted in {len(paths)} repo(s)\n")
+        return
+    print()
+    for line in body.split("\n"):
+        print(f"  {line}".rstrip())
+    # How many were read, always. Without it a short report is ambiguous
+    # between "two repos, quiet week" and "eight repos, six unreadable" —
+    # and the second is the one you need to act on.
+    print(f"\n  {len(paths)} repo(s) swept")
+    if not drafts:
+        print()
+        return
+    if "--send" not in args:
+        print("  not sent — add --send to post it\n")
+        return
+    # The same three outcomes `standup --send` distinguishes, and for the same
+    # reason: "no channel configured" is a settings answer and "the channel
+    # rejected it" is an incident, and one message for both sends you looking
+    # in the wrong place.
+    channel = notify_text(body)
+    if channel:
+        print(f"  sent via {channel}\n")
+    elif channel is None:
+        print("  ! not sent — no channel configured, see .env.example\n")
+    else:
+        print("  ! not sent — the channel rejected it; the reason is above\n")
+
+
 def main():
     argv = sys.argv[1:]
     if not argv or argv[0] in ("-h", "--help", "help"):
@@ -2170,7 +2640,8 @@ def main():
         "add": cmd_add, "go": cmd_go, "park": cmd_park,
         "prioritise": cmd_prioritise, "prioritize": cmd_prioritise,
         "done": cmd_done, "find": cmd_find, "why": cmd_why,
-        "standup": cmd_standup,
+        "standup": cmd_standup, "ontology": cmd_ontology,
+        "feedback": cmd_feedback,
         "check": cmd_check, "reset": cmd_reset,
     }
     cmd = commands.get(argv[0])
