@@ -25,7 +25,6 @@ llmeep/tasks/_tooling/tm standup [--send]           # the period's work; --send 
 llmeep/tasks/_tooling/tm standup --cron             # the crontab line, if scheduling it
 llmeep/tasks/_tooling/tm ontology [<path>|--none]   # where this repo's domain ontology lives
 llmeep/tasks/_tooling/tm feedback [<text>|-]        # note what llmeep got wrong; opt-in, never sent
-llmeep/tasks/_tooling/tm feedback --sweep [--send]  # read configured repos' drafts back (maintainers)
 
 llmeep/tasks/_tooling/tm check                      # validate records (hooks and CI call this)
 llmeep/tasks/_tooling/tm check --context            # what an agent carries, measured
@@ -266,9 +265,9 @@ on the line.
   user says the thing they just filed is next, that is `tm add -n` or a following
   `tm prioritise` — say which you used.
 - **Resolving a board merge conflict** follows the table in the ontology, not a textual merge.
-- **Nothing sends on your initiative.** `standup --send`, `feedback --sweep --send` and
-  `check --notify --send` each reach a whole team; add them only when asked. `--cron` prints a
-  line for an always-on machine, and scheduling it is the user's call.
+- **Nothing sends on your initiative.** `standup --send` and `check --notify --send` each reach
+  a whole team; add them only when asked. `--cron` prints a line for an always-on machine, and
+  scheduling it is the user's call.
 - **`tm check --release` runs inside a cut tree**, not here. Every condition it asserts was a
   defect that shipped before it existed.
 - **"no domain ontology is recorded" is a question for the user, not a job to do.** Ask where

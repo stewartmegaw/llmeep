@@ -49,6 +49,12 @@ FROM_TAGS = 2
 # drift away from it with every release and quietly stop testing it.
 PRE_DEC028 = "v26"
 
+# The last release with no `tm feedback` at all. Pinned for the same reason as
+# above: `release_tags()[0]` is now a release that *has* the command, so a test
+# reaching for "the newest tag" stopped exercising the too-old path the moment
+# v34 shipped — silently, and it did.
+PRE_FEEDBACK = "v33"
+
 
 def sh(*args, cwd=None, env=None, check=False):
     e = dict(os.environ, **(env or {}))
@@ -408,9 +414,12 @@ class TestSweep(Fixture):
         return top
 
     def sweep(self, sweeper, *paths):
+        """Always llmeep's own `./sweep`, never anything in the install — the
+        collecting half does not ship, which `test_the_sweep_never_ships`
+        asserts from the other direction."""
         env = dict(os.environ, FEEDBACK_REPOS=":".join(paths), NOTIFY="none")
-        return sh(os.path.join(self.install_root(sweeper), "tasks", "_tooling", "tm"),
-                  "feedback", "--sweep", cwd=sweeper, env=env)
+        return sh(sys.executable, os.path.join(self.working_copy(), "sweep"),
+                  cwd=sweeper, env=env)
 
     def test_reads_every_configured_repo_and_attributes_each_draft(self):
         one = self.adopted("one", drafts=("the first thing that annoyed me",))
@@ -461,7 +470,7 @@ class TestSweep(Fixture):
         decision this test owns, so llmeep's real corpus can change freely."""
         mine = self.adopted("mine")
         theirs = self.adopted("theirs", drafts=("the standup should fire from a commit hook",))
-        with open(os.path.join(self.install_root(mine), "decisions",
+        with open(os.path.join(self.working_copy(), "llmeep", "decisions",
                                "DEC-001-scheduler.md"), "w") as fh:
             fh.write("---\nid: DEC-001\ntitle: A scheduler triggers the standup,"
                      " not a commit hook\nstatus: accepted\ndecided: 2026-08-01\n"
@@ -476,11 +485,10 @@ class TestSweep(Fixture):
         `tasks/_tooling/tm`, so presence alone says nothing about whether a repo
         *can* produce a draft. Read as quiet, the most likely breakage in the
         whole pipe is the one that looks healthiest."""
-        tags = release_tags()
-        if not tags:
-            self.skipTest("no release tags in this checkout")
+        if PRE_FEEDBACK not in release_tags():
+            self.skipTest(f"{PRE_FEEDBACK} not in this checkout")
         top = self.a_project(name="stale")
-        self.adopt(self.clone_tag(tags[0]), top)
+        self.adopt(self.clone_tag(PRE_FEEDBACK), top)
         out = self.sweep(self.adopted("mine"), top)
         self.assertIn("too old", out.stdout)
         self.assertNotIn("nothing drafted", out.stdout)
@@ -518,18 +526,81 @@ class TestSweep(Fixture):
         out = self.sweep(mine, theirs)
         self.assertNotIn("not-ours", out.stdout + out.stderr)
 
-    def test_nothing_is_sent_without_asking(self):
+    def test_the_sweep_never_ships(self):
+        """`PLT-gpq8`, and the assertion that would have caught it. A client
+        project read the collecting half out of its own install and offered its
+        owner to point it at a fork — a feature addressed to us, surfacing in a
+        repo with no business knowing it exists."""
+        top = self.adopted("theirs")
+        for dirpath, dirnames, names in os.walk(top):
+            dirnames[:] = [d for d in dirnames if d != ".git"]
+            for n in names:
+                path = os.path.join(dirpath, n)
+                try:
+                    with open(path) as fh:
+                        body = fh.read()
+                except (OSError, UnicodeDecodeError):
+                    continue
+                for term in ("FEEDBACK_REPOS", "--sweep", "cmd_sweep"):
+                    self.assertNotIn(
+                        term, body,
+                        f"{os.path.relpath(path, top)} tells an adopter about "
+                        f"the collecting half ({term})")
+
+    def test_a_released_tree_carries_no_maintainer_tooling(self):
+        """`PLT-8fmj`. `adopt` copies a manifest, so the repo root never reaches
+        an adopting repo — but the documented greenfield path is
+        `clone && rm -rf .git` **of a release**, which hands over that whole
+        tree. Keeping the sweep out of the installer is only half of `DEC-034`.
+
+        Checked against what was actually published, not against `main`, where
+        the sweep belongs. The gate that prevents a bad cut is
+        `check --release`; this is the one that notices a bad cut got out."""
+        tags = release_tags()
+        if not tags:
+            self.skipTest("no release tags in this checkout")
+        top = self.greenfield(self.clone_tag(tags[0]))
+        self.assertFalse(
+            os.path.exists(os.path.join(top, "sweep")),
+            f"{tags[0]} ships the maintainer sweep at its root")
+
+    def test_the_release_check_refuses_a_tree_holding_the_sweep(self):
+        """The cut is the only place the two install paths differ, so it is the
+        only place this can be caught."""
+        top = self.greenfield(self.working_copy())
+        with open(os.path.join(top, "sweep"), "w") as fh:
+            fh.write("#!/usr/bin/env python3\n")
+        out = self.tm(top, "check", "--release")
+        self.assertNotEqual(out.returncode, 0, "the cut check passed with sweep present")
+        self.assertIn("sweep", out.stdout + out.stderr)
+
+    def test_the_sweep_has_no_transport_at_all(self):
+        """It prints. Sending went with the move — the notifier lives in `tm`,
+        and reaching it from here would mean either a second channel dispatcher
+        or a *post this text* command in the executable every client installs,
+        which is the surface this whole change removes."""
+        path = os.path.join(self.working_copy(), "sweep")
+        with open(path) as fh:
+            imports = [l.strip() for l in fh
+                       if l.startswith(("import ", "from ")) or "import " in l]
+        for line in imports:
+            for mod in ("urllib", "socket", "http", "smtplib", "requests"):
+                self.assertNotIn(mod, line,
+                                 f"the sweep imports {mod} — it grew a transport")
+        # And behaviourally: a flag it does not have must change nothing.
         mine = self.adopted("mine")
         theirs = self.adopted("theirs", drafts=("something worth reading",))
-        self.assertIn("not sent", self.sweep(mine, theirs).stdout)
+        env = dict(os.environ, FEEDBACK_REPOS=theirs, NOTIFY="none")
+        plain = sh(sys.executable, path, cwd=mine, env=env)
+        flagged = sh(sys.executable, path, "--send", cwd=mine, env=env)
+        self.assertEqual(plain.stdout, flagged.stdout)
 
     def test_no_configured_repos_is_an_error_not_an_empty_report(self):
         """A sweep reading nothing must not look like a sweep finding nothing —
         the blueprint runs unattended and that difference is the whole signal."""
         mine = self.adopted("mine")
-        out = sh(os.path.join(self.install_root(mine), "tasks", "_tooling", "tm"),
-                 "feedback", "--sweep", cwd=mine,
-                 env=dict(os.environ, FEEDBACK_REPOS="", NOTIFY="none"))
+        out = sh(sys.executable, os.path.join(self.working_copy(), "sweep"),
+                 cwd=mine, env=dict(os.environ, FEEDBACK_REPOS="", NOTIFY="none"))
         self.assertNotEqual(out.returncode, 0)
         self.assertIn("FEEDBACK_REPOS", out.stdout + out.stderr)
 

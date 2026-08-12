@@ -163,26 +163,6 @@ There is no git hook here and there will not be one. A hook cannot run a review,
 merely reminded would print into commit output, which nobody reads — least of all when the
 agent is doing the committing.
 
-**If you maintain llmeep or a fork of it**, the other end of the same pipe reads those drafts
-back out of every repo you have told it about. Set `FEEDBACK_REPOS` in `.env` to a `:`-separated
-list of repo paths — written down, not a scan of the disk:
-
-```sh
-llmeep/tasks/_tooling/tm feedback --sweep          # every draft, grouped by repo
-llmeep/tasks/_tooling/tm feedback --sweep --send   # ...and posted to your NOTIFY channel
-```
-
-A broken sweep must never read like a quiet week, so it separates the ways a repo can produce
-nothing: deleted, no llmeep in it, an llmeep too old to have `tm feedback` at all, and a switch
-nobody ever turned on. Only a repo that is current, opted in and had nothing to say reports as
-quiet. A draft
-that appears to land on a decision you have already made is flagged rather than filtered, since
-an adopter re-proposing something settled is the most useful thing in the pile: `adopt` ships the
-principles and not the decisions, so they could not have known.
-
-Nothing sweeps on a schedule. You run it when you sit down to work on the tooling;
-`llmeep/tasks/_tooling/blueprints/sweep.sh` is the unattended shape if you want one.
-
 ## Updating
 
 `adopt` installed `.llmeep` at the root of this repo. It is the installer itself, carrying the
@@ -488,6 +468,25 @@ Run it before a cut. It never touches this repo; every case builds a throwaway r
 directory. Deliberately not in the pre-commit hook — a slow hook gets bypassed, taking `check`
 with it.
 
+### Collecting feedback from the repos that use this
+
+`./sweep` reads drafts back out of every repo you list in `FEEDBACK_REPOS` — `:`-separated paths
+in `llmeep/.env`, written down rather than scanned for. It prints; nothing sends.
+
+**It lives at the root beside `adopt` and `selftest`, and it does not ship.** `adopt` walks
+`tasks/_tooling` and `notes/_tooling`, so nothing here reaches an adopting repo. That placement
+is the point: this was briefly `tm feedback --sweep`, which put a maintainer's tool into the
+shipped executable, its `--help`, the shipped `.env.example`, the shipped ontology and the
+shipped skill — and a client project's agent duly read it and offered to point their install at
+a fork (`DEC-034`). Adopters have the drafting half, and that is all they ever needed.
+
+A broken sweep must never read like a quiet week, so it separates the ways a repo can produce
+nothing: deleted, no llmeep in it, an llmeep too old to have `tm feedback` at all, and a switch
+nobody turned on. Only a repo that is current, opted in and had nothing to say reports as quiet.
+A draft that appears to land on a decision already made is flagged rather than filtered — an
+adopter re-proposing something settled is the most useful thing in the pile, since `adopt` ships
+the principles and not the decisions, so they could not have known.
+
 ### Cutting a version
 
 Release branches are **write-once — never merged back**, which is what keeps `board.md` and
@@ -499,6 +498,8 @@ python3 selftest                      # the install lifecycle still works
 git checkout release
 git rm -rq .                          # or a rename leaves the old paths behind
 git checkout main -- .
+git rm -qf sweep                      # maintainer tooling; a greenfield clone takes the whole tree
+                                      # -f because the line above just staged it
 llmeep/tasks/_tooling/tm reset --yes --all   # --all drops this project's decisions too;
 llmeep/notes/_tooling/nm reset --yes         # a release is nobody's project yet
 git add -A
