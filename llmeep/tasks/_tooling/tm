@@ -1028,18 +1028,26 @@ def cmd_prioritise(args):
 
 
 def cmd_park(args):
-    """in progress → backlog. The one transition the tool forces you into.
+    """**Step a task back one section.** `in progress` → `prioritised` →
+    `backlog`, and no further.
 
-    Moving a line between sections breaks no invariant, so by the reordering
-    exemption this could be a hand edit. It is a command because **WIP-1 creates
-    the need**: `go` refuses while something is in progress, so anyone switching
-    tasks is pushed by the tool's own guard into editing the board — exactly
-    what principle 2 exists to prevent. Nothing in `tm` blocks deleting a line,
-    which is why dropping stays a hand edit.
+    It was only the first of those until `DEC-036`. Demoting a ranked task had
+    no command at all, so saying "not next after all" meant editing `board.md` —
+    the one transition on the board with no verb behind it. A second word for it
+    was the obvious fix and the wrong one: *park* already means *set this
+    aside*, and setting aside something you ranked is the same act as setting
+    aside something you started, one rung lower.
 
-    Returns to the *bottom* by default: a parked task is usually one you could
-    not continue, and putting it back on top means the next bare `go` restarts
-    it. `-n` for the case where it really is still next.
+    **Which rung is read off the record, not guessed.** The section a line sits
+    in is written down and unambiguous, so this is dispatch on state rather than
+    inference of intent — the distinction `DEC-024` drew for `nm drop`
+    (principle 7).
+
+    Landing in `prioritised` it goes to the *bottom*: a parked task is usually
+    one you could not continue, and putting it back on top means the next bare
+    `go` restarts it. `-n` for the case where it really is still next. Landing
+    in the pool there is no top to ask for, and `-n` says so rather than being
+    quietly ignored (`DEC-027`).
     """
     top = "-n" in args
     rest = [a for a in args if a != "-n"]
@@ -1048,12 +1056,29 @@ def cmd_park(args):
         board = Board(ledger)
         if tid:
             task, bucket = board.find(tid)
-            if task and bucket is not board.in_progress:
-                raise Fail(f"{task.id} is not in progress")
+            if task and bucket is board.recent:
+                raise Fail(f"{task.id} is already done — `tm go {task.id}` reopens it")
+            if task and bucket is board.backlog:
+                raise Fail(f"{task.id} is already in the backlog, which is as far back as it goes")
         else:
-            task = board.in_progress[0] if board.in_progress else None
+            # A bare `park` is about the thing you are doing. It never reaches
+            # for a ranked task, because "park it" said out loud in front of a
+            # board means the one in progress.
+            task, bucket = (board.in_progress[0], board.in_progress) \
+                if board.in_progress else (None, None)
         if not task:
             continue
+        if bucket is board.prioritised:
+            if top:
+                raise Fail("the pool has no top — `-n` only means something landing in "
+                           "prioritised (`DEC-027`)")
+            board.prioritised.remove(task)
+            task.unassign()
+            board.backlog.append(task)
+            board.save()
+            print(f"  {task.id}  {task.title}")
+            print(f"  {ledger} · returned to the backlog, unranked")
+            return
         board.in_progress.remove(task)
         task.unassign()  # parked means available; assign again with `go`
         # Back to the queue, not the pool. Something you started was decided
@@ -1063,7 +1088,7 @@ def cmd_park(args):
         print(f"  {task.id}  {task.title}")
         print(f"  {ledger} · returned to {'top' if top else 'bottom'} of prioritised")
         return
-    raise Fail(f"no task {tid} in progress" if tid else "nothing in progress")
+    raise Fail(f"no task {tid} on either board" if tid else "nothing in progress")
 
 
 def cmd_done(args):

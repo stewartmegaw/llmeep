@@ -81,3 +81,4 @@
 2026-08-12	PLT-8fmj	platform	A greenfield clone gets the maintainer sweep at its root	stewart
 2026-08-17	PLT-9v2n	platform	Drop install-by-clone and make adopt the only way in	stewart
 2026-08-17	PLT-gx39	platform	The hint line offers two verbs that do not exist — discuss and drop	stewart
+2026-08-17	PLT-uwek	platform	Every status transition has a command except prioritised back to backlog	stewart

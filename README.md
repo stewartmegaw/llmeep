@@ -59,7 +59,7 @@ deliberately still ask.
 llmeep/tasks/_tooling/tm add Fix flaky auth test   # file it in the backlog; -b for business, -n prioritises
 llmeep/tasks/_tooling/tm prioritise PLT-9puy       # backlog → prioritised; -n for the top of the order
 llmeep/tasks/_tooling/tm go                        # start the next task, or show the one in progress
-llmeep/tasks/_tooling/tm park                      # put it back; unassigns it
+llmeep/tasks/_tooling/tm park                      # step it back one section; unassigns it
 llmeep/tasks/_tooling/tm done                      # complete the current task
 llmeep/tasks/_tooling/tm drop PLT-9puy             # remove one that should not have been filed
 llmeep/tasks/_tooling/tm find auth                 # search everything ever completed

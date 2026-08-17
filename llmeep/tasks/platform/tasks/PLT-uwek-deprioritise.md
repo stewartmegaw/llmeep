@@ -49,8 +49,25 @@ command, that is a gap in the tooling."
 
 ## Acceptance
 
-- [ ] One command moves a task from `prioritised` to `backlog`
-- [ ] No ordering flag, or a stated reason why the pool suddenly has a top
-- [ ] The ontology's transition table shows it, so the set of verbs is complete on the page that
+- [x] One command moves a task from `prioritised` to `backlog`
+- [x] No ordering flag, or a stated reason why the pool suddenly has a top
+- [x] The ontology's transition table shows it, so the set of verbs is complete on the page that
       defines them
-- [ ] A decision records the naming choice if `park` is overloaded rather than a verb added
+- [x] A decision records the naming choice if `park` is overloaded rather than a verb added
+
+## Log
+
+- 2026-08-17 — `park` overloaded rather than a new verb, per the open question. *Park* already
+  means *set this aside*, and setting aside something you ranked is the same act as setting aside
+  something you started, one rung lower. `DEC-036`.
+- 2026-08-17 — The ontology argued **against** this task and had to be answered rather than
+  ignored. Its test was *"does the tool leave you any other way?"* — `park` earned a command
+  because WIP-1 forces it, and demotion did not because nothing forces it. That test was written
+  for a person with an editor open. Handed five verbs and one hole, an agent learns that writing
+  to `board.md` is normal, and the next thing it hand-edits has an invariant behind it. The test
+  is now *"is this a transition a person asks for out loud?"*
+- 2026-08-17 — Same pass fixed a line that `tm drop` had falsified hours earlier: the ontology
+  still said *"dropping stays a hand edit"*. Two documents disagreeing about whether a shipped
+  command exists is worse than either answer.
+- 2026-08-17 — `-n` errors rather than being ignored when the landing is the pool. A flag that
+  silently does nothing teaches the wrong model of the board.

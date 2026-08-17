@@ -432,6 +432,69 @@ class TestFeedback(Fixture):
                          "the commit path grew feedback output")
 
 
+class TestPark(Fixture):
+    """`DEC-036`. Demoting a ranked task was the one board transition with no
+    verb, so it meant editing `board.md` — which for an agent is a lesson in
+    writing to the file directly."""
+
+    def a_repo(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        return top
+
+    def board(self, top):
+        with open(os.path.join(self.install_root(top),
+                               "tasks", "platform", "board.md")) as fh:
+            return fh.read()
+
+    def section(self, top, name):
+        body = self.board(top).split(f"## {name}")[1]
+        return body.split("##")[0]
+
+    def test_a_ranked_task_steps_back_to_the_pool(self):
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "ranked").stdout.strip()
+        self.assertIn(tid, self.section(top, "prioritised"))
+        out = self.tm(top, "park", tid)
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertIn(tid, self.section(top, "backlog"))
+        self.assertNotIn(tid, self.section(top, "prioritised"))
+
+    def test_a_started_task_still_steps_back_to_the_queue(self):
+        """One rung, not two. Something you started was decided work, and
+        dropping it to the pool would erase the ranking as well as the start."""
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "started").stdout.strip()
+        self.tm(top, "go", tid)
+        self.tm(top, "park", tid)
+        self.assertIn(tid, self.section(top, "prioritised"))
+
+    def test_the_pool_is_as_far_back_as_it_goes(self):
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "pooled").stdout.strip()
+        out = self.tm(top, "park", tid)
+        self.assertNotEqual(out.returncode, 0)
+        self.assertIn(tid, self.section(top, "backlog"))
+
+    def test_n_is_refused_when_the_landing_is_the_pool(self):
+        """The pool has no order (`DEC-027`), so a flag asking for its top has
+        to say so — silently ignoring it teaches the wrong model of the board."""
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "ranked").stdout.strip()
+        out = self.tm(top, "park", tid, "-n")
+        self.assertNotEqual(out.returncode, 0)
+        self.assertIn(tid, self.section(top, "prioritised"), "it moved despite refusing")
+
+    def test_a_bare_park_never_reaches_for_a_ranked_task(self):
+        """"Park it" in front of a board means the one in progress."""
+        top = self.a_repo()
+        ranked = self.tm(top, "add", "--id", "-n", "ranked").stdout.strip()
+        out = self.tm(top, "park")
+        self.assertNotEqual(out.returncode, 0, "a bare park demoted a ranked task")
+        self.assertIn(ranked, self.section(top, "prioritised"))
+
+
 class TestDrop(Fixture):
     """`PLT-gx39`. The board's hint line advertised `drop` for as long as it has
     existed and `tm` never had it, so the only way to unfile a task was editing

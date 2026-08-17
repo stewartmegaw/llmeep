@@ -266,7 +266,7 @@ step. See [`DEC-003`](https://github.com/stewartmegaw/llmeep/blob/main/decisions
 | `add`  | `tm add <title…>`    | Allocates the ID, files it in the `backlog` pool. `-n` prioritises it instead; `-f <name>` assigns. **Searches History.** |
 | `go`   | `tm go [id]`         | No id: shows what is in progress, or starts the top of `prioritised` if nothing is. With an id: starts that one, from either open section. **Searches History.** |
 | `prioritise` | `tm prioritise <id> [-n]` | `backlog` → `prioritised`, at the bottom (`-n` for the top). |
-| `park` | `tm park [id] [-n]`  | `in progress` → `prioritised`, at the bottom (`-n` for the top). Unassigns it. |
+| `park` | `tm park [id] [-n]`  | Steps a task back one section: `in progress` → `prioritised` (bottom, `-n` for the top), or `prioritised` → `backlog`. Unassigns it. A bare `park` always means the one in progress. |
 | `done` | `tm done [id]`       | Defaults to whatever is in progress. Moves to `recent`, prunes, appends to History, notifies. Run **before** committing. |
 | `drop` | `tm drop <id>`       | Removes a task that should not have been filed — the line and its sidecar. Writes **nothing** to History and sends nothing, because nothing happened. Acts immediately; the line it prints is the confirmation (`DEC-024`). |
 | `find` | `tm find <term>`     | Greps History explicitly.                                        |
@@ -317,22 +317,34 @@ context. Every other hand edit moves one line at a time.
 **Hand editing remains entirely valid**, and is still the right tool for reordering *within*
 `prioritised`, which has no command and needs none.
 
-### Why `park` is a command when reordering is not
+### Why every transition has a verb, and reordering still does not
 
-Moving a line between `in progress` and `prioritised` breaks no invariant, so by the
-[reordering exemption](#reordering-is-a-hand-edit) it could be a hand edit. It is a command
-because **WIP-1 creates the need**: `go` refuses while something is in progress, so anyone switching
-tasks is pushed by the tool's own guard into editing the board — precisely what
-[principle 2](../../ontology/principles.md) exists to prevent. A tool that forces you to break its
-own rule has to provide the way out.
+Moving a line between sections breaks no invariant, so by the
+[reordering exemption](#reordering-is-a-hand-edit) any of it could be a hand edit. The exemption
+survives for **reordering within a section** — the highest-frequency operation here, and one no
+tool improves on. It does not survive for **moving between sections**, and the reason is not
+that a transition is grander than a reordering. It is that this board is driven by an agent.
 
-Nothing in `tm` blocks deleting a line, so **dropping stays a hand edit**. The test is not "is
-it a status transition?" but "does the tool leave you any other way?"
+An agent has no editor and no muscle memory. Handed a set of verbs where five transitions are
+commands and one is "open the file and move the line", it learns that writing to `board.md` is
+a normal thing to do — and the next thing it hand-edits is one with an invariant behind it.
+That is the failure [principle 2](../../ontology/principles.md) exists to prevent, and a gap in
+the verb set is how it gets taught (`DEC-036`).
 
-`park` returns a task to the **bottom of `prioritised`**, not to the pool. Something you started
-was decided work; parking says "not now", not "never ranked this". Bottom by default — a parked
-task is usually one you could not continue, and putting it back on top means the next bare `go`
-restarts it immediately. `-n` for the case where it genuinely is still next.
+So the test used to be *"does the tool leave you any other way?"* and it is now *"is this a
+transition a person asks for out loud?"* Under the old test `park` qualified because WIP-1
+forced it, and demoting did not. Under the new one both qualify, and so does `drop`, which
+carries a sidecar and a `blocked:` tag with it and cannot be done correctly by hand at all.
+
+`park` **steps a task back one section** — `in progress` → `prioritised` → `backlog`, and no
+further. Which rung is read off the record rather than guessed: the section a line sits in is
+written down, so this is dispatch on state, not inference of intent (`DEC-024`, principle 7).
+
+Landing in `prioritised` it goes to the **bottom**. Something you started was decided work;
+parking says "not now", not "never ranked this", and putting it back on top means the next bare
+`go` restarts it immediately. `-n` for the case where it genuinely is still next. Landing in the
+pool there is no top to ask for, and `-n` says so rather than being quietly ignored
+(`DEC-027`).
 
 ### The tool does not classify
 

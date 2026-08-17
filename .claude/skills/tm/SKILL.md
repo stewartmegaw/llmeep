@@ -16,7 +16,7 @@ Run from the repo root:
 llmeep/tasks/_tooling/tm add [-b] [-n] <title...>   # -b business ledger, -n prioritise it
 llmeep/tasks/_tooling/tm go [id]                    # show the current task, or start the next one
 llmeep/tasks/_tooling/tm prioritise <id> [-n]       # backlog → prioritised, -n for the top
-llmeep/tasks/_tooling/tm park [id] [-n]             # return it to prioritised, unassigned
+llmeep/tasks/_tooling/tm park [id] [-n]             # step it back one section, unassigned
 llmeep/tasks/_tooling/tm done [id] [--force]        # complete it
 llmeep/tasks/_tooling/tm drop <id>                  # remove one that should not have been filed
 llmeep/tasks/_tooling/tm find <term>                # search every task ever completed
@@ -40,7 +40,8 @@ llmeep/tasks/_tooling/tm check --notify [--send]    # verify the notification ch
 | "let's start PLT-9puy" | `tm go PLT-9puy` |
 | "add a task for X" | `tm add X` — pass `-b` if the done-state is a business outcome |
 | "that's the next thing" / "move X up" | `tm prioritise <id>`, `-n` for the top |
-| "park that" / "I'm blocked on this" | `tm park` — returns it to `prioritised`, unassigned |
+| "park that" / "I'm blocked on this" | `tm park` — steps it back one section, unassigned |
+| "not next after all" / "deprioritise X" | `tm park <id>` — a ranked task steps back to the pool |
 | "what is sam working on" | `grep @sam llmeep/tasks/*/board.md` |
 | "give this to sam" | `tm add -f sam <title>`, or `tm go <id> -f sam` |
 | "commit task" / "that's done" | `tm done`, then `git commit` with `closes <id>` in the message |
@@ -273,9 +274,10 @@ on the line.
 - **Ask before starting a task on top of an uncommitted one** — see the rule above.
 - **Include `closes <id>`** in the commit message when acceptance is met. That trailer is the
   permanent link between task and commit — nothing else records it.
-- **Listing is reading `llmeep/tasks/<ledger>/board.md`. Reordering is moving a line in it.**
-  Neither is a command; do not invent one. `prioritise` is the exception, and only for
-  `backlog` → `prioritised` — reordering *within* `prioritised` is still a hand edit.
+- **Never write to `board.md` yourself.** Every move between sections has a verb — `add`,
+  `prioritise`, `go`, `park`, `done`, `drop` — so reaching for the file means you have the wrong
+  verb, not that the tool is missing one (`DEC-036`). Reordering *within* `prioritised` is the
+  one exception, and it is a hand edit by design.
 - **`tm add` files into the pool, not the queue.** A bare `tm go` will not pick it up. If the
   user says the thing they just filed is next, that is `tm add -n` or a following
   `tm prioritise` — say which you used.
