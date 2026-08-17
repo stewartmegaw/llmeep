@@ -5,15 +5,16 @@
 
 ## prioritised
 
-PLT-3wjv Board could use a per-person filter
 
 ## backlog
 
+PLT-3wjv Board could use a per-person filter
 PLT-fqcz An update that fails partway leaves a half-installed repo  filed:2026-08-04
 PLT-6pvp Present the repo for community contributions — README and GitHub setup  filed:2026-08-05
 PLT-9v2n Drop install-by-clone and make adopt the only way in  filed:2026-08-17  detail
 PLT-ehd6 Build a meeting agenda from tasks and notes, sendable to Telegram  filed:2026-08-17  detail
-PLT-gx39 The hint line offers a discuss verb that does not exist  filed:2026-08-17  detail
+PLT-gx39 The hint line offers two verbs that do not exist — discuss and drop  filed:2026-08-17  detail
+PLT-uwek Every status transition has a command except prioritised back to backlog  filed:2026-08-17  detail
 
 ## recent
 
