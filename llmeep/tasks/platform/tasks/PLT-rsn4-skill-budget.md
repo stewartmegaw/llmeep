@@ -30,11 +30,14 @@ It has crossed three times since, in one day:
 | `PLT-fnxy` closed | 3,671 |
 | `tm drop` + `discuss` | 3,884 |
 | `tm agenda` | 3,990 |
-| `tm agenda` reshaped (`PLT-s9e7`) | **4,031** |
+| `tm agenda` reshaped (`PLT-s9e7`) | 4,031 |
+| padding and hand-back (`PLT-ntec`) | **4,158** |
 
-Each time it was shaved back by compressing sentences, and the last round produced no real
-saving — 4,147 to 4,031 by rewording, which is where salami-slicing starts making a file worse
-rather than smaller. It is 31 tokens over and there is nothing obvious left to cut.
+Each time it was shaved back by compressing sentences, and the round on 2026-08-17 produced no
+real saving — 4,147 to 4,031 by rewording, which is where salami-slicing starts making a file
+worse rather than smaller. Shaving stopped there, and the next behaviour added 127 tokens on top
+of it. **It is now ~160 over and growing with the tool, which is the actual finding**: this is
+not a file that drifted, it is a file whose subject got bigger.
 
 ## The question to actually answer
 

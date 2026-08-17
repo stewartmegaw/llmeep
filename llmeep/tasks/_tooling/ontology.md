@@ -659,6 +659,30 @@ task id handed over on its own, a note plus a passing thought — all of it come
 with bullets under it. Nothing is passed through verbatim, because an agenda read aloud in a
 meeting wants one shape, not the shape each item happened to arrive in.
 
+### The records feed the agenda, and the agenda feeds them back
+
+**Pad each point from what already exists.** When someone names a topic, search for it — `tm find`
+over completed work, the boards for live tasks, `nm find` over every note captured, `tm why` over
+the decisions. Anything aligned becomes a bullet under that heading, so the meeting starts from
+what the project already knows instead of from memory.
+
+This is **not** the candidate list `PLT-s9e7` removed, and the difference is the direction. That
+list arrived unasked and framed the meeting around whatever the board happened to notice. This
+answers a topic a person raised. One proposes the agenda; the other researches it.
+
+**Then hand the gaps back.** An agenda is mostly questions, and a question that survives the
+writing of it is usually one of two things:
+
+| On the agenda | Offer to file |
+| --- | --- |
+| A question nobody can answer yet — a cost, a constraint, what a customer wants | a **note**, because it is context that will change a plan later |
+| Something that plainly has to be done, discovered while writing the agenda | a **task**, filed now rather than remembered |
+
+**Suggest; never file unasked.** The point of writing an agenda is to find out what you do not
+know, and turning every unknown into a record automatically buries the few that matter. The same
+judgement `nm` asks for when distilling a transcript: most of it does not survive, and the test
+is whether anyone would act differently for having read it.
+
 **The draft is not backed up, and that is accepted rather than solved.** `.notes/` is gitignored,
 local, and absent from a teammate's checkout. Everything else that lives there could be lost
 without losing information; an agenda cannot, because the thinking on it exists nowhere else.

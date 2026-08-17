@@ -15,6 +15,7 @@ PLT-rsn4 The tm skill outgrew its 4,000-token budget; every new command adds to 
 
 ## recent
 
+2026-08-17  PLT-ntec Agenda points should pull in aligned records, and hand unknowns back as tasks or notes  @stewart
 2026-08-17  PLT-s9e7 Agenda should be user-driven: create the draft, name the sources, list nothing  @stewart
 2026-08-17  PLT-ehd6 Build a meeting agenda from tasks and notes, sendable to Telegram  @stewart
 2026-08-17  PLT-uwek Every status transition has a command except prioritised back to backlog  @stewart
@@ -29,4 +30,3 @@ PLT-rsn4 The tm skill outgrew its 4,000-token budget; every new command adds to 
 2026-08-10  PLT-43mh Opt in at install time to send improvement feedback upstream  @stewart
 2026-08-06  PLT-8t5w Move llmeep's ontology under llmeep/ and make the project ontology a configured path  @stewart
 2026-08-06  PLT-eb7v Post-install ontology prompt reads as mandatory  @stewart
-2026-08-05  PLT-rg3w Pool lines sort by filing date but do not display it  @stewart

@@ -117,8 +117,15 @@ form** — pasted prose, a task id, a note plus a passing thought. Nothing goes 
     ## Next Steps
 
 **A section is a topic, not a record.** Most of an agenda corresponds to nothing in the repo —
-strategy, open questions — and an id goes in a bullet only when genuinely relevant. `Next Steps`
-stays last.
+strategy, open questions. `Next Steps` stays last.
+
+**Pad each point from what exists.** When they name a topic, search it — `tm find`, the boards,
+`nm find`, `tm why` — and put anything aligned in a bullet under that heading. Not the candidate
+list this replaced: that proposed topics unasked, this researches one they raised.
+
+**Then offer the gaps back.** A question nobody can answer yet is a note; something that plainly
+has to be done is a task. **Suggest, never file unasked** — turning every unknown into a record
+buries the few that matter.
 
 `--send` posts it under a dated heading, body as written — never unasked. A later `tm agenda`
 says `sent <date>`, and `edited since` if it moved on.
