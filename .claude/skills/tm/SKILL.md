@@ -119,13 +119,16 @@ form** — pasted prose, a task id, a note plus a passing thought. Nothing goes 
 **A section is a topic, not a record.** Most of an agenda corresponds to nothing in the repo —
 strategy, open questions. `Next Steps` stays last.
 
-**Pad each point from what exists.** When they name a topic, search it — `tm find`, the boards,
-`nm find`, `tm why` — and put anything aligned in a bullet under that heading. Not the candidate
-list this replaced: that proposed topics unasked, this researches one they raised.
+**Their words go in; what you find is offered.** Search each topic they raise — `tm find`, the
+boards, `nm find`, `tm why` — then name the aligned records **once per section** and wait for a
+yes. Nothing you found goes in unasked.
 
-**Then offer the gaps back.** A question nobody can answer yet is a note; something that plainly
-has to be done is a task. **Suggest, never file unasked** — turning every unknown into a record
-buries the few that matter.
+**Print the whole agenda after every change.** It goes out under their name and gets read aloud;
+nothing should reach the meeting they have not seen.
+
+**Offer the gaps back too.** A question nobody can answer yet is a note; something that plainly
+has to be done is a task. Never file unasked — turning every unknown into a record buries the
+few that matter.
 
 `--send` posts it under a dated heading, body as written — never unasked. A later `tm agenda`
 says `sent <date>`, and `edited since` if it moved on.

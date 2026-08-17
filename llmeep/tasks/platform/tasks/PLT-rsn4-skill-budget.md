@@ -31,7 +31,8 @@ It has crossed three times since, in one day:
 | `tm drop` + `discuss` | 3,884 |
 | `tm agenda` | 3,990 |
 | `tm agenda` reshaped (`PLT-s9e7`) | 4,031 |
-| padding and hand-back (`PLT-ntec`) | **4,158** |
+| padding and hand-back (`PLT-ntec`) | 4,158 |
+| offer-and-show (`PLT-4daz`) | **4,181** |
 
 Each time it was shaved back by compressing sentences, and the round on 2026-08-17 produced no
 real saving — 4,147 to 4,031 by rewording, which is where salami-slicing starts making a file

@@ -663,8 +663,18 @@ meeting wants one shape, not the shape each item happened to arrive in.
 
 **Pad each point from what already exists.** When someone names a topic, search for it — `tm find`
 over completed work, the boards for live tasks, `nm find` over every note captured, `tm why` over
-the decisions. Anything aligned becomes a bullet under that heading, so the meeting starts from
-what the project already knows instead of from memory.
+the decisions — so the meeting starts from what the project already knows instead of from memory.
+
+**Their words go in; what the search found is offered.** Aligned records are named once per
+section and wait for a yes. The asymmetry is deliberate and it is about who the agenda belongs
+to: it is posted under their name and read aloud to other people, so a bullet they did not write
+and did not notice is a different kind of mistake from one in a scratch file. Batched per
+section rather than per record, because a five-section agenda confirmed line by line is a
+conversation nobody finishes.
+
+**Print the whole agenda after every change.** Not a summary of what changed — the draft as it
+now stands. It is the only way the person sending it has actually seen what they are sending,
+and it costs nothing next to being surprised in front of colleagues.
 
 This is **not** the candidate list `PLT-s9e7` removed, and the difference is the direction. That
 list arrived unasked and framed the meeting around whatever the board happened to notice. This
