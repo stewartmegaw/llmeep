@@ -2231,7 +2231,7 @@ USAGE = """tm — taskman
          [--id]                 -n prioritises it, -f assigns; --id prints the id)
   tm go [id] [-f who]           show your current task, or start the next one
   tm prioritise <id> [-n]       backlog → prioritised (-n puts it on top)
-  tm park [id] [-n]             return it to prioritised (-n puts it on top)
+  tm park [id] [-n]             step it back one section (-n for the top of prioritised)
   tm done [id] [--force]        complete it, then commit with "closes <id>"
   tm drop <id>                  remove a task that should not have been filed
   tm find <term>                search every task ever completed

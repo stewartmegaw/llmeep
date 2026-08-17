@@ -607,6 +607,15 @@ class TestPark(Fixture):
         self.assertNotEqual(out.returncode, 0)
         self.assertIn(tid, self.section(top, "prioritised"), "it moved despite refusing")
 
+    def test_help_describes_what_park_actually_does(self):
+        """`PLT-43nz`. The usage line said "return it to prioritised" for a
+        release after `DEC-036` made it step back one section — the skill was
+        updated and `tm --help` was not, which is the copy a person reads."""
+        top = self.a_repo()
+        usage = self.tm(top, "--help").stdout
+        line = next(l for l in usage.split("\n") if l.strip().startswith("tm park"))
+        self.assertIn("step", line, f"--help still describes the old park: {line.strip()!r}")
+
     def test_a_bare_park_never_reaches_for_a_ranked_task(self):
         """"Park it" in front of a board means the one in progress."""
         top = self.a_repo()
