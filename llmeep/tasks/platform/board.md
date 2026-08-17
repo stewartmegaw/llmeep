@@ -11,10 +11,10 @@
 PLT-3wjv Board could use a per-person filter
 PLT-fqcz An update that fails partway leaves a half-installed repo  filed:2026-08-04
 PLT-6pvp Present the repo for community contributions — README and GitHub setup  filed:2026-08-05
-PLT-rsn4 The tm skill outgrew its 4,000-token budget; every new command adds to it  filed:2026-08-17  detail
 
 ## recent
 
+2026-08-17  PLT-rsn4 The tm skill outgrew its 4,000-token budget; every new command adds to it  @stewart
 2026-08-17  PLT-4daz Agenda: offer found records rather than adding them, and show the whole draft after every change  @stewart
 2026-08-17  PLT-ntec Agenda points should pull in aligned records, and hand unknowns back as tasks or notes  @stewart
 2026-08-17  PLT-s9e7 Agenda should be user-driven: create the draft, name the sources, list nothing  @stewart
@@ -29,4 +29,3 @@ PLT-rsn4 The tm skill outgrew its 4,000-token budget; every new command adds to 
 2026-08-10  PLT-fnxy Trim the tm skill back under its context budget  @stewart
 2026-08-10  PLT-6tpx Sweep a defined set of repos for upstream feedback drafts  @stewart
 2026-08-10  PLT-43mh Opt in at install time to send improvement feedback upstream  @stewart
-2026-08-06  PLT-8t5w Move llmeep's ontology under llmeep/ and make the project ontology a configured path  @stewart

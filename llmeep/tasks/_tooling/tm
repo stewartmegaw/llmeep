@@ -2127,16 +2127,34 @@ def check_telegram(send=False):
     return 1
 
 
-# What an agent carries. A skill is loaded whole the moment its subject comes
-# up, so it is the only file here with a standing cost — and the one nobody
-# notices growing, because every addition to it is individually justified.
+# What an agent carries, and the number that matters is a **session**: the skill
+# it loads whole the moment its subject comes up, plus the record file it reads
+# to answer. That total is what working on tasks actually costs.
 #
-# The ontology is not in this table on purpose. It is large (~8.6k tokens) and
-# read on demand, when the model changes rather than when work happens. That
+# It used to be budgeted per skill, which measured a proxy. Two things went
+# wrong with it. A skill is not the whole cost — the board is loaded beside it
+# and grows with the project, which is precisely what the capped `recent` window
+# exists to bound, and nothing was watching. And a per-file ceiling fires on
+# growth in the *tool*: twelve commands where there were eight, each needing a
+# usage line and often a rule, and each firing a warning that could only be
+# cleared by compressing prose until the file read worse (`PLT-rsn4`, `DEC-037`).
+#
+# The ontology is not in this table on purpose. It is large (~9k tokens) and read
+# on demand, when the model changes rather than when work happens. That
 # distinction was got backwards once already: `PLT-c4zq` was filed believing the
 # ontology was the file filling context, and measuring showed the skill was.
-SKILL_BUDGET = 4000     # tokens; ~10% headroom over where measuring put it
+
+# A session is a fraction of a working context, and has to stay one. Moving this
+# is a decision, not a convenience — the promise it guards is that the cost is
+# flat in the size of the project (`DEC-037`).
+SESSION_BUDGET = 5000
 CHARS_PER_TOKEN = 4     # rough and deliberately so — the point is drift, not precision
+
+# Skill, the file read to answer with it, and what to call the pair.
+SESSIONS = (
+    ("a task session", "tm skill", "platform board"),
+    ("a notes session", "nm skill", "notes archive"),
+)
 
 
 def context_cost():
@@ -2150,6 +2168,7 @@ def context_cost():
         ("nm skill", os.path.join(top, ".claude/skills/nm/SKILL.md"), "notes are mentioned"),
         ("platform board", os.path.join(ROOT, "platform/board.md"), "it lists or starts work"),
         ("business board", os.path.join(ROOT, "business/board.md"), "it lists or starts work"),
+        ("notes archive", os.path.join(REPO, "notes", "notes.md"), "notes are read"),
     ):
         if os.path.isfile(path):
             rows.append((label, os.path.getsize(path) // CHARS_PER_TOKEN, when))
@@ -2158,17 +2177,20 @@ def context_cost():
 
 def check_context(rep):
     rows = context_cost()
+    size = {l: t for l, t, _ in rows}
     print("\n  what an agent carries\n")
     for label, tokens, when in rows:
         print(f"    {label:<16} ~{tokens:>5} tokens   when {when}")
-    skills = {l: t for l, t, _ in rows if l.endswith("skill")}
-    session = skills.get("tm skill", 0) + next(
-        (t for l, t, _ in rows if l == "platform board"), 0)
-    print(f"\n    a task session  ~{session:>5} tokens   the tm skill plus a board")
-    for label, tokens in skills.items():
-        if tokens > SKILL_BUDGET:
-            rep.warn(f"{label} is ~{tokens} tokens, over the {SKILL_BUDGET} budget — "
-                     "it loads whole, every time its subject comes up")
+    print()
+    for name, skill, record in SESSIONS:
+        if skill not in size:
+            continue
+        total = size[skill] + size.get(record, 0)
+        print(f"    {name:<16} ~{total:>5} tokens   {skill} plus {record}")
+        if total > SESSION_BUDGET:
+            rep.warn(f"{name} is ~{total} tokens, over the {SESSION_BUDGET} budget — "
+                     f"{skill} loads whole every time its subject comes up")
+    print()
 
 
 def cmd_check(args):

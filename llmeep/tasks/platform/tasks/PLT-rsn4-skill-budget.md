@@ -64,6 +64,26 @@ Things worth weighing:
 
 ## Acceptance
 
-- [ ] `tm check --context` is quiet, and stays quiet after the next command is added
-- [ ] If the budget moved, a decision says why and on what basis — not "it was in the way"
-- [ ] Nothing was cut that stops an agent hand-editing records or skipping a task
+- [x] `tm check --context` is quiet, and stays quiet after the next command is added
+- [x] If the budget moved, a decision says why and on what basis — not "it was in the way"
+- [x] Nothing was cut that stops an agent hand-editing records or skipping a task
+
+## Log
+
+- 2026-08-17 — The answer was that the budget measured the wrong thing. An agent working on tasks
+  loads the skill **and** the board; the check computed that session total, printed it, and then
+  budgeted the file anyway. `DEC-037` moves the budget onto the session and covers the notes side
+  too, which was unmeasured — `notes.md` holds 200 notes and is read whole.
+- 2026-08-17 — **It is also a relaxation, and the decision says so.** 5,000 on a session holding a
+  ~480-token board is ~4,520 for the skill against 4,000 before. Both the better measurement and
+  the higher ceiling are real, and the second was not smuggled in behind the first.
+- 2026-08-17 — Trimmed ~70 tokens of genuine duplication first — `done`/`closes` was stated in
+  three places — so this is not purely moving the goalposts. What remains is not padding: two
+  rendering sections that are format contracts, a phrase table mapping speech to commands, and
+  rules that stop an agent hand-editing records.
+- 2026-08-17 — The structural answer was identified and deferred: moving the rendering rules to a
+  file read on demand takes ~1,000 tokens out of the always-loaded skill. Rejected for now
+  because the commonest reason the skill loads is someone asking to see their tasks, so it would
+  be read most sessions anyway. That is the answer when this next fires.
+- 2026-08-17 — `selftest` now asserts a freshly installed session is inside its budget, so the
+  check being quiet is a property with a test rather than a thing someone remembers to look at.

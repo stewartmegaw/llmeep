@@ -45,14 +45,13 @@ llmeep/tasks/_tooling/tm check --notify [--send]    # verify the notification ch
 | "not next after all" / "deprioritise X" | `tm park <id>` — a ranked task steps back to the pool |
 | "what is sam working on" | `grep @sam llmeep/tasks/*/board.md` |
 | "give this to sam" | `tm add -f sam <title>`, or `tm go <id> -f sam` |
-| "commit task" / "that's done" | `tm done`, then `git commit` with `closes <id>` in the message |
+| "commit task" / "that's done" | `tm done`, then commit with `closes <id>` |
 | "drop that" / "we're not doing that" | `tm drop <id>` — removes the line, writes no history |
 | "let's discuss PLT-9puy" / "that title is vague" | talk it over; record the outcome with the ordinary verbs |
 | "have we done this before" | `tm find <term>` |
 | "why is it like this" / "what did we decide about X" | `tm why <term>`, then `tm why DEC-000` |
 | "can we tidy the decisions" | `tm why --stale` — **without** `--yes`. Unreferenced is not finished with; the subject test is the user's |
 | "what did we get done this week" / "standup" | `tm standup` — **without** `--send` unless they ask to post it |
-| "agenda for tomorrow" / "what do we need to cover" | `tm agenda`, then **write the draft yourself** — see below |
 | "schedule the standup" / "how do I automate this" | `tm standup --cron`, and point at `llmeep/tasks/_tooling/blueprints/standup.sh` |
 | "is the Telegram bot set up" / "post to the group instead" | `tm check --notify` — it lists every chat the bot can see; add `--send` only if they want a test message |
 | "our domain model is in docs/" / a commit says no ontology is recorded | `tm ontology <path>`, or `--none` |
@@ -299,10 +298,8 @@ on the line.
 
 - **You classify, the tool does not.** `add` always assumes the platform ledger. Decide from
   the routing rule in `llmeep/tasks/_tooling/ontology.md` and pass `-b` yourself (principle 7).
-- **Run `done` before committing**, so the board, history and code land in one commit.
-- **Ask before starting a task on top of an uncommitted one** — see the rule above.
-- **Include `closes <id>`** in the commit message when acceptance is met. That trailer is the
-  permanent link between task and commit — nothing else records it.
+- **Run `done` before committing**, and put `closes <id>` in the message when acceptance is met.
+  Board, history and code land together, and that trailer is the only record linking the two.
 - **Never write to `board.md` yourself.** Every move between sections has a verb — `add`,
   `prioritise`, `go`, `park`, `done`, `drop` — so reaching for the file means you have the wrong
   verb, not that the tool is missing one (`DEC-036`). Reordering *within* `prioritised` is the

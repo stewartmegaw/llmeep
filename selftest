@@ -351,6 +351,21 @@ class TestFreshInstall(Fixture):
         self.assert_tooling_runs(top)
         self.assert_paths_resolve(top)
 
+    def test_a_session_fits_its_context_budget(self):
+        """`DEC-037`. The check is only worth having if it is quiet when things
+        are fine — a warning that is always on is one nobody reads. Run against
+        a fresh install, whose board is empty, so this measures the shipped
+        skills rather than llmeep's own backlog."""
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        out = self.tm(top, "check", "--context")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertNotIn("over the", out.stdout + out.stderr,
+                         "a freshly installed session is already over budget")
+        for expected in ("a task session", "a notes session"):
+            self.assertIn(expected, out.stdout, f"{expected} is not measured")
+
     def test_their_code_and_readme_are_untouched(self):
         top = self.a_project()
         readme, app = os.path.join(top, "README.md"), os.path.join(top, "src", "app.py")
