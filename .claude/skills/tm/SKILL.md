@@ -103,11 +103,11 @@ needs one, do not write it. Rubric: `llmeep/tasks/_tooling/ontology.md`.
 
 ## Building an agenda
 
-`tm agenda` creates the draft and says so. **Then stop** — no listing, no suggestions, no
-summary of what is outstanding. They have `tasks`, `notes` and `tm why` for looking things up.
+`tm agenda` creates the draft and says so. **Then stop** — no listing, no suggestions. They have
+`tasks`, `notes` and `tm why` for looking things up.
 
-**You write `llmeep/.notes/agenda.md`** as they talk. Numbered sections, prose bullets,
-`Next Steps` always last:
+**You write `llmeep/.notes/agenda.md`** as they talk, and **everything is reshaped into this
+form** — pasted prose, a task id, a note plus a passing thought. Nothing goes in verbatim.
 
     ## 1. Injury Database – Value?
 
@@ -117,9 +117,10 @@ summary of what is outstanding. They have `tasks`, `notes` and `tm why` for look
     ## Next Steps
 
 **A section is a topic, not a record.** Most of an agenda corresponds to nothing in the repo —
-strategy, open questions — and an id goes in a bullet only when genuinely relevant.
+strategy, open questions — and an id goes in a bullet only when genuinely relevant. `Next Steps`
+stays last.
 
-`--send` posts it under a dated heading, body as written. Never unasked. A later `tm agenda`
+`--send` posts it under a dated heading, body as written — never unasked. A later `tm agenda`
 says `sent <date>`, and `edited since` if it moved on.
 
 ## `discuss` is yours, `drop` is the tool's

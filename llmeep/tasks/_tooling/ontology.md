@@ -654,6 +654,11 @@ conversation goes:
 **A section is a topic, not a record.** A task or note id appears in a bullet when it is
 relevant, and often nothing does.
 
+**Everything is reshaped into that form.** Pasted prose that already had its own formatting, a
+task id handed over on its own, a note plus a passing thought — all of it comes out as a heading
+with bullets under it. Nothing is passed through verbatim, because an agenda read aloud in a
+meeting wants one shape, not the shape each item happened to arrive in.
+
 **The draft is not backed up, and that is accepted rather than solved.** `.notes/` is gitignored,
 local, and absent from a teammate's checkout. Everything else that lives there could be lost
 without losing information; an agenda cannot, because the thinking on it exists nowhere else.
