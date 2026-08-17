@@ -12,11 +12,11 @@ PLT-3wjv Board could use a per-person filter
 PLT-fqcz An update that fails partway leaves a half-installed repo  filed:2026-08-04
 PLT-6pvp Present the repo for community contributions — README and GitHub setup  filed:2026-08-05
 PLT-ehd6 Build a meeting agenda from tasks and notes, sendable to Telegram  filed:2026-08-17  detail
-PLT-gx39 The hint line offers two verbs that do not exist — discuss and drop  filed:2026-08-17  detail
 PLT-uwek Every status transition has a command except prioritised back to backlog  filed:2026-08-17  detail
 
 ## recent
 
+2026-08-17  PLT-gx39 The hint line offers two verbs that do not exist — discuss and drop  @stewart
 2026-08-17  PLT-9v2n Drop install-by-clone and make adopt the only way in  @stewart
 2026-08-12  PLT-8fmj A greenfield clone gets the maintainer sweep at its root  @stewart
 2026-08-12  PLT-gpq8 Client installs are shown the maintainer-only sweep and offered to configure it  @stewart
@@ -31,4 +31,3 @@ PLT-uwek Every status transition has a command except prioritised back to backlo
 2026-08-04  PLT-947q Order the pool by filing date when listing it  @stewart
 2026-08-04  PLT-a4ej Board listings should show the filed date on backlog lines  @stewart
 2026-08-04  PLT-s9ea A kept file is overwritten by the next update  @stewart
-2026-08-04  PLT-c4zq The taskman ontology is the file that actually fills context  @stewart

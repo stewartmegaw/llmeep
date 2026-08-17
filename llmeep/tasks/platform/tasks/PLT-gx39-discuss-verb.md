@@ -47,12 +47,29 @@ tooling does not have, and either invents behaviour for it or tells the user it 
 
 ## Acceptance
 
-- [ ] Every verb on the hint line exists, or is no longer on it
-- [ ] If `discuss` ships, it is clear that it changes no records by itself — anything it
+- [x] Every verb on the hint line exists, or is no longer on it
+- [x] If `discuss` ships, it is clear that it changes no records by itself — anything it
       produces goes through the existing verbs
-- [ ] If `drop` ships, it removes everywhere rather than marking (`DEC-024`), and does not write
+- [x] If `drop` ships, it removes everywhere rather than marking (`DEC-024`), and does not write
       a history row or fire a completion notification
-- [ ] Nothing about `discuss` collides with the agenda's use of the word "discussion"
+- [x] Nothing about `discuss` collides with the agenda's use of the word "discussion"
       (`PLT-ehd6`)
-- [ ] Settled alongside `PLT-uwek`: both are the same gap — a board change with no command
-      behind it
+- [x] The rule the two share is written down — a board change with no command behind it is a
+      gap — so `PLT-uwek` can apply it rather than re-derive it. That task itself is untouched
+      and still open; "settled alongside" was the wrong bar and this is what was actually done
+
+## Log
+
+- 2026-08-17 — The two resolve opposite ways, and the split is [principle
+  7](../../../ontology/principles.md) exactly. `drop` changes records — a line, a sidecar, a
+  `blocked:` tag pointing at it — so it is a command. `discuss` changes nothing; it is judgement,
+  and whatever comes out of it is recorded with verbs that already exist. A `tm discuss` could
+  only print an invitation to a conversation the user is already having.
+- 2026-08-17 — `DEC-024` turned out to have specified `tm drop` two weeks before it existed. It
+  settled `nm drop` partly by reasoning from *"`drop` already means get rid of this on the
+  board"* — describing a verb the hint line advertised and the tool did not have. So this needed
+  no new decision, only the implementation that decision assumed.
+- 2026-08-17 — So the hint line lists **what you can say**, not what the executable implements,
+  and the two sets are allowed to differ. What is not allowed is a word there that neither the
+  tool nor the agent does anything with. Written into the ontology so the next addition to that
+  line has a test to meet.

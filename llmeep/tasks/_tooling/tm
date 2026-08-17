@@ -1106,6 +1106,50 @@ def cmd_done(args):
     raise Fail(f"no task {tid}" if tid else "nothing in progress")
 
 
+def cmd_drop(args):
+    """Remove a task that should not have been filed. `DEC-024` wrote this
+    command's semantics before it existed — it settled `nm drop` by reasoning
+    from "`drop` already means *get rid of this* on the board", which turned out
+    to describe a verb the hint line advertised and `tm` did not have
+    (`PLT-gx39`).
+
+    **Nothing is written to history.** Only `done` writes there, so a dropped
+    task leaves no trace in the ledger, which is right: nothing happened. Using
+    `done` instead would file a completion row and broadcast a completion
+    notification for work nobody did.
+
+    **Acts immediately, no `--yes`.** The guard `reset` and `prune` needed was
+    about bulk operations whose scope is not obvious from the command; this
+    names one record, and the line it prints is the confirmation (`DEC-024`).
+    """
+    if not args:
+        raise Fail("usage: tm drop <id>")
+    tid = args[0]
+    for ledger in LEDGERS:
+        board = Board(ledger)
+        task, bucket = board.find(tid)
+        if not task:
+            continue
+        if bucket is board.recent:
+            raise Fail(f"{task.id} is already done — history keeps it, and dropping "
+                       "the line would leave the two disagreeing")
+        bucket.remove(task)
+        # Anything waiting on it is no longer waiting: the blocker is gone, not
+        # resolved, but a `blocked:` tag pointing at nothing is worse than
+        # either — `check` calls it dangling and refuses the commit.
+        board.clear_blocker(task.id)
+        board.save()
+        side = sidecar_path(ledger, task.id)
+        if side:
+            shutil.rmtree(side) if os.path.isdir(side) else os.remove(side)
+        print(f"  dropped {task.id}  {task.title}")
+        if side:
+            print(f"  and its sidecar {os.path.relpath(side, os.getcwd())}")
+        print(f"  git keeps it — `git log -S {task.id}`")
+        return
+    raise Fail(f"no task {tid} on either board — `tm find {tid}` if it was completed")
+
+
 def cmd_find(args):
     if not args:
         raise Fail("usage: tm find <term>")
@@ -2035,6 +2079,7 @@ USAGE = """tm — taskman
   tm prioritise <id> [-n]       backlog → prioritised (-n puts it on top)
   tm park [id] [-n]             return it to prioritised (-n puts it on top)
   tm done [id] [--force]        complete it, then commit with "closes <id>"
+  tm drop <id>                  remove a task that should not have been filed
   tm find <term>                search every task ever completed
   tm why <term|DEC-000>         search decisions, or explain one and its chain
   tm why --stale [--yes]        records nothing references; --yes prunes to a stub
@@ -2236,7 +2281,7 @@ def main():
     commands = {
         "add": cmd_add, "go": cmd_go, "park": cmd_park,
         "prioritise": cmd_prioritise, "prioritize": cmd_prioritise,
-        "done": cmd_done, "find": cmd_find, "why": cmd_why,
+        "done": cmd_done, "drop": cmd_drop, "find": cmd_find, "why": cmd_why,
         "standup": cmd_standup, "ontology": cmd_ontology,
         "feedback": cmd_feedback,
         "check": cmd_check,

@@ -268,6 +268,7 @@ step. See [`DEC-003`](https://github.com/stewartmegaw/llmeep/blob/main/decisions
 | `prioritise` | `tm prioritise <id> [-n]` | `backlog` → `prioritised`, at the bottom (`-n` for the top). |
 | `park` | `tm park [id] [-n]`  | `in progress` → `prioritised`, at the bottom (`-n` for the top). Unassigns it. |
 | `done` | `tm done [id]`       | Defaults to whatever is in progress. Moves to `recent`, prunes, appends to History, notifies. Run **before** committing. |
+| `drop` | `tm drop <id>`       | Removes a task that should not have been filed — the line and its sidecar. Writes **nothing** to History and sends nothing, because nothing happened. Acts immediately; the line it prints is the confirmation (`DEC-024`). |
 | `find` | `tm find <term>`     | Greps History explicitly.                                        |
 | | `tm check --context` | Measures what an agent loads. A skill loads whole, so it is the only file with a standing cost; the models are read on demand and excluded. |
 | `why`  | `tm why <term>`      | Greps decisions, pruned ones included. With an id, explains one: supersession chain, which records cite it, and where the tree references it. |
@@ -345,6 +346,28 @@ inferring intent from keywords would be unpredictable *and* unintelligent, and w
 
 The same test applies to anything added later: **if a behaviour requires understanding what the
 user meant, it does not belong in the executable.**
+
+### Why `drop` is a command and `discuss` is not
+
+Both appear on the hint line under a rendered board, and they are the cleanest illustration of
+the rule above.
+
+**`drop` changes a record.** A line comes off the board, a sidecar is deleted, a `blocked:` tag
+pointing at it is cleared. That is mechanism, it has invariants, and [principle
+2](../../ontology/principles.md) puts it behind tooling. It deliberately writes nothing to
+History: only `done` writes there, so a dropped task leaves the ledger silent, which is the
+honest record of a task that never happened. Reaching for `done` instead would file a completion
+and broadcast one.
+
+**`discuss` changes nothing.** It means *talk this task over and sharpen it* — a title that is
+vague, acceptance nobody has thought through. All of that is judgement, and whatever comes out of
+it is recorded with verbs that already exist. A `tm discuss` could only print an invitation to
+have a conversation the user is already having.
+
+So the hint line lists **what you can say**, not what the executable implements, and the two sets
+are allowed to differ. What is not allowed is a word on that line that neither the tool nor the
+agent does anything with, which is what `discuss` was for as long as nothing described it
+(`PLT-gx39`).
 
 ### Vendor adapters
 

@@ -432,6 +432,82 @@ class TestFeedback(Fixture):
                          "the commit path grew feedback output")
 
 
+class TestDrop(Fixture):
+    """`PLT-gx39`. The board's hint line advertised `drop` for as long as it has
+    existed and `tm` never had it, so the only way to unfile a task was editing
+    `board.md` by hand — and `DEC-024` had already written this command's
+    semantics while reasoning about the notes one."""
+
+    def filed(self, top, title, *extra):
+        out = self.tm(top, "add", "--id", title)
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        return out.stdout.strip()
+
+    def board(self, top):
+        with open(os.path.join(self.install_root(top),
+                               "tasks", "platform", "board.md")) as fh:
+            return fh.read()
+
+    def a_repo(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        return top
+
+    def test_drop_removes_the_line_and_writes_no_history(self):
+        """The distinction from `done`, and the reason `done` is not a
+        substitute: a completion row and a broadcast for work nobody did."""
+        top = self.a_repo()
+        tid = self.filed(top, "filed by mistake")
+        out = self.tm(top, "drop", tid)
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertNotIn(tid, self.board(top))
+        with open(os.path.join(self.install_root(top),
+                               "tasks", "_tooling", "history.tsv")) as fh:
+            rows = [l for l in fh if l.strip() and not l.startswith("#")]
+        self.assertEqual(rows, [], "drop wrote a history row for a task that never happened")
+
+    def test_drop_takes_the_sidecar_with_it(self):
+        top = self.a_repo()
+        tid = self.filed(top, "has detail")
+        side = os.path.join(self.install_root(top), "tasks", "platform",
+                            "tasks", f"{tid}-has-detail.md")
+        os.makedirs(os.path.dirname(side), exist_ok=True)
+        with open(side, "w") as fh:
+            fh.write(f"---\nid: {tid}\ntitle: has detail\ncreated: 2026-08-17\n---\n")
+        self.tm(top, "drop", tid)
+        self.assertFalse(os.path.exists(side), "the sidecar outlived its task")
+
+    def test_drop_clears_a_tag_that_pointed_at_it(self):
+        """A `blocked:` tag naming nothing is what `check` calls dangling, and
+        it refuses the commit — so dropping without clearing would trade one
+        hand-edit for another."""
+        top = self.a_repo()
+        blocker = self.filed(top, "the blocker")
+        waiting = self.filed(top, "the waiter")
+        path = os.path.join(self.install_root(top), "tasks", "platform", "board.md")
+        with open(path) as fh:
+            body = fh.read()
+        with open(path, "w") as fh:
+            fh.write(body.replace(f"{waiting} the waiter",
+                                  f"{waiting} the waiter  blocked:{blocker}"))
+        self.tm(top, "drop", blocker)
+        self.assertNotIn("blocked:", self.board(top))
+        self.assertEqual(self.tm(top, "check").returncode, 0,
+                         "check refuses the board after a drop")
+
+    def test_drop_refuses_a_completed_task(self):
+        """History keeps it either way, so removing the line would leave the
+        board and the ledger disagreeing."""
+        top = self.a_repo()
+        tid = self.filed(top, "actually finished")
+        self.tm(top, "go", tid)
+        self.tm(top, "done", tid)
+        out = self.tm(top, "drop", tid)
+        self.assertNotEqual(out.returncode, 0)
+        self.assertIn(tid, self.board(top))
+
+
 class TestSweep(Fixture):
     """The collecting half of `DEC-033`. A draft is written where the friction
     happened and sent by nobody, so everything here is about a maintainer being

@@ -18,6 +18,7 @@ llmeep/tasks/_tooling/tm go [id]                    # show the current task, or 
 llmeep/tasks/_tooling/tm prioritise <id> [-n]       # backlog → prioritised, -n for the top
 llmeep/tasks/_tooling/tm park [id] [-n]             # return it to prioritised, unassigned
 llmeep/tasks/_tooling/tm done [id] [--force]        # complete it
+llmeep/tasks/_tooling/tm drop <id>                  # remove one that should not have been filed
 llmeep/tasks/_tooling/tm find <term>                # search every task ever completed
 llmeep/tasks/_tooling/tm why <term|DEC-000>         # search decisions, or explain one
 llmeep/tasks/_tooling/tm why --stale [--yes]        # records nothing references; --yes prunes
@@ -43,6 +44,8 @@ llmeep/tasks/_tooling/tm check --notify [--send]    # verify the notification ch
 | "what is sam working on" | `grep @sam llmeep/tasks/*/board.md` |
 | "give this to sam" | `tm add -f sam <title>`, or `tm go <id> -f sam` |
 | "commit task" / "that's done" | `tm done`, then `git commit` with `closes <id>` in the message |
+| "drop that" / "we're not doing that" | `tm drop <id>` — removes the line, writes no history |
+| "let's discuss PLT-9puy" / "that title is vague" | talk it over; record the outcome with the ordinary verbs |
 | "have we done this before" | `tm find <term>` |
 | "why is it like this" / "what did we decide about X" | `tm why <term>`, then `tm why DEC-000` |
 | "can we tidy the decisions" | `tm why --stale` — **without** `--yes`. Unreferenced is not finished with; the subject test is the user's |
@@ -96,6 +99,21 @@ something is manufacturing noise. `tm feedback "<what happened>"`.
 
 **Never about this project** — no code, file names, domain terms or task titles. If the point
 needs one, do not write it. Rubric: `llmeep/tasks/_tooling/ontology.md`.
+
+## `discuss` is yours, `drop` is the tool's
+
+Both are on the board's hint line, and they resolve opposite ways for the reason
+[principle 7](../../../llmeep/ontology/principles.md) gives.
+
+**`drop` changes a record, so it is a command.** `tm drop <id>` removes the line and its sidecar
+and writes nothing to history — nothing happened, so the ledger stays silent. Never reach for
+`done` instead: that files a completion row and broadcasts a completion for work nobody did.
+
+**`discuss` changes nothing, so it is not.** It means *talk this task over and sharpen it* — a
+vague title, acceptance nobody has thought through. Read the sidecar, ask what "done" looks
+like, propose a better title. Then record whatever you agreed with the verbs that already
+exist: rewrite the sidecar, `tm prioritise` it, `tm drop` it. There is no `tm discuss` and there
+should not be — a command that only starts a conversation is a command doing nothing.
 
 ## A rejected alternative is a decision, and nobody will prompt you
 
