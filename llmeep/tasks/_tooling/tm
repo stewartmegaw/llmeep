@@ -892,7 +892,6 @@ def cmd_add(args):
     print(f"\n  {task.id}  {task.title}")
     assigned = f" · @{task.assignee}" if task.assignee else ""
     print(f"  {ledger} · {'top of prioritised' if top else 'backlog'}{assigned}")
-    skeleton_nudge()
 
 
 def cmd_go(args):
@@ -982,7 +981,6 @@ def show_task(board, task, started):
             for item in pending:
                 print(f"    [ ] {item}")
     show_related(task.title)
-    skeleton_nudge()
 
 
 def cmd_prioritise(args):
@@ -1117,83 +1115,6 @@ def cmd_find(args):
         return
     for row in hits:
         print("  " + history_line(row))
-
-
-# ---------------------------------------------------------------------- reset
-
-MARKER = "UNADOPTED.md"
-
-
-def marker_path():
-    return os.path.join(ROOT, MARKER)
-
-
-def skeleton_nudge():
-    """Present until `tm reset` runs. Without it, a new project silently
-    inherits the skeleton's task history and `find` returns someone else's
-    work as its own prior art.
-
-    A named markdown file rather than a dotfile: this is the one marker whose
-    entire audience is a human who has just cloned something and does not yet
-    know what any of it is. Nothing parses it, so it costs nothing to make it
-    say so in full."""
-    if os.path.exists(marker_path()):
-        print(f"\n  ~ these are the skeleton's own records — see tasks/{MARKER},"
-              "\n    or run `tm reset` if you cloned this to start a project")
-
-
-def cmd_reset(args):
-    """Destructive, so it is a dry run unless --yes. Clears what is specific to
-    a project; keeps what explains the design."""
-    boards, sidecars = [], []
-    for ledger in LEDGERS:
-        try:
-            board = Board(ledger)
-        except Fail:
-            continue
-        n = len(board.in_progress) + len(board.open) + len(board.recent)
-        boards.append((board, n))
-        sidecars += sidecar_all(ledger)
-    rows = len(history_rows())
-    decisions = []
-    dec_dir = os.path.join(REPO, "decisions")
-    if "--all" in args and os.path.isdir(dec_dir):
-        decisions = [
-            os.path.join(dec_dir, f) for f in sorted(os.listdir(dec_dir))
-            if f.startswith("DEC-")
-        ]
-        # The stubs go with the records they stand for. A cloner
-        # inheriting llmeep's pruned-decision index is the same fault as
-        # inheriting its decisions, one indirection along.
-        if os.path.exists(dec_history()):
-            decisions.append(dec_history())
-
-    print("  clears:")
-    for board, n in boards:
-        print(f"    {board.ledger} board — {n} task line(s)")
-    print(f"    history.tsv — {rows} row(s)")
-    print(f"    sidecars — {len(sidecars)} item(s)")
-    if decisions:
-        print(f"    decisions — {len(decisions)} file(s)")
-    print("\n  keeps: ontology, principles, templates, tm, hooks" +
-          ("" if decisions else ", decisions"))
-    if not decisions:
-        print("    (decisions explain why the design is what it is — `--all` to drop them too)")
-
-    if "--yes" not in args:
-        print("\n  dry run. pass --yes to apply.")
-        return
-
-    for board, _ in boards:
-        board.in_progress, board.prioritised, board.backlog, board.recent = [], [], [], []
-        board.save()
-    with open(HISTORY, "w") as fh:
-        fh.write("#date\tid\tledger\ttitle\twho\n")
-    for path in sidecars + decisions:
-        shutil.rmtree(path) if os.path.isdir(path) else os.remove(path)
-    if os.path.exists(marker_path()):
-        os.remove(marker_path())
-    print("\n  ✓ reset. the boards are yours now.")
 
 
 # --------------------------------------------------------------------- checks
@@ -1452,8 +1373,8 @@ def stale_decisions(all_decs):
 
 
 def prune_decisions(candidates, yes):
-    """Dry by default, `--yes` acts — the pattern `nm prune` and `tm reset`
-    already set for anything that removes something."""
+    """Dry by default, `--yes` acts — the pattern `nm prune` already sets for
+    anything that removes something."""
     if not candidates:
         print("  nothing stale — every record is referenced")
         return
@@ -2030,120 +1951,6 @@ def check_telegram(send=False):
     return 1
 
 
-# Directories the layout promises but git cannot carry, because git tracks no
-# empty directory. Each needs a `.gitkeep`, and each has gone missing from a cut
-# before now.
-# `ontology/domain` was here until `DEC-032`. There is no such directory now:
-# llmeep ships guidance on writing a domain ontology, not a hole to put one in.
-RELEASE_DIRS = [
-    "notes/raw", "tasks/platform/tasks", "tasks/business/tasks",
-]
-
-LINK_RE = re.compile(r"\]\((?!https?:|#|mailto:)([^)]+)\)")
-
-
-def dead_links(root):
-    """Relative links that resolve on `main` and not in a cut tree. Every one of
-    these so far pointed into `decisions/`, which `reset --all` empties — found
-    four times by eye and once by this function, which is why it exists."""
-    # From the git toplevel, not from REPO. Nested, REPO is the install folder,
-    # and the files most likely to hold a stale path — the repo's own README and
-    # `ontology/` — sit outside it. Scanning from REPO silently stopped checking
-    # exactly the ones the move broke.
-    top = (git("rev-parse", "--show-toplevel") or root).strip()
-    out = []
-    for path in git("ls-files", "*.md", cwd=top).split():
-        full = os.path.join(top, path)
-        if not os.path.exists(full):
-            continue
-        with open(full) as fh:
-            text = fh.read()
-        for target in LINK_RE.findall(text):
-            target = target.split("#")[0]
-            if not target:
-                continue
-            resolved = os.path.normpath(os.path.join(os.path.dirname(full), target))
-            if not os.path.exists(resolved):
-                out.append(f"{path} → {target}")
-    return out
-
-
-# Root scripts a cloner must never receive. `adopt` and `selftest` are also
-# llmeep's own, and stay: one is how you install into another repo and the other
-# is how you check that it worked, so a fork needs both and neither says
-# anything about llmeep having an upstream. `sweep` does — it is addressed to
-# whoever maintains this, about repos that are not yours (`DEC-034`).
-MAINTAINER_ONLY = ("sweep",)
-
-
-def check_release(rep, root):
-    """A cut tree is one that has never existed on `main`: records emptied,
-    decisions cleared, directories git could not carry. Nothing else validates
-    that difference, so every defect in it was found after publishing — v2
-    shipped this project's decisions, v3 broke ten links and lost two
-    directories, v5 broke fifteen more.
-
-    Run inside the cut, after both resets and before the commit. Never wired
-    into a hook: cutting a version is deliberate and rare, and `check` keeps its
-    no-side-effects contract (`DEC-009`)."""
-    for ledger in LEDGERS:
-        try:
-            board = Board(ledger)
-        except Fail:
-            continue
-        n = len(board.in_progress) + len(board.open) + len(board.recent)
-        if n:
-            rep.error(f"{ledger} board still has {n} task line(s) — run `tm reset --yes --all`")
-    if len(history_rows()):
-        rep.error("tasks history.tsv still has rows — run `tm reset --yes --all`")
-
-    notes_hist = os.path.join(root, "notes", "_tooling", "history.tsv")
-    if os.path.exists(notes_hist):
-        with open(notes_hist) as fh:
-            rows = [l for l in fh if l.strip() and not l.startswith("#")]
-        if rows:
-            rep.error(f"notes history.tsv still has {len(rows)} row(s) — run `nm reset --yes`")
-    archive = os.path.join(root, "notes", "notes.md")
-    if os.path.exists(archive):
-        with open(archive) as fh:
-            kept = [l for l in fh if l.strip() and not l.startswith("#")]
-        if kept:
-            rep.error(f"notes.md still holds {len(kept)} note(s) — run `nm reset --yes`")
-
-    for sub in ("tasks", "notes"):
-        if os.path.exists(os.path.join(root, sub, MARKER)):
-            rep.error(f"{sub}/{MARKER} is still here — its reset has not run")
-
-    # `adopt` copies a fixed manifest, so nothing at the repo root reaches an
-    # adopting repo — but the greenfield path is `clone && rm -rf .git`, which
-    # hands over the whole tree. A cut is the only place that difference can be
-    # caught, and `DEC-034` is not satisfied by keeping maintainer tooling out
-    # of the *installer* alone (`PLT-8fmj`).
-    top = os.path.dirname(root)
-    for script in MAINTAINER_ONLY:
-        if os.path.exists(os.path.join(top, script)):
-            rep.error(f"{script} is maintainer tooling and must not ship — "
-                      f"`git rm -q {script}` before committing the cut (`DEC-034`)")
-
-    dec = os.path.join(root, "decisions")
-    if os.path.isdir(dec):
-        left = [f for f in sorted(os.listdir(dec)) if f.startswith("DEC-")]
-        if left:
-            rep.error(f"decisions/ still holds {len(left)} record(s) — `tm reset --yes --all` "
-                      "drops them; a release belongs to nobody yet")
-        if not os.path.exists(os.path.join(dec, "_template.md")):
-            rep.error("decisions/_template.md is missing — `--all` keeps the template")
-
-    # All under the install root since `DEC-032` — nothing llmeep ships lands at
-    # the repo root any more, so one base answers for every entry.
-    for d in RELEASE_DIRS:
-        if not os.path.isdir(os.path.join(root, d)):
-            rep.error(f"{d}/ is absent — git carries no empty directory; it needs a .gitkeep")
-
-    for link in dead_links(root):
-        rep.error(f"dead link: {link}")
-
-
 # What an agent carries. A skill is loaded whole the moment its subject comes
 # up, so it is the only file here with a standing cost — and the one nobody
 # notices growing, because every addition to it is individually justified.
@@ -2199,9 +2006,7 @@ def cmd_check(args):
         # ignore the rest.
         check_context(rep)
         sys.exit(rep.emit())
-    if "--release" in args:
-        check_release(rep, root)
-    elif "--msg" in args:
+    if "--msg" in args:
         check_trailer(rep, args[args.index("--msg") + 1])
     elif "--nudge" in args:
         check_nudge(rep, root)
@@ -2218,7 +2023,7 @@ def cmd_check(args):
             check_ontology_currency(rep, root)
     code = rep.emit()
     if code == 0 and not rep.warnings and "--quiet" not in args:
-        print("  ✓ release tree is clean" if "--release" in args else "  ✓ records consistent")
+        print("  ✓ records consistent")
     sys.exit(code)
 
 
@@ -2241,8 +2046,6 @@ USAGE = """tm — taskman
   tm check [--staged]           validate records; used by hooks and CI
   tm check --context            what an agent carries, measured
   tm check --notify [--send]    verify the notification channel (--send posts)
-  tm check --release            validate a cut tree before committing the version
-  tm reset [--yes] [--all]      clear task records when adopting the skeleton
 
 Listing is reading the board; reordering is moving a line in it.
 Model: tasks/_tooling/ontology.md"""
@@ -2436,7 +2239,7 @@ def main():
         "done": cmd_done, "find": cmd_find, "why": cmd_why,
         "standup": cmd_standup, "ontology": cmd_ontology,
         "feedback": cmd_feedback,
-        "check": cmd_check, "reset": cmd_reset,
+        "check": cmd_check,
     }
     cmd = commands.get(argv[0])
     if not cmd:

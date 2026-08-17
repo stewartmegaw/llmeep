@@ -20,22 +20,22 @@ what this is. [The longer argument](#why-this-exists) is at the bottom.
 
 ## Get started
 
-```sh
-git clone --depth 1 https://github.com/stewartmegaw/llmeep.git my-project
-cd my-project && rm -rf .git && git init
-git config core.hooksPath llmeep/tasks/_tooling/hooks     # validation on commit
-```
-
-That is the whole install — two Python 3 files, standard library only, nothing to build.
-
-**Already have a repo?** Run `adopt` from inside it instead. Your code, history and README are
-untouched; it adds the record trees beside them and starts you with empty boards:
+**One way in: run `adopt` from inside your repo.** Your code, history and README are untouched;
+it adds the record trees beside them and starts you with empty boards.
 
 ```sh
 git clone --depth 1 https://github.com/stewartmegaw/llmeep.git /tmp/llmeep
 cd my-project
 /tmp/llmeep/adopt --dry-run    # then again without --dry-run
 ```
+
+That is the whole install — two Python 3 files, standard library only, nothing to build. It sets
+`core.hooksPath` for you, so validation is on from the first commit.
+
+**Starting from nothing?** `mkdir my-project && cd my-project && git init`, then the same three
+lines. There is deliberately no separate path for a new project: llmeep used to be installable
+by cloning it and deleting its `.git`, and one way in is fewer things to keep honest
+([`DEC-035`](llmeep/decisions/DEC-035-adopt-is-the-only-way-in.md)).
 
 Your own `tasks/`, `notes/`, `decisions/` or `ontology/` are safe: everything llmeep ships
 lives under `llmeep/`, which `--into ops` renames if that name is taken too.
@@ -47,9 +47,9 @@ way rather than typed. Point your agent at this file.
 
 The hooks block a commit on inconsistent records and warn on drift; `tm check` runs the same
 checks standalone, so CI needs no separate configuration. Agent permissions are committed in
-`.claude/settings.json`, so a clone stops prompting for the daily commands immediately — the
-three that change something you cannot take back (`tm reset`, `tm check --notify --send`,
-`nm prune --yes`) deliberately still ask.
+`.claude/settings.json`, so an install stops prompting for the daily commands immediately — the
+two that change something you cannot take back (`tm check --notify --send`, `nm prune --yes`)
+deliberately still ask.
 
 <!-- adopt:start — everything to adopt:end is copied into an adopting repo by ./adopt -->
 
@@ -342,16 +342,17 @@ attempted surfaces without anyone deciding to look.
 ## Adopting this skeleton
 
 ```sh
-git clone <this-repo> my-project && cd my-project
-rm -rf .git && git init
-git config core.hooksPath llmeep/tasks/_tooling/hooks
+git clone --depth 1 <this-repo> /tmp/llmeep
+cd my-project && /tmp/llmeep/adopt
 ```
 
-The default branch is **`release`** — a clean skeleton with empty boards, ready to use. It
-exists so the tree arrives adopted: no `UNADOPTED.md`, no records of llmeep's own build to
-reset, nothing to clear before your first task. Clone `main` and you get the same files plus
-this project's boards, history and notes, and two resets to run before they stop being yours
-by accident.
+**`adopt` is the only install.** It copies machinery — the tools, the hooks, the templates, the
+ontology — and *builds* the record trees empty. Nothing llmeep records is copied, so nothing
+llmeep records can arrive in your repo: no boards to clear, no history to reset, no marker file
+explaining whose records those are. The clone you take it from can be any state at all
+([`DEC-035`](llmeep/decisions/DEC-035-adopt-is-the-only-way-in.md)).
+
+It also sets `core.hooksPath`, so validation runs from your first commit.
 
 That is the whole setup — nothing else is required before your first task.
 [Writing a domain ontology](llmeep/ontology/domain-ontology.md) is there when you want it, and
@@ -423,35 +424,20 @@ your project — delete it and write your own introduction in its place. Keep th
 the line: they describe how the tooling in this repo is driven, and they stay true whatever you
 build in `platform/`.
 
-### Branches
+### Branches and tags
 
-| Branch                | Contains                            | Clone it to…                |
-| --------------------- | ----------------------------------- | --------------------------- |
-| `release` _(default)_ | Latest clean version                | start a project             |
-| `v1`, `v2`, …         | Pinned versions                     | pin to a specific one       |
-| `main`                | Development, with full task history | improve the skeleton itself |
+**One branch, `main`, and a tag per version.** There is no release branch: it existed so a clean
+tree could be cloned as a starting point, and with `adopt` building records empty there is
+nothing for a clean tree to be cleaner than.
 
-**If you cloned `main` instead**, an `UNADOPTED.md` sits in both `tasks/` and `notes/` saying
-so, and each tool repeats it until you deal with it. Run **both** resets — adoption is per
-subsystem, because the two are meant to be liftable apart:
+| Ref           | Is                                  |
+| ------------- | ----------------------------------- |
+| `main`        | The project. Development happens here |
+| `v1`, `v2`, … | A version, tagged on `main`         |
 
-```sh
-llmeep/tasks/_tooling/tm reset --yes   # clears boards, history, sidecars
-llmeep/notes/_tooling/nm reset --yes   # clears the archive, its history, raw/
-```
-
-Otherwise you inherit this project's task history and `find` returns the skeleton's work as
-your prior art, which is the amnesia-prevention mechanism working against you. Every `tm add`
-and `tm go` says so until you do. `reset` clears both boards, `history.tsv` and the sidecars;
-it **keeps** the ontology, principles, templates and decision records. Run it without `--yes`
-first to see exactly what goes.
-
-Whether to keep the decisions depends on which repo you are becoming. Improving llmeep itself,
-keep them — they explain why the design is what it is. Starting your own project, add `--all`:
-`decisions/` is then yours from `DEC-001`, rather than someone else's twenty-five records with
-your first decision filed behind them. The design is still described by `ontology/`,
-`llmeep/tasks/_tooling/ontology.md` and `llmeep/notes/_tooling/ontology.md`, which `reset`
-never touches.
+`adopt --update` resolves a tag, so pinning still works exactly as before. A clone of `main`
+carries llmeep's own boards, history and decisions — and that is now simply what a clone of a
+project looks like, because nobody installs by cloning.
 
 ### Before cutting: `selftest`
 
@@ -460,11 +446,11 @@ python3 selftest                 # ~40s; needs release tags in the checkout
 ```
 
 `tm check` validates records. `selftest` checks that the thing an adopter runs still works —
-greenfield clone, adoption into a repo that already has a `tasks/` directory, `--into ops`, and
+a fresh adopt, adoption into a repo that already has a `tasks/` directory, `--into ops`, and
 **upgrades from previous releases**, which is the axis nothing else covers and where every
 install bug so far has lived (`DEC-029`).
 
-Run it before a cut. It never touches this repo; every case builds a throwaway repo in a temp
+Run it before tagging. It never touches this repo; every case builds a throwaway repo in a temp
 directory. Deliberately not in the pre-commit hook — a slow hook gets bypassed, taking `check`
 with it.
 
@@ -489,29 +475,23 @@ the principles and not the decisions, so they could not have known.
 
 ### Cutting a version
 
-Release branches are **write-once — never merged back**, which is what keeps `board.md` and
-`history.tsv` from colliding forever. Each version is a new commit on `release`, made by taking
-`main`'s tree and clearing the records:
+**A version is a tag on `main`.**
 
 ```sh
-python3 selftest                      # the install lifecycle still works
-git checkout release
-git rm -rq .                          # or a rename leaves the old paths behind
-git checkout main -- .
-git rm -qf sweep                      # maintainer tooling; a greenfield clone takes the whole tree
-                                      # -f because the line above just staged it
-llmeep/tasks/_tooling/tm reset --yes --all   # --all drops this project's decisions too;
-llmeep/notes/_tooling/nm reset --yes         # a release is nobody's project yet
-git add -A
-llmeep/tasks/_tooling/tm check --release     # the checks a cut tree needs and main cannot run
-git commit -m "v3: clean skeleton" && git tag v3
-git checkout main                     # work continues; history intact
+python3 selftest        # the install lifecycle still works
+git tag v36 && git push origin main v36
 ```
 
-**A release cut always takes `--all`.** Whoever clones it is starting their own project, so
-llmeep's decision records would be twenty-five entries of someone else's reasoning sitting in
-front of their first one — the same argument as the task history above, and the reason v2
-shipped wrong.
+That is all of it. There was a whole ceremony here until `DEC-035` — a write-once `release`
+branch, a tree copied across and stripped, two `reset` commands, a `git rm` of the maintainer
+tooling, and a `tm check --release` asserting the result was empty enough to hand to a stranger.
+Every one of those steps existed because a release was something you could **clone and start
+from**, so it had to arrive already clean.
+
+Nothing clones a release any more. `adopt` copies machinery and builds records empty, so what a
+tag contains stopped mattering: llmeep's boards, its decisions and its own maintainer scripts can
+all sit in the tagged tree and none of them reaches anybody. The cut is a tag because there is
+nothing left to cut.
 
 ## Status
 

@@ -435,15 +435,51 @@ def reroot(top, into, report):
         report.append(("edit", rel(path, top), f"{n} line(s) rerooted under {into}/"))
 
 
-def reset(root, tool, args, report):
-    """A clone carries llmeep's own records. Clearing them here means an adopter
-    never sees someone else's board, and never has to know `reset` exists."""
-    exe = os.path.join(root, tool, "_tooling", "tm" if tool == "tasks" else "nm")
-    if not os.path.exists(exe):
-        return
-    subprocess.run([sys.executable, exe, "reset", "--yes", *args],
-                   capture_output=True, text=True)
-    report.append(("reset", tool, "records cleared"))
+# The empty state of every record llmeep keeps, written rather than copied.
+#
+# This is the one place `adopt` knows the *shape* of a record rather than just
+# its path, which is a coupling worth naming: `tm` and `nm` own these formats and
+# this has to agree with them. The guard is `selftest`, which adopts and then
+# drives the real tools against the result — a board with the wrong headings
+# fails there immediately, because `tm add` has nowhere to put a line.
+#
+# The alternative was what came before: copy llmeep's records in and delete them
+# again. That kept one writer of the format, and in exchange every release had
+# to be cut clean and every new record type joined a delete list. This is the
+# cheaper coupling (`DEC-035`).
+BOARD = "# {ledger}\n\n## in progress\n\n\n## prioritised\n\n\n## backlog\n\n\n## recent\n"
+TASK_HISTORY = "#date\tid\tledger\ttitle\twho\n"
+NOTE_HISTORY = "#date\tid\ttext\tsrc\ttask\n"
+ARCHIVE = "# notes\n"
+
+# Directories with nothing in them yet. Git carries no empty directory, so each
+# needs a `.gitkeep` or the adopter's first commit quietly loses it.
+KEEP_DIRS = ["notes/raw", "tasks/platform/tasks", "tasks/business/tasks"]
+
+
+def empty_records(root, report, top=None):
+    """Build the record trees empty. Never overwrites: a re-run, or an adopter
+    who already has a board, keeps what is there."""
+    made = 0
+    for ledger in ("platform", "business"):
+        made += write_once(os.path.join(root, "tasks", ledger, "board.md"),
+                           BOARD.format(ledger=ledger))
+    made += write_once(os.path.join(root, "tasks", "_tooling", "history.tsv"), TASK_HISTORY)
+    made += write_once(os.path.join(root, "notes", "_tooling", "history.tsv"), NOTE_HISTORY)
+    made += write_once(os.path.join(root, "notes", "notes.md"), ARCHIVE)
+    for d in KEEP_DIRS:
+        made += write_once(os.path.join(root, d, ".gitkeep"), "")
+    report.append(("add", rel(os.path.join(root, "tasks"), top),
+                   f"{made} empty record file(s) — the boards are yours from the start"))
+
+
+def write_once(path, body):
+    if os.path.exists(path):
+        return 0
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as fh:
+        fh.write(body)
+    return 1
 
 
 def is_clone(path):
@@ -745,12 +781,21 @@ def main(argv):
         return 0
 
     report = []
-    # `copy` never overwrites, so anything already there is the adopter's and
-    # the whole tree is left alone. Those paths must not be recorded as ours.
+    # `copy` never overwrites, so anything already there is the adopter's and is
+    # left alone. Those paths must not be recorded as ours.
+    #
+    # **Machinery only, and the records are built empty.** This used to copy the
+    # whole of `tasks/`, `notes/`, `decisions/` and `ontology/` — llmeep's own
+    # boards, history and decisions included — and then delete them again by
+    # shelling out to `tm reset --yes --all`. It worked, and it meant every
+    # release had to be cut clean as a second line of defence, and every new
+    # record type was one someone had to remember to add to the delete list.
+    # Nothing llmeep records can reach an adopter now, because nothing llmeep
+    # records is copied (`DEC-035`).
     skipped = set()
-    for t in TREES:
-        if not copy(src_of(t, SRC), dest_of(t, top, dest_root), report, top):
-            skipped.add(t)
+    for r in managed(SRC):
+        if not copy(src_of(r, SRC), dest_of(r, top, dest_root), report, top):
+            skipped.add(r)
     for a in AGENT:
         src = os.path.join(SRC, a)
         # Skips were recorded for the trees and not for these, so an adopter who
@@ -768,8 +813,7 @@ def main(argv):
     reroot(top, into, report)
     working_agreement(top, dest_root, into, report)
     append_ignores(top, prefix, report)
-    reset(dest_root, "tasks", ["--all"], report)
-    reset(dest_root, "notes", [], report)
+    empty_records(dest_root, report, top)
     # A managed file is the adopter's if it was skipped itself, if its tree was,
     # or if any directory we skipped contains it — `.claude/skills/tm` is a
     # skipped directory whose `SKILL.md` is what the manifest actually lists.
@@ -785,7 +829,7 @@ def main(argv):
     width = max(len(p) for _, p, _ in report)
     print()
     for kind, path, note in report:
-        mark = {"add": "+", "skip": "!", "edit": "~", "reset": "✓"}[kind]
+        mark = {"add": "+", "skip": "!", "edit": "~"}[kind]
         print(f"  {mark} {path:<{width}}  {note}")
     print(f"\n  ✓ adopted. Your code, history and README are untouched.")
     # Skills are read when a session starts, so the one that just arrived is

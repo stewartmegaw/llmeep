@@ -17,7 +17,6 @@ llmeep/notes/_tooling/nm drop <NTE-id | file>           # remove a note, or a pr
 llmeep/notes/_tooling/nm promote <NTE-id> [-b] [-n]     # note becomes a task, linked both ways
 llmeep/notes/_tooling/nm prune [--yes]                  # bound raw/, drop shipped notes; dry without --yes
 llmeep/notes/_tooling/nm find <term>                    # search every note ever captured
-llmeep/notes/_tooling/nm reset [--yes]                  # clear notes when adopting the skeleton
 ```
 
 ## Distilling is your job, not a command
@@ -77,7 +76,6 @@ producing fifteen, you are transcribing rather than distilling.
 | "what's in the inbox" | `ls llmeep/notes/raw/` |
 | "I've processed that file" | `nm drop <file>` |
 | "drop that note" / "that one's wrong" | `nm drop <NTE-id>` — removes it from the archive *and* history |
-| "I've just cloned this to start a project" | `nm reset` to see what goes, then `--yes` — and `tm reset` too |
 | "what have we captured lately" | `cat llmeep/notes/notes.md` |
 
 ## When asked for notes, summarise them

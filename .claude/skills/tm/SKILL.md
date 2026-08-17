@@ -29,8 +29,6 @@ llmeep/tasks/_tooling/tm feedback [<text>|-]        # note what llmeep got wrong
 llmeep/tasks/_tooling/tm check                      # validate records (hooks and CI call this)
 llmeep/tasks/_tooling/tm check --context            # what an agent carries, measured
 llmeep/tasks/_tooling/tm check --notify [--send]    # verify the notification channel
-llmeep/tasks/_tooling/tm check --release            # validate a cut tree before committing a version
-llmeep/tasks/_tooling/tm reset [--yes]              # clear task records when adopting the skeleton
 ```
 
 ## Translating what the user says
@@ -50,7 +48,6 @@ llmeep/tasks/_tooling/tm reset [--yes]              # clear task records when ad
 | "can we tidy the decisions" | `tm why --stale` — **without** `--yes`. Unreferenced is not finished with; the subject test is the user's |
 | "what did we get done this week" / "standup" | `tm standup` — **without** `--send` unless they ask to post it |
 | "schedule the standup" / "how do I automate this" | `tm standup --cron`, and point at `llmeep/tasks/_tooling/blueprints/standup.sh` |
-| "I've just cloned this to start a project" | `tm reset` to see what goes, then `--yes` |
 | "is the Telegram bot set up" / "post to the group instead" | `tm check --notify` — it lists every chat the bot can see; add `--send` only if they want a test message |
 | "our domain model is in docs/" / a commit says no ontology is recorded | `tm ontology <path>`, or `--none` |
 | "llmeep should really do X" / friction with the tooling itself | `tm feedback "<what happened>"` — see below |
@@ -268,8 +265,6 @@ on the line.
 - **Nothing sends on your initiative.** `standup --send` and `check --notify --send` each reach
   a whole team; add them only when asked. `--cron` prints a line for an always-on machine, and
   scheduling it is the user's call.
-- **`tm check --release` runs inside a cut tree**, not here. Every condition it asserts was a
-  defect that shipped before it existed.
 - **"no domain ontology is recorded" is a question for the user, not a job to do.** Ask where
   theirs is, or whether they want one, then `tm ontology <path>` or `--none`. Never write one
   because a warning mentioned it, and never answer `--none` for them (`DEC-032`).

@@ -12,7 +12,6 @@ It lives here rather than in `ontology/core.md` because it describes one subsyst
 llmeep/notes/
   notes.md       <- the archive: the window you read
   raw/           <- captures waiting to be processed
-  UNADOPTED.md   <- present until `nm reset`; says whose notes these are
   _tooling/      <- the machinery, and the model it implements
     ontology.md  <- this file
     nm           <- the executable; five commands
@@ -136,7 +135,6 @@ board.
 | `promote` | `nm promote <NTE-id> [-b] [-n]`   | `tm add`, then link both ways.                            |
 | `prune`   | `nm prune [--yes]`                | Bound `raw/` and the window. Dry unless `--yes`.          |
 | `find`    | `nm find <term>`                  | Search every note ever captured.                          |
-| `reset`   | `nm reset [--yes]`                | Clear the skeleton's notes on adoption. Dry unless `--yes`. |
 
 `nm check` validates records; it is not a skill, because it touches no note.
 
@@ -158,7 +156,7 @@ reading a transcript and deciding what matters. `nm` never parses one:
 
 ## Pruning
 
-`nm prune` is a **dry run unless `--yes`** — the same guard `tm reset` uses for destruction and
+`nm prune` is a **dry run unless `--yes`** — the guard anything destructive here uses, and
 `tm check --notify` uses for visibility.
 
 - **Captures older than 30 days** are offered for deletion. Something unprocessed for a month is

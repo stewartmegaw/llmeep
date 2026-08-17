@@ -371,7 +371,6 @@ Two more subcommands exist. Neither touches a task, so neither is a skill:
 | Command             | Does                                                             |
 | ------------------- | ---------------------------------------------------------------- |
 | `tm check [--staged]` | Validates records. What the hooks and CI both call.            |
-| `tm reset [--yes]`  | Clears task records when the skeleton is adopted for a new project. Dry run unless `--yes`. See the [root README](../../../README.md). |
 
 ## Notifications — outbound, and swappable
 
@@ -398,7 +397,7 @@ extension point — no plugin loader, no registry, no config schema. See
 `tm check --notify` verifies the configured channel and walks its setup if it is missing. It
 **does not send** — pass `--send` to post a test message. `check` never takes an action anyone
 outside the machine can observe ([`DEC-009`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-009-check-has-no-outward-side-effects.md)),
-the same guard `reset` applies to destruction. **A failed send never fails a completion.**
+the same guard `nm prune` applies to destruction. **A failed send never fails a completion.**
 
 ### Nothing comes back in
 
@@ -661,7 +660,6 @@ is what runs, plus the model it implements.
 llmeep/tasks/
   platform/          board.md + tasks/ sidecars
   business/          board.md + tasks/ sidecars
-  UNADOPTED.md       present until `tm reset`; says whose records these are
   _tooling/
     ontology.md      this file
     tm               the executable

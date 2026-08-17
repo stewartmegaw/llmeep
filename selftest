@@ -122,13 +122,6 @@ class Fixture(unittest.TestCase):
                             ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"))
         return dest
 
-    def greenfield(self, src):
-        """The documented clone-and-init path: their project *is* the skeleton."""
-        top = self.path("greenfield")
-        shutil.copytree(src, top, ignore=shutil.ignore_patterns(".git"))
-        self.git_init(top)
-        return top
-
     def adopt(self, src, top, *args, expect_ok=True):
         out = sh(sys.executable, os.path.join(src, "adopt"), *args, cwd=top)
         if expect_ok and out.returncode != 0:
@@ -285,12 +278,53 @@ class TestFreshInstall(Fixture):
     """Layout axis, no transition. This half was always covered; it is here so a
     failure says which axis broke rather than only that something did."""
 
-    def test_greenfield_clone(self):
-        top = self.greenfield(self.working_copy())
-        sh("git", "config", "core.hooksPath", "llmeep/tasks/_tooling/hooks", cwd=top)
+    def test_adopt_builds_records_rather_than_clearing_them(self):
+        """`DEC-035`. Nothing llmeep records is copied, so nothing llmeep
+        records can arrive — which is what let the release ceremony go. Asserted
+        on content, not on a `reset` having run, because there is no longer a
+        reset to run."""
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        root = self.install_root(top)
+
+        with open(os.path.join(root, "tasks", "platform", "board.md")) as fh:
+            board = fh.read()
+        for heading in ("## in progress", "## prioritised", "## backlog", "## recent"):
+            self.assertIn(heading, board, f"a fresh board is missing {heading}")
+        self.assertNotIn("PLT-", board, "llmeep's own tasks arrived in a fresh install")
+
+        with open(os.path.join(root, "tasks", "_tooling", "history.tsv")) as fh:
+            rows = [l for l in fh if l.strip() and not l.startswith("#")]
+        self.assertEqual(rows, [], "llmeep's task history arrived in a fresh install")
+
+        with open(os.path.join(root, "notes", "notes.md")) as fh:
+            self.assertNotIn("NTE-", fh.read(), "llmeep's notes arrived in a fresh install")
+
+        left = [f for f in os.listdir(os.path.join(root, "decisions")) if f.startswith("DEC-")]
+        self.assertEqual(left, [], "llmeep's decisions arrived in a fresh install")
+
+        # And the built board is a board the tool can actually drive — the guard
+        # on `adopt` knowing the record format at all.
+        self.quieten(top)
+        self.assertEqual(self.tm(top, "add", "the first thing").returncode, 0)
+        with open(os.path.join(root, "tasks", "platform", "board.md")) as fh:
+            after = fh.read()
+        self.assertIn("the first thing", after.split("## backlog")[1],
+                      "a filed task did not land in the backlog of a built board")
+        self.assert_healthy(top)
+
+    def test_a_dirty_source_cannot_reach_an_adopter(self):
+        """The property the whole change buys: what the clone contains stopped
+        mattering. llmeep's own checkout is as dirty a source as exists — full
+        boards, full history, thirty-odd decisions — and it is what every other
+        case here installs from."""
+        src = self.working_copy()
+        with open(os.path.join(src, "llmeep", "tasks", "platform", "board.md")) as fh:
+            self.assertIn("PLT-", fh.read(), "the source under test has no records to leak")
+        top = self.a_project()
+        self.adopt(src, top)
         self.quieten(top)
         self.assert_healthy(top)
-        self.assertEqual(self.tm(top, "add", "the first thing").returncode, 0)
 
     def test_adopt_default_folder(self):
         top = self.a_project()
@@ -546,33 +580,6 @@ class TestSweep(Fixture):
                         term, body,
                         f"{os.path.relpath(path, top)} tells an adopter about "
                         f"the collecting half ({term})")
-
-    def test_a_released_tree_carries_no_maintainer_tooling(self):
-        """`PLT-8fmj`. `adopt` copies a manifest, so the repo root never reaches
-        an adopting repo — but the documented greenfield path is
-        `clone && rm -rf .git` **of a release**, which hands over that whole
-        tree. Keeping the sweep out of the installer is only half of `DEC-034`.
-
-        Checked against what was actually published, not against `main`, where
-        the sweep belongs. The gate that prevents a bad cut is
-        `check --release`; this is the one that notices a bad cut got out."""
-        tags = release_tags()
-        if not tags:
-            self.skipTest("no release tags in this checkout")
-        top = self.greenfield(self.clone_tag(tags[0]))
-        self.assertFalse(
-            os.path.exists(os.path.join(top, "sweep")),
-            f"{tags[0]} ships the maintainer sweep at its root")
-
-    def test_the_release_check_refuses_a_tree_holding_the_sweep(self):
-        """The cut is the only place the two install paths differ, so it is the
-        only place this can be caught."""
-        top = self.greenfield(self.working_copy())
-        with open(os.path.join(top, "sweep"), "w") as fh:
-            fh.write("#!/usr/bin/env python3\n")
-        out = self.tm(top, "check", "--release")
-        self.assertNotEqual(out.returncode, 0, "the cut check passed with sweep present")
-        self.assertIn("sweep", out.stdout + out.stderr)
 
     def test_the_sweep_has_no_transport_at_all(self):
         """It prints. Sending went with the move — the notifier lives in `tm`,

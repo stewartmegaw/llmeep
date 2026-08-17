@@ -82,10 +82,23 @@ see the project. `is_clone()` stays: `--update` still fetches a checkout to copy
 
 ## Acceptance
 
-- [ ] `adopt` is the only install documented, and the README's first instruction works from an
+- [x] `adopt` is the only install documented, and the README's first instruction works from an
       empty directory
-- [ ] Nothing remains whose only purpose is protecting a cloner from llmeep's own records
-- [ ] A decision records what was dropped, what was kept, and why one way in beats two
-- [ ] `adopt` builds empty record trees rather than copying llmeep's and clearing them, so a
+- [x] Nothing remains whose only purpose is protecting a cloner from llmeep's own records
+- [x] A decision records what was dropped, what was kept, and why one way in beats two
+- [x] `adopt` builds empty record trees rather than copying llmeep's and clearing them, so a
       dirty source cannot reach an adopter even in principle
-- [ ] Releases are tags on `main`, the default branch is `main`, and installs still update
+- [x] Releases are tags on `main`, the default branch is `main`, and installs still update
+
+## Log
+
+- 2026-08-17 — Done in one commit rather than the three the plan proposed. The steps turned out
+  to be coupled, not sequential: `adopt` called `tm reset` to clear what it had just copied, so
+  removing `reset` and making `adopt` build empty records is a single change, and once the source
+  no longer matters the release ceremony has nothing left to protect.
+- 2026-08-17 — ~250 lines deleted against ~40 added. `tm check --release` went entirely, along
+  with both `reset` commands, both `UNADOPTED.md` markers, the skeleton nudges, `dead_links`,
+  `RELEASE_DIRS`, `MAINTAINER_ONLY` and the `release` branch. `DEC-035` records it.
+- 2026-08-17 — The default branch is still `release` on the remote and has to be switched to
+  `main` by hand; nothing in the repo can do that. Until it is, a casual visitor lands on a
+  branch that is no longer cut.

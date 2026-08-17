@@ -24,7 +24,6 @@ REPO = os.path.dirname(ROOT)
 ARCHIVE = os.path.join(ROOT, "notes.md")
 HISTORY = os.path.join(HERE, "history.tsv")
 RAW = os.path.join(ROOT, "raw")
-MARKER = os.path.join(ROOT, "UNADOPTED.md")
 # One name, in one place. The rename from `taskman/` to `tasks/` swept the
 # string `taskman/` and missed every literal written as a path *segment* — so
 # `nm` went on pointing at a directory that no longer existed, and only
@@ -261,7 +260,6 @@ def cmd_add(args):
     print(f"\n  {len(added)} {plural}" + (f" · src:{slug(src)}" if src else ""))
     # Exclude everything just written, or a batch reports its own siblings.
     show_related(" ".join(n.text for n in added), exclude={n.id for n in added})
-    skeleton_nudge()
 
 
 def cmd_drop(args):
@@ -457,44 +455,6 @@ def show_related(term, exclude=()):
         print(f"    {row['id']:<9}{summarise(row['text'], 44):<46}{row['date']}")
 
 
-def skeleton_nudge():
-    """Mirrors tm. Notes are worse than tasks here: a stale task reads as a
-    stale task, but an inherited note reads as something *your* team said."""
-    if os.path.exists(MARKER):
-        print("\n  ~ these are the skeleton's own notes — see notes/UNADOPTED.md,"
-              "\n    or run `nm reset` if you cloned this to start a project")
-
-
-def cmd_reset(args):
-    """Destructive, so it is a dry run unless --yes. Adoption is per subsystem:
-    `tm reset` does not touch notes and this does not touch tasks, because the
-    two are meant to stay liftable apart (DEC-020)."""
-    archive = Archive()
-    rows = len(history_rows())
-    captures = capture_names()
-
-    print("  clears:")
-    print(f"    notes.md — {len(archive.notes)} note(s)")
-    print(f"    history.tsv — {rows} row(s)")
-    print(f"    raw/ — {len(captures)} capture(s)")
-    print("\n  keeps: ontology and nm (decisions live outside notes/)")
-    print("    (`tm reset` clears tasks; this one does not touch them)")
-
-    if "--yes" not in args:
-        print("\n  dry run. pass --yes to apply.")
-        return
-
-    archive.notes = []
-    archive.save()
-    with open(HISTORY, "w") as fh:
-        fh.write("#date\tid\ttext\tsrc\ttask\n")
-    for name in captures:
-        os.remove(os.path.join(RAW, name))
-    if os.path.exists(MARKER):
-        os.remove(MARKER)
-    print("  reset. notes/ is now yours.")
-
-
 def cmd_check(args):
     errors = []
     archive, seen = Archive(), {}
@@ -553,7 +513,6 @@ USAGE = """nm — notes
   nm find <term>                    search every note ever captured
 
   nm check                          validate records; used by hooks and CI
-  nm reset [--yes]                  clear notes when adopting the skeleton
 
 Reading is `cat notes/notes.md`. Distilling is the agent's job, not a command.
 Model: notes/_tooling/ontology.md"""
@@ -565,8 +524,7 @@ def main():
         print(USAGE)
         return 0
     commands = {"add": cmd_add, "drop": cmd_drop, "promote": cmd_promote,
-                "prune": cmd_prune, "find": cmd_find, "check": cmd_check,
-                "reset": cmd_reset}
+                "prune": cmd_prune, "find": cmd_find, "check": cmd_check}
     cmd = commands.get(argv[0])
     if not cmd:
         print(f"unknown command: {argv[0]}\n\n{USAGE}", file=sys.stderr)
