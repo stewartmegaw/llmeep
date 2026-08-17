@@ -24,6 +24,7 @@ llmeep/tasks/_tooling/tm why <term|DEC-000>         # search decisions, or expla
 llmeep/tasks/_tooling/tm why --stale [--yes]        # records nothing references; --yes prunes
 llmeep/tasks/_tooling/tm standup [--send]           # the period's work; --send posts it
 llmeep/tasks/_tooling/tm standup --cron             # the crontab line, if scheduling it
+llmeep/tasks/_tooling/tm agenda [--send]            # what a meeting must get through
 llmeep/tasks/_tooling/tm ontology [<path>|--none]   # where this repo's domain ontology lives
 llmeep/tasks/_tooling/tm feedback [<text>|-]        # note what llmeep got wrong; opt-in, never sent
 
@@ -51,6 +52,7 @@ llmeep/tasks/_tooling/tm check --notify [--send]    # verify the notification ch
 | "why is it like this" / "what did we decide about X" | `tm why <term>`, then `tm why DEC-000` |
 | "can we tidy the decisions" | `tm why --stale` — **without** `--yes`. Unreferenced is not finished with; the subject test is the user's |
 | "what did we get done this week" / "standup" | `tm standup` — **without** `--send` unless they ask to post it |
+| "agenda for tomorrow" / "what do we need to cover" | `tm agenda`, then **write the draft yourself** — see below |
 | "schedule the standup" / "how do I automate this" | `tm standup --cron`, and point at `llmeep/tasks/_tooling/blueprints/standup.sh` |
 | "is the Telegram bot set up" / "post to the group instead" | `tm check --notify` — it lists every chat the bot can see; add `--send` only if they want a test message |
 | "our domain model is in docs/" / a commit says no ontology is recorded | `tm ontology <path>`, or `--none` |
@@ -79,10 +81,9 @@ would not mention it in standup, it does not need a task.
 ## A closed task is committed before the next one starts
 
 **Before `tm add` or `tm go`, check `git status` for uncommitted changes to
-`llmeep/tasks/_tooling/history.tsv`.** `done` is the only command that writes a row there, so an
-uncommitted change to it means the last task was closed and never committed. Do not key on
-`board.md` — `add`, `go` and `park` all write it, and a task merely filed is not a task
-waiting on a commit.
+`llmeep/tasks/_tooling/history.tsv`.** `done` is the only command that writes there, so a change
+to it means the last task was closed and never committed. Not `board.md` — `add`, `go` and
+`park` all write that.
 
 When you find them, **ask** — an `AskUserQuestion` with the closed task's id and title, offering
 *commit it now* (recommended) or *start anyway*. Do not commit unasked; a commit is the user's
@@ -101,20 +102,29 @@ something is manufacturing noise. `tm feedback "<what happened>"`.
 **Never about this project** — no code, file names, domain terms or task titles. If the point
 needs one, do not write it. Rubric: `llmeep/tasks/_tooling/ontology.md`.
 
+## Building an agenda
+
+`tm agenda` lists candidates — blocked tasks, unpromoted notes, open business — and **writes
+nothing**. Selecting is the act, so show them and ask which belong. Then **you write
+`llmeep/.notes/agenda.md`**: plain markdown, in reading order, each line saying why it is there.
+`tm agenda --send` posts it under a dated heading, body exactly as written.
+
+**An agenda is not a standup** — leave off anything simply progressing. A later `tm agenda`
+reports `sent <date>`, and `edited since` if it moved on.
+
 ## `discuss` is yours, `drop` is the tool's
 
 Both are on the board's hint line, and they resolve opposite ways for the reason
 [principle 7](../../../llmeep/ontology/principles.md) gives.
 
 **`drop` changes a record, so it is a command.** `tm drop <id>` removes the line and its sidecar
-and writes nothing to history — nothing happened, so the ledger stays silent. Never reach for
-`done` instead: that files a completion row and broadcasts a completion for work nobody did.
+and writes no history — nothing happened. Never use `done` instead: that files a completion and
+broadcasts one for work nobody did.
 
-**`discuss` changes nothing, so it is not.** It means *talk this task over and sharpen it* — a
-vague title, acceptance nobody has thought through. Read the sidecar, ask what "done" looks
-like, propose a better title. Then record whatever you agreed with the verbs that already
-exist: rewrite the sidecar, `tm prioritise` it, `tm drop` it. There is no `tm discuss` and there
-should not be — a command that only starts a conversation is a command doing nothing.
+**`discuss` changes nothing, so it is not.** It means *talk this task over and sharpen it*: read
+the sidecar, ask what "done" looks like, propose a better title. Record the outcome with the
+verbs that exist. There is no `tm discuss` — a command that only starts a conversation does
+nothing.
 
 ## A rejected alternative is a decision, and nobody will prompt you
 

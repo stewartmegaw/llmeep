@@ -13,12 +13,17 @@ behind; `.notes/` is one machine's thinking, in progress.
 | ------------ | ------------------------------------------------------------------------ |
 | `sessions/`  | Per-session working logs. `YYYY-MM-DD-<topic>.md`.                        |
 | `scratch/`   | Anything transient: drafts, output dumps, experiments, dead ends.         |
+| `agenda.md`  | The meeting agenda being drafted, plus `agenda.sent`. See `tm agenda`.    |
 
 ## The rule that matters
 
-**Nothing may depend on `.notes/`.** No task, note, ontology file, script or automation may
-reference it as a source of truth. A teammate cloning this repo gets none of it, and that
-must break nothing.
+**Nothing may depend on `.notes/` as a source of truth.** No task, note, ontology file, script
+or automation may treat what is here as the record of anything. A teammate cloning this repo
+gets none of it, and that must break nothing — which is the test, and the only one.
+
+`tm agenda` reads and writes `agenda.md` here, and passes it: the draft names tasks and notes
+that all still exist, so losing it costs a few minutes of picking rather than information.
+Something whose *only* copy is here has failed the test and belongs elsewhere.
 
 If something here matters, **promote** it:
 

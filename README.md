@@ -65,6 +65,7 @@ llmeep/tasks/_tooling/tm drop PLT-9puy             # remove one that should not 
 llmeep/tasks/_tooling/tm find auth                 # search everything ever completed
 llmeep/tasks/_tooling/tm why standup               # search decisions; `tm why DEC-017` explains one
 llmeep/tasks/_tooling/tm standup                   # what closed this period; --send posts it
+llmeep/tasks/_tooling/tm agenda                    # what a meeting must get through; --send posts it
 ```
 
 Defaults do the work: `add` assumes platform, `go` and `done` assume the current task. Nothing
@@ -117,11 +118,11 @@ is what it chooses to read, so the standing cost is two lines:
 | Loaded             | When                         | Roughly         |
 | ------------------ | ---------------------------- | --------------- |
 | Skill descriptions | always, in every prompt      | **~150 tokens** |
-| `tm` skill         | when you mention tasks       | ~3,650          |
+| `tm` skill         | when you mention tasks       | ~4,000          |
 | `nm` skill         | when you mention notes       | ~1,900          |
 | A board            | when it lists or starts work | ~400            |
 
-A working session on tasks costs about **4,100 tokens** of context — the skill plus the board —
+A working session on tasks costs about **4,450 tokens** of context — the skill plus the board —
 and the board stays that size on purpose: `recent` is capped at 15 and everything older is
 searched with `find` rather than carried. That cap is the whole reason the cost is flat instead
 of growing with the project.

@@ -432,6 +432,87 @@ class TestFeedback(Fixture):
                          "the commit path grew feedback output")
 
 
+class TestAgenda(Fixture):
+    """`PLT-ehd6`. An agenda is not a standup — it looks forward, and covers
+    only what cannot move without people in a room."""
+
+    def a_repo(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        return top
+
+    def draft(self, top):
+        return os.path.join(self.install_root(top), ".notes", "agenda.md")
+
+    def test_a_bare_run_lists_and_writes_nothing(self):
+        """Selecting is the act. A draft that arrives pre-filled is a standup
+        with a different heading, and deleting from it is not the same decision
+        as choosing what goes on."""
+        top = self.a_repo()
+        blocker = self.tm(top, "add", "--id", "the blocker").stdout.strip()
+        waiting = self.tm(top, "add", "--id", "the waiter").stdout.strip()
+        path = os.path.join(self.install_root(top), "tasks", "platform", "board.md")
+        with open(path) as fh:
+            body = fh.read()
+        with open(path, "w") as fh:
+            fh.write(body.replace(f"{waiting} the waiter",
+                                  f"{waiting} the waiter  blocked:{blocker}"))
+        out = self.tm(top, "agenda")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertIn(waiting, out.stdout, "a blocked task is not offered as a candidate")
+        self.assertIn(blocker, out.stdout, "the candidate does not say what blocks it")
+        self.assertFalse(os.path.exists(self.draft(top)), "a bare run wrote the draft")
+
+    def test_an_unpromoted_note_is_a_candidate_and_a_promoted_one_is_not(self):
+        top = self.a_repo()
+        self.nm(top, "add", "still just captured")
+        promoted = self.nm(top, "add", "this one becomes work").stdout
+        nid = re.search(r"NTE-\S+", promoted).group(0)
+        self.nm(top, "promote", nid)
+        out = self.tm(top, "agenda")
+        self.assertIn("still just captured", out.stdout)
+        self.assertNotIn("this one becomes work", out.stdout,
+                         "a note already promoted to a task is offered as a candidate")
+
+    def test_send_refuses_an_empty_draft(self):
+        top = self.a_repo()
+        out = self.tm(top, "agenda", "--send")
+        self.assertNotEqual(out.returncode, 0)
+
+    def test_send_posts_the_body_as_written(self):
+        """Nothing parses the draft, so there is no format between the half
+        that writes it and the half that sends it."""
+        top = self.a_repo()
+        os.makedirs(os.path.dirname(self.draft(top)), exist_ok=True)
+        body = "1. Acme SSO - do we commit?\n2. Toolchain is stuck"
+        with open(self.draft(top), "w") as fh:
+            fh.write(body + "\n")
+        out = self.tm(top, "agenda", "--send")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        for line in body.split("\n"):
+            self.assertIn(line, out.stdout, "the body did not go out as written")
+
+    def test_a_bare_run_never_sends(self):
+        top = self.a_repo()
+        os.makedirs(os.path.dirname(self.draft(top)), exist_ok=True)
+        with open(self.draft(top), "w") as fh:
+            fh.write("something\n")
+        self.tm(top, "agenda")
+        self.assertFalse(
+            os.path.exists(os.path.join(self.install_root(top), ".notes", "agenda.sent")),
+            "a bare run marked the agenda sent")
+
+    def test_the_draft_never_enters_the_repo(self):
+        top = self.a_repo()
+        os.makedirs(os.path.dirname(self.draft(top)), exist_ok=True)
+        with open(self.draft(top), "w") as fh:
+            fh.write("private meeting planning\n")
+        rel = os.path.relpath(self.draft(top), top)
+        self.assertEqual(sh("git", "check-ignore", "-q", rel, cwd=top).returncode, 0,
+                         "the agenda draft is not gitignored")
+
+
 class TestPark(Fixture):
     """`DEC-036`. Demoting a ranked task was the one board transition with no
     verb, so it meant editing `board.md` — which for an agent is a lesson in

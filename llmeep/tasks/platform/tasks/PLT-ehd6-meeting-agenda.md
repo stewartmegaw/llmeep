@@ -57,8 +57,8 @@ someone closes a task, which is the thing this project opens by rejecting.
 framing. Those are human judgement and would otherwise be lost. So the question is not *record
 or not* but *how long do they need to live*, and the answer is: until the meeting ends.
 
-So the draft is local and disposable — see [Where the draft lives](#where-the-draft-lives) for
-why that is *not* `.notes/` despite the description fitting. **What survives is what the meeting
+So the draft is local and disposable, in `.notes/` — see
+[Where the draft lives](#where-the-draft-lives). **What survives is what the meeting
 produced**: tasks filed or reprioritised, decisions written, notes promoted. The same pipeline
 `DEC-012` already sets for transcripts — distilled, not stored.
 
@@ -84,8 +84,11 @@ the same bounded exemption reordering already has.
 
 ### Two commands, and editing in between
 
-**`tm agenda`** gathers candidates and seeds the draft. **`tm agenda --send`** posts it. That is
-the whole surface.
+**`tm agenda`** lists candidates and writes nothing. **`tm agenda --send`** posts the draft.
+That is the whole surface — the agent writes the file in between.
+
+Confirmed with the user before implementing: listing beats pre-filling, because selecting is the
+act and a draft that arrives full is a standup with a different heading.
 
 An earlier pass here listed six verbs — add, drop, reorder, annotate, show, send — and that was
 wrong. The model already answers it: *listing is reading the board, reordering is moving a line
@@ -141,18 +144,39 @@ error, because a teammate's checkout has none by design.
 
 ## Acceptance
 
-- [ ] One command renders an agenda from tasks and notes, and it is visibly not a standup —
+- [x] One command renders an agenda from tasks and notes, and it is visibly not a standup —
       nothing appears on it that is simply progressing normally
-- [ ] Every item says why it is on the list: blocked by what, captured when, waiting on whom
-- [ ] `--send` posts to the configured channel and nothing else does; a bare run only prints
-- [ ] Nothing in the repo triggers it on a schedule
-- [ ] An agenda with nothing on it says so in one line
-- [ ] Two commands and no more: `tm agenda` and `tm agenda --send`
-- [ ] A draft survives between sessions, and a missing one starts a fresh agenda rather than
+- [x] Every item says why it is on the list: blocked by what, captured when, waiting on whom
+- [x] `--send` posts to the configured channel and nothing else does; a bare run only prints
+- [x] Nothing in the repo triggers it on a schedule
+- [x] An agenda with nothing on it says so in one line
+- [x] Two commands and no more: `tm agenda` and `tm agenda --send`
+- [x] A draft survives between sessions, and a missing one starts a fresh agenda rather than
       failing
-- [ ] `--send` posts what is in the file, without parsing it
-- [ ] The agenda is drivable from a terminal with no picker, and the picker adds no behaviour
+- [x] `--send` posts what is in the file, without parsing it
+- [x] The agenda is drivable from a terminal with no picker, and the picker adds no behaviour
       the command does not have
-- [ ] No fourth record type: nothing about an agenda outlives the meeting except the tasks,
+- [x] No fourth record type: nothing about an agenda outlives the meeting except the tasks,
       notes and decisions it produced
-- [ ] The word `discuss` is untouched by this task
+- [x] The word `discuss` is untouched by this task
+
+## Log
+
+- 2026-08-17 — Usage confirmed with the user before any code. Three choices came back: `tm agenda`
+  **lists and writes nothing** rather than pre-filling a draft; `--send` **wraps** the body in a
+  dated heading rather than posting raw bytes; and a sent draft is **left in place and marked**
+  rather than cleared.
+- 2026-08-17 — Marking is a file beside the draft, `.notes/agenda.sent`, not a line inside it. A
+  send that rewrote what it was sending would carry its own bookkeeping into the room, and it
+  would break the property that the body goes out exactly as written. Comparing mtimes gives
+  `edited since` for free.
+- 2026-08-17 — Wrapping is not parsing, so the no-drift property the design was built around
+  survives. `render_telegram` already bolds a section heading, so the wrapper needed no new
+  renderer and every channel keeps its own formatting (`DEC-008`).
+- 2026-08-17 — The draft does live in `.notes/`, and the tree's README now says why that is
+  allowed: the rule is about *sources of truth*, and an agenda draft names tasks and notes that
+  all still exist. Losing it costs a few minutes of picking, not information.
+- 2026-08-17 — Two things left undone. "Tasks that have sat in progress" was listed as a possible
+  signal and is not implemented: nothing records when a task was *started*, only when it was
+  filed, so the age would be wrong. And the `tm` skill is at ~3,990 of its 4,000 budget again —
+  ten tokens of headroom, so the next addition breaks it.

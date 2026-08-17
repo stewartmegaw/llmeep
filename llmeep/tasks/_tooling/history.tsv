@@ -82,3 +82,4 @@
 2026-08-17	PLT-9v2n	platform	Drop install-by-clone and make adopt the only way in	stewart
 2026-08-17	PLT-gx39	platform	The hint line offers two verbs that do not exist — discuss and drop	stewart
 2026-08-17	PLT-uwek	platform	Every status transition has a command except prioritised back to backlog	stewart
+2026-08-17	PLT-ehd6	platform	Build a meeting agenda from tasks and notes, sendable to Telegram	stewart

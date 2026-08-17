@@ -618,6 +618,41 @@ mechanical covers that. If it proves to be where duplicated work starts,
 
 ---
 
+## Agenda
+
+What a meeting has to get through. **Not a standup**: the standup looks back and covers
+everything, an agenda looks forward and covers only what cannot move without people in a room.
+Most of a standup is exactly what an agenda leaves out, because it is going fine.
+
+```sh
+tm agenda           # candidates, and the state of the draft
+tm agenda --send    # post the draft under a dated heading
+```
+
+**The tool lists; the agent writes.** `tm agenda` shows three groups, each earning its place by a
+signal already in the records — tasks carrying a `blocked:` tag, notes captured and never
+promoted, and open items on the business ledger. It writes nothing. Selecting is the act, and an
+agenda that arrives pre-filled is a standup with a different heading.
+
+The draft is `.notes/agenda.md`, written and edited by the agent as ordinary markdown. That is
+the one thing in `.notes/` a command reads, and it is allowed because the tree's rule is about
+**sources of truth**: delete the draft and a few minutes of picking are lost, not information,
+since every task and note it names is still there. A teammate's checkout has none of it and
+nothing breaks, which is the test that rule exists to enforce.
+
+**Nothing parses the draft.** `--send` wraps it in a dated heading and posts the body as written,
+so there is no format between the half that writes and the half that sends, and nothing for them
+to disagree about. What you read before sending is what the team receives.
+
+**Sending marks, never edits.** The date goes in `.notes/agenda.sent` beside the draft rather
+than into it — a send that rewrote the file would carry its own bookkeeping into the room. A
+later `tm agenda` reports `sent <date>`, and `edited since` when the draft has moved on.
+
+**Nothing schedules it.** A meeting has a time and a person; that person runs it, the same
+answer `DEC-016` and `DEC-017` reached for the standup.
+
+---
+
 ## Feedback to llmeep — off unless switched on
 
 llmeep is used on real projects by people who never open an issue about it, and whose agent

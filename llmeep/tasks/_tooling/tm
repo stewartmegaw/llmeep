@@ -826,6 +826,152 @@ def cmd_standup(args):
         print("  ! not sent — the channel rejected it; the reason is above")
 
 
+# ------------------------------------------------------------------- agenda
+#
+# What a meeting has to get through, which is a different question from what a
+# standup reports. The standup looks back and covers everything; an agenda looks
+# forward and covers what cannot move without people in a room. Most of a
+# standup is exactly what an agenda leaves out, because it is going fine.
+#
+# The tool lists candidates and sends the result. **It never parses the draft**
+# — the agent writes that file, the agent edits it, and `--send` posts what is
+# in it. There is no format between the two halves, so there is nothing for them
+# to disagree about (`PLT-ehd6`).
+
+AGENDA = ".notes/agenda.md"
+AGENDA_SENT = ".notes/agenda.sent"
+AGENDA_LIST = 5
+
+
+def agenda_path():
+    return os.path.join(REPO, AGENDA)
+
+
+def agenda_sent():
+    """When this draft was last sent, or None. A file beside the draft rather
+    than a line inside it: `--send` must not edit the thing it is sending, or
+    the next send carries its own bookkeeping into the room."""
+    path = os.path.join(REPO, AGENDA_SENT)
+    if not os.path.isfile(path):
+        return None
+    with open(path) as fh:
+        return fh.read().strip() or None
+
+
+def agenda_notes():
+    """Unpromoted notes, with their ids. `standup_notes` renders a section and
+    drops the ids; an agenda needs them, because every line has to say where it
+    came from. Reads `notes/` directly and shrugs when absent (`DEC-022`)."""
+    path = os.path.join(REPO, "notes", "notes.md")
+    if not os.path.exists(path):
+        return []
+    out = []
+    with open(path) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line.startswith("NTE-") or "task:" in line:
+                continue
+            nid = line.split()[0]
+            body = re.sub(r"\s{2,}(src|task):\S+", "", line.split(None, 1)[1]).strip() \
+                if " " in line else ""
+            out.append((nid, body))
+    return out
+
+
+def agenda_candidates():
+    """Three groups, each earning its place by a signal already in the records.
+
+    Nothing here is a guess about importance — a blocked task names its blocker,
+    an unpromoted note is one nobody has decided about, and a business item is
+    an outcome rather than a change. What actually belongs on the agenda is the
+    user's call, which is why this lists and does not select.
+    """
+    blocked, business = [], []
+    for ledger in LEDGERS:
+        try:
+            board = Board(ledger)
+        except Fail:
+            continue
+        for task in board.in_progress + board.open:
+            if task.blocker:
+                age = f", filed {task.filed}" if task.filed else ""
+                blocked.append(f"{task.id}  {task.title} — blocked by {task.blocker}{age}")
+            elif ledger == "business":
+                business.append(f"{task.id}  {task.title}")
+    return blocked, agenda_notes(), business
+
+
+def cmd_agenda(args):
+    """List what a meeting might need, or send the draft.
+
+    A bare run **never writes the draft**. Selection is the whole act — an
+    agenda that arrives pre-filled is a standup with a different heading, and
+    deleting from it is not the same decision as choosing what goes on.
+    """
+    if "--send" in args:
+        return agenda_send()
+    blocked, notes, business = agenda_candidates()
+    print()
+    if not (blocked or notes or business):
+        print("  nothing is blocked, captured or outstanding on the business ledger.")
+        print("  a meeting with nothing to decide is worth knowing about before it starts.\n")
+    else:
+        print("  candidates — none of this is on the agenda until you say so\n")
+        for heading, rows in (("blocked", blocked),
+                              ("captured, not yet work",
+                               [f"{nid}  {text}" for nid, text in notes]),
+                              ("business", business)):
+            if not rows:
+                continue
+            print(f"  {heading}")
+            for row in rows[:AGENDA_LIST]:
+                print(f"    {row}")
+            if len(rows) > AGENDA_LIST:
+                print(f"    …and {len(rows) - AGENDA_LIST} more")
+            print()
+    where = os.path.relpath(agenda_path(), os.getcwd())
+    if not os.path.isfile(agenda_path()):
+        print(f"  draft: {where} — not written yet\n")
+        return
+    with open(agenda_path()) as fh:
+        lines = [l for l in fh.read().split("\n") if l.strip()]
+    sent = agenda_sent()
+    state = f"{len(lines)} line(s)"
+    if sent:
+        stale = os.path.getmtime(agenda_path()) > os.path.getmtime(
+            os.path.join(REPO, AGENDA_SENT))
+        state += f", sent {sent}" + (", edited since" if stale else "")
+    print(f"  draft: {where} — {state}\n")
+
+
+def agenda_send():
+    """Posts the draft under a dated heading, through the one notifier
+    (`DEC-008`). The heading is a wrapper, not a parse: the body goes out as
+    written, so what you read before sending is what the team receives."""
+    path = agenda_path()
+    body = ""
+    if os.path.isfile(path):
+        with open(path) as fh:
+            body = fh.read().strip()
+    if not body:
+        raise Fail(f"nothing to send — {os.path.relpath(path, os.getcwd())} is empty.\n"
+                   "  `tm agenda` lists what a meeting might need.")
+    sections = [(f"Agenda — {date.today().isoformat()}", body.split("\n"))]
+    print()
+    for line in render_plain(sections).split("\n"):
+        print(f"  {line}".rstrip())
+    print()
+    channel = notify_text(sections)
+    if not channel:
+        print("  ! not sent — no channel configured, see .env.example\n"
+              if channel is None else
+              "  ! not sent — the channel rejected it; the reason is above\n")
+        return
+    with open(os.path.join(REPO, AGENDA_SENT), "w") as fh:
+        fh.write(date.today().isoformat() + "\n")
+    print(f"  sent via {channel}. The draft is left as it is, marked sent.\n")
+
+
 def new_id(prefix, taken):
     for _ in range(100):
         tid = f"{prefix}-{''.join(secrets.choice(ALPHABET) for _ in range(ID_LEN))}"
@@ -2110,6 +2256,7 @@ USAGE = """tm — taskman
   tm why --stale [--yes]        records nothing references; --yes prunes to a stub
   tm standup [--send]           report the period's work (--send posts it)
   tm standup --cron             the crontab line, if you schedule it
+  tm agenda [--send]            what a meeting must get through (--send posts it)
   tm ontology [<path>|--none]   where your domain ontology lives, or that there is none
   tm feedback [<text...>|-]     note what llmeep itself got wrong (opt-in, local, never sent)
 
@@ -2307,7 +2454,7 @@ def main():
         "add": cmd_add, "go": cmd_go, "park": cmd_park,
         "prioritise": cmd_prioritise, "prioritize": cmd_prioritise,
         "done": cmd_done, "drop": cmd_drop, "find": cmd_find, "why": cmd_why,
-        "standup": cmd_standup, "ontology": cmd_ontology,
+        "standup": cmd_standup, "agenda": cmd_agenda, "ontology": cmd_ontology,
         "feedback": cmd_feedback,
         "check": cmd_check,
     }
