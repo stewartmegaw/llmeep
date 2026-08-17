@@ -840,7 +840,11 @@ def cmd_standup(args):
 
 AGENDA = ".notes/agenda.md"
 AGENDA_SENT = ".notes/agenda.sent"
-AGENDA_LIST = 5
+
+# Sections go above this; it is the last thing on every agenda. Nothing else is
+# scaffolded — a numbered heading with an empty bullet under it is a form to
+# fill in, and this is not a form.
+AGENDA_SCAFFOLD = "## Next Steps\n\n"
 
 
 def agenda_path():
@@ -858,90 +862,44 @@ def agenda_sent():
         return fh.read().strip() or None
 
 
-def agenda_notes():
-    """Unpromoted notes, with their ids. `standup_notes` renders a section and
-    drops the ids; an agenda needs them, because every line has to say where it
-    came from. Reads `notes/` directly and shrugs when absent (`DEC-022`)."""
-    path = os.path.join(REPO, "notes", "notes.md")
-    if not os.path.exists(path):
-        return []
-    out = []
-    with open(path) as fh:
-        for line in fh:
-            line = line.strip()
-            if not line.startswith("NTE-") or "task:" in line:
-                continue
-            nid = line.split()[0]
-            body = re.sub(r"\s{2,}(src|task):\S+", "", line.split(None, 1)[1]).strip() \
-                if " " in line else ""
-            out.append((nid, body))
-    return out
-
-
-def agenda_candidates():
-    """Three groups, each earning its place by a signal already in the records.
-
-    Nothing here is a guess about importance — a blocked task names its blocker,
-    an unpromoted note is one nobody has decided about, and a business item is
-    an outcome rather than a change. What actually belongs on the agenda is the
-    user's call, which is why this lists and does not select.
-    """
-    blocked, business = [], []
-    for ledger in LEDGERS:
-        try:
-            board = Board(ledger)
-        except Fail:
-            continue
-        for task in board.in_progress + board.open:
-            if task.blocker:
-                age = f", filed {task.filed}" if task.filed else ""
-                blocked.append(f"{task.id}  {task.title} — blocked by {task.blocker}{age}")
-            elif ledger == "business":
-                business.append(f"{task.id}  {task.title}")
-    return blocked, agenda_notes(), business
-
-
 def cmd_agenda(args):
-    """List what a meeting might need, or send the draft.
+    """Create the draft and say so. **Nothing is listed.**
 
-    A bare run **never writes the draft**. Selection is the whole act — an
-    agenda that arrives pre-filled is a standup with a different heading, and
-    deleting from it is not the same decision as choosing what goes on.
+    This listed candidates until `PLT-s9e7` — blocked tasks, unpromoted notes,
+    open business — and using it showed that was two mistakes. It answered a
+    question nobody asked, framing the meeting around the slice a board happens
+    to notice; and most of an agenda is not in the records at all. Strategy,
+    trade-offs, who to sell to first: thinking, written down for the meeting.
+
+    So the tool makes the file and gets out of the way. `tasks`, `notes` and
+    `tm why` already look things up, each better at it than a merged list would
+    be, and what belongs on the agenda is a judgement none of them can make
+    (principle 7).
     """
     if "--send" in args:
         return agenda_send()
-    blocked, notes, business = agenda_candidates()
-    print()
-    if not (blocked or notes or business):
-        print("  nothing is blocked, captured or outstanding on the business ledger.")
-        print("  a meeting with nothing to decide is worth knowing about before it starts.\n")
-    else:
-        print("  candidates — none of this is on the agenda until you say so\n")
-        for heading, rows in (("blocked", blocked),
-                              ("captured, not yet work",
-                               [f"{nid}  {text}" for nid, text in notes]),
-                              ("business", business)):
-            if not rows:
-                continue
-            print(f"  {heading}")
-            for row in rows[:AGENDA_LIST]:
-                print(f"    {row}")
-            if len(rows) > AGENDA_LIST:
-                print(f"    …and {len(rows) - AGENDA_LIST} more")
-            print()
-    where = os.path.relpath(agenda_path(), os.getcwd())
-    if not os.path.isfile(agenda_path()):
-        print(f"  draft: {where} — not written yet\n")
+    path = agenda_path()
+    where = os.path.relpath(path, os.getcwd())
+    if not os.path.isfile(path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as fh:
+            fh.write(AGENDA_SCAFFOLD)
+        print(f"\n  draft created — {where}")
+        print("  add tasks, notes or decisions by id, and anything else on your mind.")
+        # Said here because here is where someone meets it. `.notes/` is
+        # gitignored and local by design, and an agenda is the first thing to
+        # live there that exists nowhere else (`PLT-s9e7`).
+        print("  it is not backed up: local, gitignored, and gone if this machine is.\n")
         return
-    with open(agenda_path()) as fh:
+    with open(path) as fh:
         lines = [l for l in fh.read().split("\n") if l.strip()]
     sent = agenda_sent()
     state = f"{len(lines)} line(s)"
     if sent:
-        stale = os.path.getmtime(agenda_path()) > os.path.getmtime(
-            os.path.join(REPO, AGENDA_SENT))
+        stale = os.path.getmtime(path) > os.path.getmtime(os.path.join(REPO, AGENDA_SENT))
         state += f", sent {sent}" + (", edited since" if stale else "")
-    print(f"  draft: {where} — {state}\n")
+    print(f"\n  draft: {where} — {state}")
+    print("  add tasks, notes or decisions by id, and anything else on your mind.\n")
 
 
 def agenda_send():
@@ -953,9 +911,12 @@ def agenda_send():
     if os.path.isfile(path):
         with open(path) as fh:
             body = fh.read().strip()
-    if not body:
-        raise Fail(f"nothing to send — {os.path.relpath(path, os.getcwd())} is empty.\n"
-                   "  `tm agenda` lists what a meeting might need.")
+    # The scaffold counts as empty. `tm agenda` writes `## Next Steps` into a
+    # new draft, so "has bytes in it" is not the same question as "has anything
+    # on it", and posting a heading with nothing under it wastes a room.
+    if not body or body == AGENDA_SCAFFOLD.strip():
+        raise Fail(f"nothing on the agenda — {os.path.relpath(path, os.getcwd())} "
+                   "holds no sections.\n  Say what belongs on it first.")
     sections = [(f"Agenda — {date.today().isoformat()}", body.split("\n"))]
     print()
     for line in render_plain(sections).split("\n"):

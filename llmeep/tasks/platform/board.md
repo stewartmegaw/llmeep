@@ -11,9 +11,11 @@
 PLT-3wjv Board could use a per-person filter
 PLT-fqcz An update that fails partway leaves a half-installed repo  filed:2026-08-04
 PLT-6pvp Present the repo for community contributions — README and GitHub setup  filed:2026-08-05
+PLT-rsn4 The tm skill outgrew its 4,000-token budget; every new command adds to it  filed:2026-08-17  detail
 
 ## recent
 
+2026-08-17  PLT-s9e7 Agenda should be user-driven: create the draft, name the sources, list nothing  @stewart
 2026-08-17  PLT-ehd6 Build a meeting agenda from tasks and notes, sendable to Telegram  @stewart
 2026-08-17  PLT-uwek Every status transition has a command except prioritised back to backlog  @stewart
 2026-08-17  PLT-gx39 The hint line offers two verbs that do not exist — discuss and drop  @stewart
@@ -28,4 +30,3 @@ PLT-6pvp Present the repo for community contributions — README and GitHub setu
 2026-08-06  PLT-8t5w Move llmeep's ontology under llmeep/ and make the project ontology a configured path  @stewart
 2026-08-06  PLT-eb7v Post-install ontology prompt reads as mandatory  @stewart
 2026-08-05  PLT-rg3w Pool lines sort by filing date but do not display it  @stewart
-2026-08-04  PLT-947q Order the pool by filing date when listing it  @stewart

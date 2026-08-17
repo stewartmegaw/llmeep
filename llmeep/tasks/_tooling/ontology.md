@@ -629,16 +629,39 @@ tm agenda           # candidates, and the state of the draft
 tm agenda --send    # post the draft under a dated heading
 ```
 
-**The tool lists; the agent writes.** `tm agenda` shows three groups, each earning its place by a
-signal already in the records — tasks carrying a `blocked:` tag, notes captured and never
-promoted, and open items on the business ledger. It writes nothing. Selecting is the act, and an
-agenda that arrives pre-filled is a standup with a different heading.
+**The tool creates the file; the user decides what goes on it.** `tm agenda` writes
+`.notes/agenda.md` and says so. It lists nothing — no candidates, no suggestions, no summary of
+what is outstanding.
 
-The draft is `.notes/agenda.md`, written and edited by the agent as ordinary markdown. That is
-the one thing in `.notes/` a command reads, and it is allowed because the tree's rule is about
-**sources of truth**: delete the draft and a few minutes of picking are lost, not information,
-since every task and note it names is still there. A teammate's checkout has none of it and
-nothing breaks, which is the test that rule exists to enforce.
+It listed until `PLT-s9e7`, and using it showed that was two mistakes. It answered a question
+nobody asked, framing the meeting around the slice a board happens to notice. And **most of an
+agenda is not in the records at all**: strategy, trade-offs, open questions, what someone wants
+said out loud. `tasks`, `notes` and `tm why` already look things up, each better at it than a
+merged list, and what belongs on an agenda is a judgement none of them can make (principle 7).
+
+The shape is numbered sections of prose bullets, `Next Steps` last, written by the agent as the
+conversation goes:
+
+```markdown
+## 1. Injury Database – Value?
+
+- What's the value proposition of the injury database component
+- Who would pay for it / who cares about this data?
+
+## Next Steps
+```
+
+**A section is a topic, not a record.** A task or note id appears in a bullet when it is
+relevant, and often nothing does.
+
+**The draft is not backed up, and that is accepted rather than solved.** `.notes/` is gitignored,
+local, and absent from a teammate's checkout. Everything else that lives there could be lost
+without losing information; an agenda cannot, because the thinking on it exists nowhere else.
+The alternatives were worse: committing it makes a half-formed strategy document part of
+everyone's diff and a fourth record type to keep current, and capturing to `notes/` on send fills
+the archive with questions for one meeting. What survives is what the meeting *produced* — the
+pipeline `DEC-012` already sets for transcripts, distilled rather than stored. If a bullet
+deserves keeping, `nm add` says so deliberately.
 
 **Nothing parses the draft.** `--send` wraps it in a dated heading and posts the body as written,
 so there is no format between the half that writes and the half that sends, and nothing for them

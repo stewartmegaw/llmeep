@@ -445,10 +445,9 @@ class TestAgenda(Fixture):
     def draft(self, top):
         return os.path.join(self.install_root(top), ".notes", "agenda.md")
 
-    def test_a_bare_run_lists_and_writes_nothing(self):
-        """Selecting is the act. A draft that arrives pre-filled is a standup
-        with a different heading, and deleting from it is not the same decision
-        as choosing what goes on."""
+    def test_it_creates_the_draft_and_lists_nothing(self):
+        """`PLT-s9e7`. Listing framed the meeting around the slice a board
+        happens to notice, and most of an agenda is not in the records at all."""
         top = self.a_repo()
         blocker = self.tm(top, "add", "--id", "the blocker").stdout.strip()
         waiting = self.tm(top, "add", "--id", "the waiter").stdout.strip()
@@ -458,27 +457,53 @@ class TestAgenda(Fixture):
         with open(path, "w") as fh:
             fh.write(body.replace(f"{waiting} the waiter",
                                   f"{waiting} the waiter  blocked:{blocker}"))
+        self.nm(top, "add", "a note nobody promoted")
+
         out = self.tm(top, "agenda")
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
-        self.assertIn(waiting, out.stdout, "a blocked task is not offered as a candidate")
-        self.assertIn(blocker, out.stdout, "the candidate does not say what blocks it")
-        self.assertFalse(os.path.exists(self.draft(top)), "a bare run wrote the draft")
+        self.assertTrue(os.path.exists(self.draft(top)), "the draft was not created")
+        for leaked in (waiting, blocker, "a note nobody promoted"):
+            self.assertNotIn(leaked, out.stdout,
+                             "the agenda listed records instead of getting out of the way")
 
-    def test_an_unpromoted_note_is_a_candidate_and_a_promoted_one_is_not(self):
+    def test_the_draft_starts_with_next_steps_and_nothing_else(self):
+        """A numbered heading with an empty bullet under it is a form to fill
+        in, and this is not a form. Sections go above `Next Steps`."""
         top = self.a_repo()
-        self.nm(top, "add", "still just captured")
-        promoted = self.nm(top, "add", "this one becomes work").stdout
-        nid = re.search(r"NTE-\S+", promoted).group(0)
-        self.nm(top, "promote", nid)
-        out = self.tm(top, "agenda")
-        self.assertIn("still just captured", out.stdout)
-        self.assertNotIn("this one becomes work", out.stdout,
-                         "a note already promoted to a task is offered as a candidate")
+        self.tm(top, "agenda")
+        with open(self.draft(top)) as fh:
+            body = fh.read()
+        self.assertEqual(body.strip(), "## Next Steps")
+
+    def test_creating_it_says_the_draft_is_not_backed_up(self):
+        """The one cost `PLT-s9e7` accepted rather than solved, so it has to be
+        said where someone meets it."""
+        top = self.a_repo()
+        self.assertIn("not backed up", self.tm(top, "agenda").stdout)
+
+    def test_a_second_run_does_not_overwrite_the_draft(self):
+        top = self.a_repo()
+        self.tm(top, "agenda")
+        with open(self.draft(top), "w") as fh:
+            fh.write("## 1. Something\n\n- a thought stored nowhere else\n\n## Next Steps\n")
+        self.tm(top, "agenda")
+        with open(self.draft(top)) as fh:
+            self.assertIn("a thought stored nowhere else", fh.read())
 
     def test_send_refuses_an_empty_draft(self):
         top = self.a_repo()
         out = self.tm(top, "agenda", "--send")
         self.assertNotEqual(out.returncode, 0)
+
+    def test_send_refuses_a_draft_holding_only_the_scaffold(self):
+        """`tm agenda` writes `## Next Steps` into a new draft, so "has bytes"
+        is not the same question as "has anything on it"."""
+        top = self.a_repo()
+        self.tm(top, "agenda")
+        out = self.tm(top, "agenda", "--send")
+        self.assertNotEqual(out.returncode, 0, "posted a heading with nothing under it")
+        self.assertFalse(
+            os.path.exists(os.path.join(self.install_root(top), ".notes", "agenda.sent")))
 
     def test_send_posts_the_body_as_written(self):
         """Nothing parses the draft, so there is no format between the half

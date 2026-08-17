@@ -58,9 +58,8 @@ llmeep/tasks/_tooling/tm check --notify [--send]    # verify the notification ch
 | "our domain model is in docs/" / a commit says no ontology is recorded | `tm ontology <path>`, or `--none` |
 | "llmeep should really do X" / friction with the tooling itself | `tm feedback "<what happened>"` — see below |
 
-**You are the mobile interface.** Telegram sends completion notifications and nothing reads
-its inbox — messages sent to the bot are ignored. Task management is this conversation,
-wherever it happens (`DEC-006`).
+**You are the mobile interface.** The channel is outbound only — nothing reads its inbox, so
+task management is this conversation, wherever it happens (`DEC-006`).
 
 ## Every piece of work has a task, and it exists before the work starts
 
@@ -104,13 +103,24 @@ needs one, do not write it. Rubric: `llmeep/tasks/_tooling/ontology.md`.
 
 ## Building an agenda
 
-`tm agenda` lists candidates — blocked tasks, unpromoted notes, open business — and **writes
-nothing**. Selecting is the act, so show them and ask which belong. Then **you write
-`llmeep/.notes/agenda.md`**: plain markdown, in reading order, each line saying why it is there.
-`tm agenda --send` posts it under a dated heading, body exactly as written.
+`tm agenda` creates the draft and says so. **Then stop** — no listing, no suggestions, no
+summary of what is outstanding. They have `tasks`, `notes` and `tm why` for looking things up.
 
-**An agenda is not a standup** — leave off anything simply progressing. A later `tm agenda`
-reports `sent <date>`, and `edited since` if it moved on.
+**You write `llmeep/.notes/agenda.md`** as they talk. Numbered sections, prose bullets,
+`Next Steps` always last:
+
+    ## 1. Injury Database – Value?
+
+    - What's the value proposition of the component
+    - Who would pay for it?
+
+    ## Next Steps
+
+**A section is a topic, not a record.** Most of an agenda corresponds to nothing in the repo —
+strategy, open questions — and an id goes in a bullet only when genuinely relevant.
+
+`--send` posts it under a dated heading, body as written. Never unasked. A later `tm agenda`
+says `sent <date>`, and `edited since` if it moved on.
 
 ## `discuss` is yours, `drop` is the tool's
 
@@ -183,8 +193,7 @@ receives are the same report.
     **Backlog (11)**
     PLT  Replace the fixture loader
     BUS  Draft the pricing page
-    PLT  Audit the retry timeouts
-    …and 8 more
+    …and 9 more
 
     **Captured, not yet work**
     · Acme want SSO before they will renew
@@ -194,9 +203,8 @@ only thing saying which is which — keep it, keep the two-space gap, and never 
 the tool did not tag. Captured notes have no ledger and keep their `·`.
 
 **The bracketed counts are the full sections, not what is shown.** Reproduce the count and the
-`…and N more` line exactly; never recount from the lines you can see. `Priority (0)` appears only
-when nothing is ranked and the pool is not empty — the one state a standup most needs to say out
-loud.
+`…and N more` line exactly; never recount from the lines you see. `Priority (0)` appears only
+when nothing is ranked and the pool is not empty — the state a standup most needs to say out loud.
 
 **Keep the tool's order.** Do not re-sort, do not read `Backlog` as priority, do not suggest
 reordering the board to match.
@@ -206,8 +214,8 @@ blank line after any `---`. No hint line; a standup is a report, not a menu.
 
 ## When asked for tasks, lift the tasks
 
-**Read `llmeep/tasks/*/board.md` first, every time** — never from memory, and never from the example
-below. Ids are four random characters, so a plausible wrong one reads exactly like a right one.
+**Read `llmeep/tasks/*/board.md` first, every time** — never from memory, never from the example
+below. Ids are four random characters, so a plausible wrong one reads like a right one.
 
 Render the live state. **Nothing else** — no commentary on what is outstanding, no suggestions
 about what to file, no summary of recent work. If they wanted analysis they will ask for it.
