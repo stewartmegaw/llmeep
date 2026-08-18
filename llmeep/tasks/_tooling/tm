@@ -432,7 +432,7 @@ def env_path():
     A git worktree is a separate working tree of the same repository, and `.env`
     is gitignored, so a worktree never has one — which made `--send` structurally
     impossible from a worktree, silently, for the same reason it is impossible in
-    a fresh clone (`PLT-2wcx`). Nobody notices, because "no channel configured"
+    a fresh clone (`PLT-zjkf`). Nobody notices, because "no channel configured"
     is also what an unconfigured repo says.
 
     `--git-common-dir` points at the *shared* `.git`, which is the main
@@ -446,14 +446,19 @@ def env_path():
     common = git("rev-parse", "--git-common-dir", cwd=REPO).strip()
     if not common:
         return path
-    common = os.path.abspath(os.path.join(REPO, common))
+    # `realpath` throughout: git reports resolved paths while `__file__` keeps
+    # whatever symlink it was reached by, and on macOS `/tmp` and `/var` are
+    # both links. Mixing the two makes `relpath` produce a traversal that
+    # happens to work sometimes, which is worse than failing.
+    common = os.path.realpath(os.path.join(REPO, common))
     if os.path.basename(common) != ".git":
         return path
     here = git("rev-parse", "--show-toplevel", cwd=REPO).strip()
     main = os.path.dirname(common)
-    if not here or os.path.abspath(here) == main:
+    if not here or os.path.realpath(here) == main:
         return path
-    shared = os.path.join(main, os.path.relpath(REPO, here), ".env")
+    inside = os.path.relpath(os.path.realpath(REPO), os.path.realpath(here))
+    shared = os.path.join(main, inside, ".env")
     return shared if os.path.exists(shared) else path
 
 

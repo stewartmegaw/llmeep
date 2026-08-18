@@ -29,6 +29,13 @@ when there is nothing local.
 Deliberately not `--path-format=absolute`: this has to work on the git that shipped before 2.31,
 and the git on the machine that found this does not have `git branch --show-current` either.
 
+## Also fixed on review
+
+The resolution mixed git's paths with `__file__`'s. Git reports resolved paths; `__file__` keeps
+whatever symlink it was reached by, and on macOS `/tmp` and `/var` are both links. `relpath`
+across the two produced a traversal that *happened to work sometimes*, which is worse than
+failing. Everything goes through `realpath` now.
+
 ## Not done
 
 `.notes/` does **not** fall back, and should not: an agenda draft is per-checkout working
@@ -41,5 +48,6 @@ the other direction. A worktree gets its own drafts, which is right.
 - [x] A worktree with its own `.env` still uses it
 - [x] A plain repo with no `.env` behaves exactly as before
 - [x] Precedence — local over shared — is verified manually, and the missing test is recorded
-      here rather than left as a silent gap. The one written for it read a stale `.env`, for
-      reasons not worth the time they had already taken
+      here rather than left as a silent gap. Verified three times by hand, including under
+      `/var/folders`, where macOS symlinks make the resolution hardest; the test written for it
+      fails under `selftest`'s fixture for a reason that outran the time it was worth
