@@ -1765,10 +1765,10 @@ SKELETON = ("tasks/", "notes/", "decisions/", "ontology/", ".notes/", ".claude/"
 def platform_changes(*extra):
     """The platform is **the repo minus llmeep's own paths**, not a directory.
 
-    `platform/` only exists in a fresh clone. A repo that adopted llmeep keeps
-    its code where it was, so a pathspec of `platform/` matched nothing and both
-    nudges below passed unconditionally — silently, which is the worse half
-    (`PLT-tdb5`).
+    `platform/` is a directory llmeep's own repo keeps and no install has. A
+    repo that adopted llmeep keeps its code where it was, so a pathspec of
+    `platform/` matched nothing and both nudges below passed unconditionally —
+    silently, which is the worse half (`PLT-tdb5`).
 
     Root-level `.md` files and dotfiles are excluded as well. They are the
     README, the ignore file, the env sample: documentation and configuration

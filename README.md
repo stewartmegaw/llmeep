@@ -387,9 +387,9 @@ It also copies itself in as `.llmeep`, which is how the repo updates later — s
 
 Your README is not touched either, so the working agreement is written beside the install: it
 is **`ops/README.md`** when nested, and **`LLMEEP.md`** at the root when not — a flat install
-has no directory of its own, and `README.md` there is yours. Either way it holds the sections a
-fresh clone is told to keep, extracted from the region between the `adopt:` markers in this
-file, so it cannot drift. Link to it from your own README.
+has no directory of its own, and `README.md` there is yours. Either way it holds the sections an
+adopter needs, extracted from the region between the `adopt:` markers in this file, so it
+cannot drift. Link to it from your own README.
 
 Everything llmeep ships goes under one folder, so a repo that already has its own `tasks/`,
 `notes/`, `decisions/` or `ontology/` collides with nothing. Rename the folder if `llmeep/`

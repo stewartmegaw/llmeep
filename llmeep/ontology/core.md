@@ -37,9 +37,8 @@ The system being built: one per project, and the subject of every task in the `p
 
 **It is the repo minus llmeep's own paths** — anything that is not `tasks/`, `notes/`,
 `decisions/`, `ontology/`, `.notes/` or `.claude/`, and not documentation or configuration
-sitting loose at the top. A fresh clone puts it in `platform/`, an empty directory kept for the
-purpose. A repo that adopted llmeep keeps its code where it already was, and that code is no
-less the platform for it (`PLT-tdb5`).
+sitting loose at the top. Your code stays exactly where it already was, and it is no less
+the platform for llmeep never having been told where that is (`PLT-tdb5`).
 
 Defining it by subtraction rather than by a directory is what lets `tm` warn about work landing
 with no task in a repo that never had a `platform/` — the pathspec matched nothing there, so

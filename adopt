@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """adopt — install llmeep into an existing repository.
 
-The documented path (`clone && rm -rf .git && git init`) starts a project. This
-one joins a project that already exists: your code, your history and your README
-are never touched, and everything llmeep needs is added beside them.
+**The only way in** (`DEC-035`). Your code, your history and your README are
+never touched: llmeep's machinery is copied in beside them and the record trees
+are built empty, so nothing this repo records can arrive in yours.
 
 Run it from the repo you want to adopt into:
 
@@ -139,11 +139,10 @@ def append_ignores(top, prefix, report):
 
 
 def working_agreement(top, dest_root, into, report):
-    """The greenfield path hands a cloner llmeep's README and tells them to keep
-    the half above the `---`. An adopter cannot have that file — theirs is
-    already there and is not ours to touch — so the same half is extracted to a
-    file of its own. Extracted rather than maintained separately, because a
-    second copy of a document is a copy that goes stale.
+    """An adopter's `README.md` is already theirs and is not ours to touch, so
+    the half of llmeep's README that explains the tooling is extracted to a file
+    of its own. Extracted rather than maintained separately, because a second
+    copy of a document is a copy that goes stale.
 
     Always at the repo root, even for a nested install. Inside the install it
     would need its markdown links relative to itself and its shell commands
