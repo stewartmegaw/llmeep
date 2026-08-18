@@ -90,3 +90,5 @@
 2026-08-17	PLT-43nz	platform	tm --help still describes park as it was before it learned to step back	stewart
 2026-08-18	PLT-qe3p	platform	update fetches the default branch, so latest means main's tip rather than the newest release	stewart
 2026-08-18	PLT-dk4r	platform	Skill descriptions were never updated as commands were added, so agenda routed to nm	stewart
+2026-08-18	PLT-5d25	platform	A sent agenda rolls to a dated file, so the next one starts clean	stewart
+2026-08-18	PLT-zjkf	platform	A worktree has no .env, so --send was impossible there	stewart

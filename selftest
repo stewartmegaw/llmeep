@@ -475,7 +475,7 @@ class TestFeedback(Fixture):
 
 
 class TestAgenda(Fixture):
-    """`PLT-ehd6`. An agenda is not a standup — it looks forward, and covers
+    """An agenda is what a meeting has to get through — forward-looking, and
     only what cannot move without people in a room."""
 
     def a_repo(self):
@@ -550,6 +550,28 @@ class TestAgenda(Fixture):
         top = self.a_repo()
         out = self.tm(top, "agenda", "--send")
         self.assertNotEqual(out.returncode, 0)
+
+    def test_a_draft_that_did_not_send_does_not_roll(self):
+        """The roll is the record that an agenda went out, so it must follow a
+        *successful* send. `NOTIFY=none` announces nowhere, which is not a send
+        — and a draft that never left is still the draft."""
+        top = self.a_repo()          # quietened: NOTIFY=none
+        self.tm(top, "agenda")
+        with open(self.draft(top), "w") as fh:
+            fh.write("1. A topic\n\n- a question\n\nNext Steps\n")
+        self.tm(top, "agenda", "--send")
+        notes = os.path.join(self.install_root(top), ".notes")
+        self.assertTrue(os.path.exists(self.draft(top)),
+                        "an agenda that never reached a channel was rolled away")
+        self.assertEqual([f for f in os.listdir(notes) if f.startswith("agenda-")], [])
+
+    def test_no_marker_file_is_left_beside_the_draft(self):
+        """`agenda.sent` was two files saying one thing. The roll replaced it,
+        and a live `agenda.md` is unsent by construction."""
+        top = self.a_repo()
+        self.tm(top, "agenda")
+        notes = os.path.join(self.install_root(top), ".notes")
+        self.assertNotIn("agenda.sent", os.listdir(notes))
 
     def test_send_refuses_a_draft_holding_only_the_scaffold(self):
         """`tm agenda` writes `Next Steps` into a new draft, so "has bytes"
@@ -1026,6 +1048,29 @@ class TestUpgrade(Fixture):
                          "latest resolved the branch tip instead of a release tag")
         self.assertIn(f"fetching {tags[0]}", blob,
                       f"latest did not resolve to {tags[0]}")
+
+    def test_a_worktree_finds_the_main_checkouts_env(self):
+        """`PLT-2wcx`. A worktree is a separate working tree of the same repo and
+        `.env` is gitignored, so a worktree never has one — which made `--send`
+        impossible from a worktree, silently, since "no channel configured" is
+        also what an unconfigured repo says."""
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        root = self.install_root(top)
+        with open(os.path.join(root, ".env"), "w") as fh:
+            fh.write("NOTIFY=none\n")
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "commit", "-qm", "adopt", cwd=top)
+        wt = self.path("worktree")
+        sh("git", "worktree", "add", "-q", wt, "-b", "feature", cwd=top, check=True)
+
+        self.assertFalse(os.path.exists(os.path.join(wt, os.path.basename(root), ".env")),
+                         "the worktree has its own .env; the test proves nothing")
+        env = {k: v for k, v in os.environ.items() if k != "NOTIFY"}
+        out = sh(os.path.join(wt, os.path.basename(root), "tasks", "_tooling", "tm"),
+                 "check", "--notify", cwd=wt, env=env)
+        self.assertIn("NOTIFY=none", out.stdout,
+                      "a worktree cannot see the main checkout's channel")
 
     def test_upgrade_adds_ignore_rules_that_did_not_exist_at_install(self):
         """A repo adopted before `DEC-033` has no rule for `feedback.md`. If the

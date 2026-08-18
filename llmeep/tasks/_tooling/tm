@@ -426,8 +426,39 @@ def summarise(text, width=64):
 # point: no plugin loader, no registry, no config schema.
 
 
-def load_env():
+def env_path():
+    """`.env` for this install, falling back to the main checkout's.
+
+    A git worktree is a separate working tree of the same repository, and `.env`
+    is gitignored, so a worktree never has one — which made `--send` structurally
+    impossible from a worktree, silently, for the same reason it is impossible in
+    a fresh clone (`PLT-2wcx`). Nobody notices, because "no channel configured"
+    is also what an unconfigured repo says.
+
+    `--git-common-dir` points at the *shared* `.git`, which is the main
+    checkout's, so the same relative path under it finds the `.env` that repo
+    already has. Deliberately not `--path-format=absolute`: this has to work on
+    the git that shipped before 2.31.
+    """
     path = os.path.join(REPO, ".env")
+    if os.path.exists(path):
+        return path
+    common = git("rev-parse", "--git-common-dir", cwd=REPO).strip()
+    if not common:
+        return path
+    common = os.path.abspath(os.path.join(REPO, common))
+    if os.path.basename(common) != ".git":
+        return path
+    here = git("rev-parse", "--show-toplevel", cwd=REPO).strip()
+    main = os.path.dirname(common)
+    if not here or os.path.abspath(here) == main:
+        return path
+    shared = os.path.join(main, os.path.relpath(REPO, here), ".env")
+    return shared if os.path.exists(shared) else path
+
+
+def load_env():
+    path = env_path()
     if not os.path.exists(path):
         return
     with open(path) as fh:
@@ -839,7 +870,12 @@ def cmd_standup(args):
 # to disagree about (`PLT-ehd6`).
 
 AGENDA = ".notes/agenda.md"
-AGENDA_SENT = ".notes/agenda.sent"
+
+# A sent agenda is renamed to this and a fresh one starts next time. It replaces
+# a marker file sitting beside the draft: two files to say one thing, and a live
+# `agenda.md` that might or might not already have gone out (`DEC-038`).
+AGENDA_ROLLED = ".notes/agenda-%s.md"
+AGENDA_ROLLED_RE = re.compile(r"^agenda-(\d{4}-\d{2}-\d{2})(?:-(\d+))?\.md$")
 
 # Sections go above this; it is the last thing on every agenda. Nothing else is
 # scaffolded — a numbered heading with an empty bullet under it is a form to
@@ -855,15 +891,32 @@ def agenda_path():
     return os.path.join(REPO, AGENDA)
 
 
-def agenda_sent():
-    """When this draft was last sent, or None. A file beside the draft rather
-    than a line inside it: `--send` must not edit the thing it is sending, or
-    the next send carries its own bookkeeping into the room."""
-    path = os.path.join(REPO, AGENDA_SENT)
-    if not os.path.isfile(path):
-        return None
-    with open(path) as fh:
-        return fh.read().strip() or None
+def agenda_rolled():
+    """Every agenda already sent, oldest first, as (date, filename)."""
+    d = os.path.join(REPO, ".notes")
+    if not os.path.isdir(d):
+        return []
+    out = []
+    for name in sorted(os.listdir(d)):
+        m = AGENDA_ROLLED_RE.match(name)
+        if m:
+            out.append((m.group(1), name))
+    return out
+
+
+def roll_agenda():
+    """Move the sent draft aside under its date, so the next `tm agenda` starts
+    clean. Never overwrites: two sends in a day are two files, because the
+    second is usually a correction and losing the first is losing the record of
+    what the room was actually shown."""
+    path = agenda_path()
+    base = os.path.join(REPO, AGENDA_ROLLED % date.today().isoformat())
+    target, n = base, 1
+    while os.path.exists(target):
+        n += 1
+        target = base[:-3] + f"-{n}.md"
+    os.rename(path, target)
+    return os.path.basename(target)
 
 
 def cmd_agenda(args):
@@ -884,34 +937,34 @@ def cmd_agenda(args):
         return agenda_send()
     path = agenda_path()
     where = os.path.relpath(path, os.getcwd())
+    rolled = agenda_rolled()
     if not os.path.isfile(path):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w") as fh:
             fh.write(AGENDA_SCAFFOLD)
         print(f"\n  draft created — {where}")
-        print("  edit it there, or say what belongs and your agent will write it.")
-        print("  add tasks, notes or decisions by id, and anything else on your mind.")
-        # Said here because here is where someone meets it. `.notes/` is
-        # gitignored and local by design, and an agenda is the first thing to
-        # live there that exists nowhere else (`PLT-s9e7`).
-        print("  it is not backed up: local, gitignored, and gone if this machine is.\n")
-        return
-    with open(path) as fh:
-        lines = [l for l in fh.read().split("\n") if l.strip()]
-    sent = agenda_sent()
-    state = f"{len(lines)} line(s)"
-    if sent:
-        stale = os.path.getmtime(path) > os.path.getmtime(os.path.join(REPO, AGENDA_SENT))
-        state += f", sent {sent}" + (", edited since" if stale else "")
-    print(f"\n  draft: {where} — {state}")
+        if rolled:
+            when, name = rolled[-1]
+            print(f"  last sent {when}, kept as {name}")
+    else:
+        with open(path) as fh:
+            lines = [l for l in fh.read().split("\n") if l.strip()]
+        # A live draft has never been sent: sending rolls it away. So there is
+        # no state to report beyond its size, and nothing that could be stale.
+        print(f"\n  draft: {where} — {len(lines)} line(s), not yet sent")
     print("  edit it there, or say what belongs and your agent will write it.")
-    print("  add tasks, notes or decisions by id, and anything else on your mind.\n")
+    print("  add tasks, notes or decisions by id, and anything else on your mind.")
+    print("  it is not backed up: local, gitignored, and gone if this machine is.\n")
 
 
 def agenda_send():
     """Posts the draft under a dated heading, through the one notifier
-    (`DEC-008`). The heading is a wrapper, not a parse: the body goes out as
-    written, so what you read before sending is what the team receives."""
+    (`DEC-008`), then rolls it aside under today's date.
+
+    The heading is a wrapper, not a parse: the body goes out as written, so what
+    you read before sending is what the team receives. And the roll happens
+    after a *successful* send only — a draft that never left is still the draft.
+    """
     path = agenda_path()
     body = ""
     if os.path.isfile(path):
@@ -934,9 +987,8 @@ def agenda_send():
               if channel is None else
               "  ! not sent — the channel rejected it; the reason is above\n")
         return
-    with open(os.path.join(REPO, AGENDA_SENT), "w") as fh:
-        fh.write(date.today().isoformat() + "\n")
-    print(f"  sent via {channel}. The draft is left as it is, marked sent.\n")
+    kept = roll_agenda()
+    print(f"  sent via {channel}. Kept as {kept}; the next agenda starts clean.\n")
 
 
 def new_id(prefix, taken):
