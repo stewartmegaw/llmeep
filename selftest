@@ -954,6 +954,38 @@ class TestUpgrade(Fixture):
                     self.assertIn("our own domain model", fh.read(),
                                   "the adopter's domain file was overwritten")
 
+    def test_latest_resolves_a_release_tag_not_the_branch_tip(self):
+        """`PLT-qe3p`. `latest` cloned the *default branch*, which was fine
+        while that branch was a cut release. `DEC-035` made a version a tag on
+        `main` and the default moved there, so `latest` silently became
+        "whatever was committed most recently" — and an install updating
+        between tags was told its source was unreleased and refused."""
+        tags = release_tags()
+        if not tags:
+            self.skipTest("no release tags in this checkout")
+        # A source with every tag, whose branch tip is deliberately past the
+        # newest one — exactly the state `main` is in between releases.
+        src = self.path("src-untagged-tip")
+        sh("git", "clone", "--quiet", REPO, src, check=True)
+        sh("git", "checkout", "-q", "-B", "main", tags[0], cwd=src, check=True)
+        with open(os.path.join(src, "after-the-tag.txt"), "w") as fh:
+            fh.write("committed after the release\n")
+        sh("git", "add", "-A", cwd=src)
+        sh("git", "commit", "-qm", "after the tag", cwd=src)
+
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)   # an install that has the fix
+        self.quieten(top)
+        out = sh(sys.executable, os.path.join(top, ".llmeep"), "--update", "--force",
+                 cwd=top, env=dict(os.environ, LLMEEP_URL=src))
+        blob = out.stdout + out.stderr
+        # "unreleased → v37" is the *installed* version being reported and is
+        # fine; the failure to catch is the refusal, which names the clone.
+        self.assertNotIn("this clone is unreleased", blob,
+                         "latest resolved the branch tip instead of a release tag")
+        self.assertIn(f"fetching {tags[0]}", blob,
+                      f"latest did not resolve to {tags[0]}")
+
     def test_upgrade_adds_ignore_rules_that_did_not_exist_at_install(self):
         """A repo adopted before `DEC-033` has no rule for `feedback.md`. If the
         update ships the feature without the rule, the first thing that happens

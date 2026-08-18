@@ -504,6 +504,30 @@ def installed_copy():
     return os.path.basename(os.path.abspath(__file__)) == MANIFEST
 
 
+def newest_release(url):
+    """The highest `vN` tag the remote has, asked for by name.
+
+    `latest` used to mean *the default branch*, which worked only while that
+    branch was a cut release. `DEC-035` made a version a tag on `main`, and
+    `DEC-037`-era `main` moved to being the default — so "latest" quietly became
+    "whatever was committed most recently", and an install updating between tags
+    was told its source was unreleased and refused (`PLT-qe3p`).
+
+    A tag is what a release *is* now, so a release is what this asks for.
+    """
+    out = subprocess.run(["git", "ls-remote", "--tags", url],
+                         capture_output=True, text=True)
+    if out.returncode != 0:
+        raise Fail(f"could not reach {url}\n  {out.stderr.strip().splitlines()[-1] if out.stderr.strip() else ''}")
+    tags = {ref.rsplit("/", 1)[-1].removesuffix("^{}")
+            for line in out.stdout.split("\n") if "\t" in line
+            for ref in [line.split("\t")[1]]}
+    versions = sorted((v for v in tags if order(v) is not None), key=order)
+    if not versions:
+        raise Fail(f"no release tags at {url} — nothing to update to")
+    return versions[-1]
+
+
 def fetch_release(want, report):
     """Clone the release into a temp directory and hand over to *its* `adopt`.
 
@@ -516,11 +540,11 @@ def fetch_release(want, report):
     """
     import tempfile
     url = os.environ.get("LLMEEP_URL") or DEFAULT_URL
+    if want == "latest":
+        want = newest_release(url)
     tmp = tempfile.mkdtemp(prefix="llmeep-")
     print(f"  fetching {want} from {url}")
-    args = ["clone", "--depth", "1"]
-    if want != "latest":
-        args += ["--branch", want]
+    args = ["clone", "--depth", "1", "--branch", want]
     out = subprocess.run(["git", *args, url, tmp], capture_output=True, text=True)
     if out.returncode != 0 or not is_clone(tmp):
         raise Fail(f"could not fetch {url}\n  {out.stderr.strip().splitlines()[-1] if out.stderr.strip() else ''}")

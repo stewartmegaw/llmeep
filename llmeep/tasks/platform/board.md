@@ -14,6 +14,7 @@ PLT-6pvp Present the repo for community contributions — README and GitHub setu
 
 ## recent
 
+2026-08-18  PLT-qe3p update fetches the default branch, so latest means main's tip rather than the newest release  @stewart
 2026-08-17  PLT-43nz tm --help still describes park as it was before it learned to step back  @stewart
 2026-08-17  PLT-rsn4 The tm skill outgrew its 4,000-token budget; every new command adds to it  @stewart
 2026-08-17  PLT-4daz Agenda: offer found records rather than adding them, and show the whole draft after every change  @stewart
@@ -28,4 +29,3 @@ PLT-6pvp Present the repo for community contributions — README and GitHub setu
 2026-08-12  PLT-tud8 The ontology move left core.md linking through a doubled llmeep/ path  @stewart
 2026-08-12  PLT-a92c An install too old to write feedback sweeps as a quiet one  @stewart
 2026-08-10  PLT-fnxy Trim the tm skill back under its context budget  @stewart
-2026-08-10  PLT-6tpx Sweep a defined set of repos for upstream feedback drafts  @stewart

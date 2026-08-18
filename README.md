@@ -176,7 +176,7 @@ version and a checksum per file in its header, so updating needs no clone step:
 ```sh
 ./.llmeep --version
 ./.llmeep --update --dry-run    # what it would fetch; fetches nothing
-./.llmeep --update              # fetches the newest release and applies it
+./.llmeep --update              # fetches the newest release tag and applies it
 ```
 
 **Machinery is replaced; records never are.** Boards, notes, captures, decisions, both
