@@ -89,3 +89,4 @@
 2026-08-17	PLT-rsn4	platform	The tm skill outgrew its 4,000-token budget; every new command adds to it	stewart
 2026-08-17	PLT-43nz	platform	tm --help still describes park as it was before it learned to step back	stewart
 2026-08-18	PLT-qe3p	platform	update fetches the default branch, so latest means main's tip rather than the newest release	stewart
+2026-08-18	PLT-dk4r	platform	Skill descriptions were never updated as commands were added, so agenda routed to nm	stewart

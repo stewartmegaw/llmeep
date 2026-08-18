@@ -15,6 +15,7 @@ PLT-fupy Lead the README with what it looks like: tasks, standup --send, notes, 
 
 ## recent
 
+2026-08-18  PLT-dk4r Skill descriptions were never updated as commands were added, so agenda routed to nm  @stewart
 2026-08-18  PLT-qe3p update fetches the default branch, so latest means main's tip rather than the newest release  @stewart
 2026-08-17  PLT-43nz tm --help still describes park as it was before it learned to step back  @stewart
 2026-08-17  PLT-rsn4 The tm skill outgrew its 4,000-token budget; every new command adds to it  @stewart
@@ -29,4 +30,3 @@ PLT-fupy Lead the README with what it looks like: tasks, standup --send, notes, 
 2026-08-12  PLT-gpq8 Client installs are shown the maintainer-only sweep and offered to configure it  @stewart
 2026-08-12  PLT-tud8 The ontology move left core.md linking through a doubled llmeep/ path  @stewart
 2026-08-12  PLT-a92c An install too old to write feedback sweeps as a quiet one  @stewart
-2026-08-10  PLT-fnxy Trim the tm skill back under its context budget  @stewart

@@ -1,6 +1,6 @@
 ---
 name: tm
-description: Task tracking — create, start, complete and search tasks. Use when the user refers to tasks, priorities, what to work on next, or completing work ("what's next", "start PLT-9puy", "commit task", "add a task for X", "have we tried this before").
+description: Tasks, standups and meeting agendas — create, start, complete and search tasks, report what shipped, build an agenda and send it, and search past decisions. Use when the user refers to tasks, priorities, what to work on next, completing work, a standup, an agenda, or why something was decided ("what's next", "start PLT-9puy", "commit task", "new agenda", "standup", "why is it like this", "have we tried this before").
 ---
 
 # tm
@@ -108,15 +108,18 @@ needs one, do not write it. Rubric: `llmeep/tasks/_tooling/ontology.md`.
 **You write `llmeep/.notes/agenda.md`** as they talk, and **everything is reshaped into this
 form** — pasted prose, a task id, a note plus a passing thought. Nothing goes in verbatim.
 
-    ## 1. Injury Database – Value?
+    1. Injury Database – Value?
 
     - What's the value proposition of the component
     - Who would pay for it?
 
-    ## Next Steps
+    Next Steps
+
+**No markdown.** A heading is a plain numbered line, a bullet is a hyphen. It is going to a chat
+message, where `##` renders as `##` — strip it out of anything they paste. `Next Steps` stays last.
 
 **A section is a topic, not a record.** Most of an agenda corresponds to nothing in the repo —
-strategy, open questions. `Next Steps` stays last.
+strategy, open questions.
 
 **Their words go in; what you find is offered.** Search each topic they raise — `tm find`, the
 boards, `nm find`, `tm why` — then name the aligned records **once per section** and wait for a

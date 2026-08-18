@@ -351,6 +351,33 @@ class TestFreshInstall(Fixture):
         self.assert_tooling_runs(top)
         self.assert_paths_resolve(top)
 
+    # Words a user says that do not contain "task", so the description is the
+    # only thing that can route them. Adding a command means adding its word
+    # here — which is the check that `PLT-dk4r` existed for want of.
+    ROUTING_WORDS = ("agenda", "standup", "decided")
+
+    def test_the_tm_description_routes_what_tm_does(self):
+        """`PLT-dk4r`. Frontmatter `description:` is the only text an agent sees
+        when choosing a skill. `tm agenda` shipped in v37 without it, so "new
+        agenda:" matched nm's "meeting notes" and the feature was unreachable by
+        the words anyone would actually use."""
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        with open(os.path.join(top, ".claude", "skills", "tm", "SKILL.md")) as fh:
+            desc = next(l for l in fh if l.startswith("description:")).lower()
+        for word in self.ROUTING_WORDS:
+            self.assertIn(word, desc, f"tm's description cannot route {word!r}")
+
+    def test_the_two_skills_do_not_both_claim_meetings(self):
+        """They collided on "meeting notes" versus "meeting agenda", which is
+        the one overlap a user hits without meaning to."""
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        with open(os.path.join(top, ".claude", "skills", "nm", "SKILL.md")) as fh:
+            desc = next(l for l in fh if l.startswith("description:")).lower()
+        self.assertNotIn("meeting notes", desc,
+                         "nm still claims meeting notes, which catches agendas")
+
     def test_a_session_fits_its_context_budget(self):
         """`DEC-037`. The check is only worth having if it is quiet when things
         are fine — a warning that is always on is one nobody reads. Run against
@@ -481,6 +508,20 @@ class TestAgenda(Fixture):
             self.assertNotIn(leaked, out.stdout,
                              "the agenda listed records instead of getting out of the way")
 
+    def test_the_scaffold_carries_no_markdown_syntax(self):
+        """It is going to a chat message, where `##` renders as `##`. The shape
+        is a plain numbered line and a hyphen bullet."""
+        top = self.a_repo()
+        self.tm(top, "agenda")
+        with open(self.draft(top)) as fh:
+            self.assertNotIn("#", fh.read(), "the scaffold ships markdown syntax")
+
+    def test_creating_it_offers_both_ways_to_edit(self):
+        top = self.a_repo()
+        out = self.tm(top, "agenda").stdout
+        self.assertIn(".notes/agenda.md", out, "it does not show the path for a manual edit")
+        self.assertIn("say what belongs", out, "it does not offer the conversational route")
+
     def test_the_draft_starts_with_next_steps_and_nothing_else(self):
         """A numbered heading with an empty bullet under it is a form to fill
         in, and this is not a form. Sections go above `Next Steps`."""
@@ -488,7 +529,7 @@ class TestAgenda(Fixture):
         self.tm(top, "agenda")
         with open(self.draft(top)) as fh:
             body = fh.read()
-        self.assertEqual(body.strip(), "## Next Steps")
+        self.assertEqual(body.strip(), "Next Steps")
 
     def test_creating_it_says_the_draft_is_not_backed_up(self):
         """The one cost `PLT-s9e7` accepted rather than solved, so it has to be
@@ -500,7 +541,7 @@ class TestAgenda(Fixture):
         top = self.a_repo()
         self.tm(top, "agenda")
         with open(self.draft(top), "w") as fh:
-            fh.write("## 1. Something\n\n- a thought stored nowhere else\n\n## Next Steps\n")
+            fh.write("1. Something\n\n- a thought stored nowhere else\n\nNext Steps\n")
         self.tm(top, "agenda")
         with open(self.draft(top)) as fh:
             self.assertIn("a thought stored nowhere else", fh.read())
@@ -511,7 +552,7 @@ class TestAgenda(Fixture):
         self.assertNotEqual(out.returncode, 0)
 
     def test_send_refuses_a_draft_holding_only_the_scaffold(self):
-        """`tm agenda` writes `## Next Steps` into a new draft, so "has bytes"
+        """`tm agenda` writes `Next Steps` into a new draft, so "has bytes"
         is not the same question as "has anything on it"."""
         top = self.a_repo()
         self.tm(top, "agenda")

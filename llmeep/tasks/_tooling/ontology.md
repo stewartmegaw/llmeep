@@ -642,14 +642,18 @@ merged list, and what belongs on an agenda is a judgement none of them can make 
 The shape is numbered sections of prose bullets, `Next Steps` last, written by the agent as the
 conversation goes:
 
-```markdown
-## 1. Injury Database – Value?
+```
+1. Injury Database – Value?
 
 - What's the value proposition of the injury database component
 - Who would pay for it / who cares about this data?
 
-## Next Steps
+Next Steps
 ```
+
+**No markdown syntax**, deliberately. A heading is a plain numbered line and a bullet is a
+hyphen, because the destination is a chat message and `##` renders as `##` there. Anything
+pasted in carrying its own formatting is stripped on the way.
 
 **A section is a topic, not a record.** A task or note id appears in a bullet when it is
 relevant, and often nothing does.

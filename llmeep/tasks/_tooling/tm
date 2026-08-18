@@ -844,7 +844,11 @@ AGENDA_SENT = ".notes/agenda.sent"
 # Sections go above this; it is the last thing on every agenda. Nothing else is
 # scaffolded — a numbered heading with an empty bullet under it is a form to
 # fill in, and this is not a form.
-AGENDA_SCAFFOLD = "## Next Steps\n\n"
+#
+# **No markdown syntax.** A heading is a plain numbered line and a bullet is a
+# hyphen, because the destination is a chat message: `##` renders as `##` in
+# Telegram, so markdown here is noise in the one place this is meant to be read.
+AGENDA_SCAFFOLD = "Next Steps\n\n"
 
 
 def agenda_path():
@@ -885,6 +889,7 @@ def cmd_agenda(args):
         with open(path, "w") as fh:
             fh.write(AGENDA_SCAFFOLD)
         print(f"\n  draft created — {where}")
+        print("  edit it there, or say what belongs and your agent will write it.")
         print("  add tasks, notes or decisions by id, and anything else on your mind.")
         # Said here because here is where someone meets it. `.notes/` is
         # gitignored and local by design, and an agenda is the first thing to
@@ -899,6 +904,7 @@ def cmd_agenda(args):
         stale = os.path.getmtime(path) > os.path.getmtime(os.path.join(REPO, AGENDA_SENT))
         state += f", sent {sent}" + (", edited since" if stale else "")
     print(f"\n  draft: {where} — {state}")
+    print("  edit it there, or say what belongs and your agent will write it.")
     print("  add tasks, notes or decisions by id, and anything else on your mind.\n")
 
 
@@ -911,7 +917,7 @@ def agenda_send():
     if os.path.isfile(path):
         with open(path) as fh:
             body = fh.read().strip()
-    # The scaffold counts as empty. `tm agenda` writes `## Next Steps` into a
+    # The scaffold counts as empty. `tm agenda` writes `Next Steps` into a
     # new draft, so "has bytes in it" is not the same question as "has anything
     # on it", and posting a heading with nothing under it wastes a room.
     if not body or body == AGENDA_SCAFFOLD.strip():

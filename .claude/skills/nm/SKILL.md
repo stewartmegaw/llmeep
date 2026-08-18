@@ -1,6 +1,6 @@
 ---
 name: nm
-description: Notes — capture, distil and promote. Use when the user pastes a call transcript or meeting notes, shares something worth remembering, mentions an idea in passing, or asks what was said/decided/captured ("here's the transcript", "note that down", "did we discuss X", "turn that into a task").
+description: Notes — capture, distil and promote. Use when the user pastes a call transcript or notes from a conversation, shares something worth remembering, mentions an idea in passing, or asks what was said/decided/captured ("here's the transcript", "note that down", "did we discuss X", "turn that into a task"). Not for building a meeting agenda — that is tm.
 ---
 
 # nm
