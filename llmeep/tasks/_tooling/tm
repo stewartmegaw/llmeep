@@ -1356,6 +1356,208 @@ def cmd_find(args):
         print("  " + history_line(row))
 
 
+# --------------------------------------------------------------------- review
+#
+# A commit is reviewed before it is pushed, by up to two LLMs that are not the
+# agent that wrote it. **The agent does not mark its own homework** — it can fix,
+# it can answer back, and it cannot declare itself satisfied. Only reviewers
+# returning nothing writes the mark (`DEC-039`).
+#
+# Vendor-neutral by the same route as the notifier (`DEC-008`): one function and
+# one dict entry, the choice in `.env`, and nothing here naming a model. Both
+# adapters shipped speak the OpenAI chat shape, which is also what xAI, Groq,
+# OpenRouter and a local server speak — so a third vendor is usually a base URL
+# rather than any code at all.
+
+REVIEW_TIMEOUT = 120        # a review is a long call; a standup-sized one is not
+REVIEW_TRAILER = "reviewed:"
+
+REVIEW_PROMPT = """You are reviewing one commit before it is pushed.
+
+Return **bullet points only where you are not satisfied** — correctness, missed
+acceptance criteria, or a change that will not do what the task says. One line
+each, starting with "- ". Say nothing else.
+
+If the change is sound, reply with exactly: SATISFIED
+
+Do not restate the diff, do not praise it, and do not raise style preferences.
+"""
+
+
+def review_config(name):
+    """Per-reviewer settings, `REVIEW_<NAME>_*` in `.env`. The model is required
+    rather than defaulted: a wrong default bills the user for a call that was
+    never going to work, and model names move faster than this file."""
+    load_env()
+    up = name.upper()
+    return {
+        "key": os.environ.get(f"REVIEW_{up}_KEY", "").strip(),
+        "base": os.environ.get(f"REVIEW_{up}_BASE", "").strip().rstrip("/"),
+        "model": os.environ.get(f"REVIEW_{up}_MODEL", "").strip(),
+    }
+
+
+def review_openai(name, prompt):
+    """The OpenAI chat-completions shape. Serves OpenAI, xAI and anything else
+    that copied it; the only difference is `REVIEW_<NAME>_BASE`."""
+    cfg = review_config(name)
+    if not (cfg["key"] and cfg["model"]):
+        raise Fail(f"{name}: set REVIEW_{name.upper()}_KEY and _MODEL in .env")
+    base = cfg["base"] or REVIEW_BASES.get(name) or ""
+    if not base:
+        raise Fail(f"{name}: no REVIEW_{name.upper()}_BASE and no default for it")
+    body = json.dumps({
+        "model": cfg["model"],
+        "messages": [{"role": "system", "content": REVIEW_PROMPT},
+                     {"role": "user", "content": prompt}],
+    }).encode()
+    req = urllib.request.Request(
+        f"{base}/chat/completions", body,
+        {"Content-Type": "application/json", "Authorization": f"Bearer {cfg['key']}"})
+    with urllib.request.urlopen(req, timeout=REVIEW_TIMEOUT) as fh:
+        out = json.loads(fh.read())
+    return out["choices"][0]["message"]["content"]
+
+
+# Defaults so a working config is two lines rather than three. Overridable, and
+# a vendor absent from here just needs its base URL naming.
+REVIEW_BASES = {
+    "openai": "https://api.openai.com/v1",
+    "xai": "https://api.x.ai/v1",
+}
+
+REVIEWERS = {"openai": review_openai, "xai": review_openai}
+
+
+def reviewers():
+    """Who reviews, from `REVIEW` in `.env`. Empty means the feature is off, and
+    off is the default — this spends the adopter's money on every commit."""
+    load_env()
+    names = [n.strip().lower() for n in os.environ.get("REVIEW", "").split(",") if n.strip()]
+    unknown = [n for n in names if n not in REVIEWERS]
+    if unknown:
+        raise Fail(f"unknown reviewer(s): {', '.join(unknown)}. "
+                   f"known: {', '.join(sorted(REVIEWERS))}")
+    return names[:2]        # two is the design; a third is noise, not rigour
+
+
+def head_diff():
+    """What is being reviewed: the change this commit makes. Hashed rather than
+    the commit id, because adding the mark rewrites the id and would otherwise
+    invalidate the review that produced it."""
+    parent = git("rev-parse", "--verify", "--quiet", "HEAD^").strip()
+    if parent:
+        return git("diff", f"{parent}..HEAD")
+    return git("show", "--format=", "HEAD")
+
+
+def diff_hash(diff):
+    import hashlib
+    return hashlib.sha256(diff.encode()).hexdigest()[:12]
+
+
+def review_subject(diff):
+    """Everything a reviewer needs: what the task asked for, and what was done."""
+    msg = git("log", "-1", "--format=%B").strip()
+    parts = [f"COMMIT MESSAGE\n{msg}"]
+    m = re.search(r"closes\s+((?:PLT|BUS)-\S+)", msg)
+    if m:
+        for ledger in LEDGERS:
+            side = sidecar_path(ledger, m.group(1))
+            if side:
+                doc = sidecar_doc(side)
+                if doc:
+                    with open(doc) as fh:
+                        parts.append(f"TASK DETAIL ({m.group(1)})\n{fh.read()}")
+                break
+    parts.append(f"DIFF\n{diff}")
+    return "\n\n".join(parts)
+
+
+def review_points(text):
+    """Bullet points, or none. A reviewer that is satisfied says so and is taken
+    at its word; anything else is read for lines that look like objections."""
+    if text.strip().upper().startswith("SATISFIED"):
+        return []
+    return [l.strip().lstrip("-*").strip()
+            for l in text.split("\n") if l.strip().startswith(("-", "*"))]
+
+
+def cmd_review(args):
+    """Review HEAD, and mark it when every reviewer is satisfied.
+
+    Replies are passed back to the reviewers rather than settling anything
+    locally: an author who disagrees argues with the reviewer, and the reviewer
+    decides whether the point stands. That is what stops this being self-marking
+    (`DEC-039`).
+    """
+    names = reviewers()
+    if not names:
+        raise Fail("no reviewers configured — set REVIEW in .env, see .env.example.\n"
+                   "  It is off by default: reviewing spends your own API budget.")
+    replies, rest = [], []
+    while "--reply" in args:
+        i = args.index("--reply")
+        replies.append(args[i + 1] if i + 1 < len(args) else "")
+        args = args[:i] + args[i + 2:]
+    rest = args
+    if "-" in rest:
+        replies.append(sys.stdin.read())
+
+    diff = head_diff()
+    if not diff.strip():
+        raise Fail("HEAD changes nothing — there is nothing to review")
+    subject = review_subject(diff)
+    if replies:
+        subject += ("\n\nAUTHOR'S RESPONSE TO YOUR PREVIOUS POINTS\n"
+                    + "\n".join(f"- {r}" for r in replies)
+                    + "\n\nDrop any point this answers. Keep any it does not.")
+
+    print()
+    points, reached, missing = {}, [], []
+    for name in names:
+        try:
+            answer = REVIEWERS[name](name, subject)
+        except (urllib.error.URLError, OSError, KeyError, ValueError) as exc:
+            # Fail open, and say so in the mark. A third party being down is not
+            # a reason nobody can ship (`DEC-039`).
+            print(f"  ! {name} unreachable: {exc}")
+            missing.append(name)
+            continue
+        reached.append(name)
+        found = review_points(answer)
+        points[name] = found
+        print(f"  {name}: {'satisfied' if not found else f'{len(found)} point(s)'}")
+
+    if not reached:
+        raise Fail("no reviewer answered — nothing reviewed, nothing marked")
+
+    outstanding = [(n, p) for n in reached for p in points.get(n, [])]
+    if outstanding:
+        print()
+        for name, point in outstanding:
+            print(f"  - [{name}] {point}")
+        print("\n  fix them, or answer back with `tm review --reply \"<answer>\"`.")
+        print("  Every point is the reviewer's to drop, not yours.\n")
+        sys.exit(1)
+
+    mark = f"{REVIEW_TRAILER} {diff_hash(diff)} by {','.join(reached)}"
+    if missing:
+        mark += f" ({','.join(missing)} unreachable)"
+    msg = git("log", "-1", "--format=%B").strip()
+    msg = "\n".join(l for l in msg.split("\n") if not l.startswith(REVIEW_TRAILER)).rstrip()
+    subprocess.run(["git", "commit", "--amend", "--no-verify", "-m", f"{msg}\n\n{mark}"],
+                   cwd=REPO, capture_output=True, text=True)
+    print(f"\n  ✓ {mark}\n  recorded on the commit; it will push.\n")
+
+
+def review_trailer(msg):
+    for line in msg.split("\n"):
+        if line.strip().startswith(REVIEW_TRAILER):
+            return line.strip()[len(REVIEW_TRAILER):].strip()
+    return None
+
+
 # --------------------------------------------------------------------- checks
 #
 # `check` is not a fifth skill — it mutates nothing. It is the validator the
@@ -2256,6 +2458,51 @@ def check_context(rep):
     print()
 
 
+def check_push(rep, root, lines):
+    """`pre-push`: refuse commits that carry no valid review mark.
+
+    **The gate lives outside the flow it gates.** A hook cannot run a review —
+    it cannot call an LLM (`DEC-016`, `DEC-033`) — but it does not need to. It
+    checks the *outcome*, exactly as `commit-msg` refuses a `closes` naming no
+    task, so skipping the review stops being something an agent can simply
+    forget to do (`DEC-039`).
+
+    Silent when no reviewer is configured: the feature is off by default, and an
+    off feature must not block anybody's push.
+    """
+    try:
+        if not reviewers():
+            return
+    except Fail:
+        return
+    for line in lines:
+        parts = line.split()
+        if len(parts) < 4:
+            continue
+        local, remote = parts[1], parts[3]
+        if local.strip("0") == "":          # a branch being deleted
+            continue
+        # What is genuinely new, not everything on the branch. A new branch off
+        # an old base would otherwise re-flag the base, and turning review on in
+        # a live repo would flag its whole history.
+        args = ([local, f"^{remote}"] if remote.strip("0") != ""
+                else [local, "--not", "--remotes"])
+        shas = [s for s in git("rev-list", *args).split() if s]
+        for sha in shas:
+            msg = git("log", "-1", "--format=%B", sha)
+            mark = review_trailer(msg)
+            if not mark:
+                rep.error(f"{sha[:7]} is not reviewed — `tm review` on it, or push "
+                          "with --no-verify and know that you did")
+                continue
+            want = mark.split()[0]
+            parent = git("rev-parse", "--verify", "--quiet", f"{sha}^").strip()
+            diff = git("diff", f"{parent}..{sha}") if parent else git("show", "--format=", sha)
+            if diff_hash(diff) != want:
+                rep.error(f"{sha[:7]} carries a review of {want}, but its diff is "
+                          f"{diff_hash(diff)} — it changed after it was reviewed")
+
+
 def cmd_check(args):
     if "--notify" in args:
         sys.exit(check_notify(send="--send" in args))
@@ -2266,6 +2513,9 @@ def cmd_check(args):
         # hooks where output nobody reads is output that trains people to
         # ignore the rest.
         check_context(rep)
+        sys.exit(rep.emit())
+    if "--push" in args:
+        check_push(rep, root, sys.stdin.read().split("\n"))
         sys.exit(rep.emit())
     if "--msg" in args:
         check_trailer(rep, args[args.index("--msg") + 1])
@@ -2307,6 +2557,7 @@ USAGE = """tm — taskman
   tm feedback [<text...>|-]     note what llmeep itself got wrong (opt-in, local, never sent)
 
   tm check [--staged]           validate records; used by hooks and CI
+  tm review [--reply <text>]    have the configured LLMs review HEAD before pushing
   tm check --context            what an agent carries, measured
   tm check --notify [--send]    verify the notification channel (--send posts)
 
@@ -2502,7 +2753,7 @@ def main():
         "done": cmd_done, "drop": cmd_drop, "find": cmd_find, "why": cmd_why,
         "standup": cmd_standup, "agenda": cmd_agenda, "ontology": cmd_ontology,
         "feedback": cmd_feedback,
-        "check": cmd_check,
+        "check": cmd_check, "review": cmd_review,
     }
     cmd = commands.get(argv[0])
     if not cmd:

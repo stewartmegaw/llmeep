@@ -20,6 +20,7 @@ llmeep/tasks/_tooling/tm park [id] [-n]             # step it back one section, 
 llmeep/tasks/_tooling/tm done [id] [--force]        # complete it
 llmeep/tasks/_tooling/tm drop <id>                  # remove one that should not have been filed
 llmeep/tasks/_tooling/tm find <term>                # search every task ever completed
+llmeep/tasks/_tooling/tm review [--reply <text>]    # LLM review of HEAD before pushing
 llmeep/tasks/_tooling/tm why <term|DEC-000>         # search decisions, or explain one
 llmeep/tasks/_tooling/tm why --stale [--yes]        # records nothing references; --yes prunes
 llmeep/tasks/_tooling/tm standup [--send]           # the period's work; --send posts it
@@ -49,6 +50,7 @@ llmeep/tasks/_tooling/tm check --notify [--send]    # verify the notification ch
 | "drop that" / "we're not doing that" | `tm drop <id>` — removes the line, writes no history |
 | "let's discuss PLT-9puy" / "that title is vague" | talk it over; record the outcome with the ordinary verbs |
 | "have we done this before" | `tm find <term>` |
+| "review this" / a push refused as unreviewed | `tm review` — then fix, or `--reply` to argue a point back |
 | "why is it like this" / "what did we decide about X" | `tm why <term>`, then `tm why DEC-000` |
 | "can we tidy the decisions" | `tm why --stale` — **without** `--yes`. Unreferenced is not finished with; the subject test is the user's |
 | "what did we get done this week" / "standup" | `tm standup` — **without** `--send` unless they ask to post it |
@@ -311,6 +313,9 @@ on the line.
   user says the thing they just filed is next, that is `tm add -n` or a following
   `tm prioritise` — say which you used.
 - **Resolving a board merge conflict** follows the table in the ontology, not a textual merge.
+- **You do not pass your own review.** `tm review` marks the commit only when the reviewers have
+  nothing left; you may fix a point or answer it with `--reply`, which goes back to *them*. There
+  is no local override, and pushing unreviewed needs `--no-verify`, which is recorded.
 - **Nothing sends on your initiative.** `standup --send` and `check --notify --send` each reach
   a whole team; add them only when asked. `--cron` prints a line for an always-on machine, and
   scheduling it is the user's call.

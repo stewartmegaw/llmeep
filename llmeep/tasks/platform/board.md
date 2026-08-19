@@ -15,6 +15,7 @@ PLT-fupy Lead the README with what it looks like: tasks, standup --send, notes, 
 
 ## recent
 
+2026-08-19  PLT-sx7r Code review by two LLM APIs before a commit is pushed, with a permanent reviewed mark  @stewart
 2026-08-18  PLT-zjkf A worktree has no .env, so --send was impossible there  @stewart
 2026-08-18  PLT-5d25 A sent agenda rolls to a dated file, so the next one starts clean  @stewart
 2026-08-18  PLT-dk4r Skill descriptions were never updated as commands were added, so agenda routed to nm  @stewart
@@ -29,4 +30,3 @@ PLT-fupy Lead the README with what it looks like: tasks, standup --send, notes, 
 2026-08-17  PLT-gx39 The hint line offers two verbs that do not exist — discuss and drop  @stewart
 2026-08-17  PLT-9v2n Drop install-by-clone and make adopt the only way in  @stewart
 2026-08-12  PLT-8fmj A greenfield clone gets the maintainer sweep at its root  @stewart
-2026-08-12  PLT-gpq8 Client installs are shown the maintainer-only sweep and offered to configure it  @stewart

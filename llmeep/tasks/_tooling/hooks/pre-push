@@ -1,0 +1,9 @@
+#!/bin/sh
+# Refuses to push a commit that has not been reviewed. Does not review anything
+# itself — a hook cannot call an LLM — it checks that the mark is there and
+# still matches the diff it was written for (DEC-039).
+#
+# Silent unless REVIEW is configured, so an install that never opted in never
+# meets this.
+HERE="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+exec "$HERE/../tm" check --push --quiet

@@ -63,6 +63,7 @@ llmeep/tasks/_tooling/tm park                      # step it back one section; u
 llmeep/tasks/_tooling/tm done                      # complete the current task
 llmeep/tasks/_tooling/tm drop PLT-9puy             # remove one that should not have been filed
 llmeep/tasks/_tooling/tm find auth                 # search everything ever completed
+llmeep/tasks/_tooling/tm review                    # LLM review of the commit before you push it
 llmeep/tasks/_tooling/tm why standup               # search decisions; `tm why DEC-017` explains one
 llmeep/tasks/_tooling/tm standup                   # what closed this period; --send posts it
 llmeep/tasks/_tooling/tm agenda                    # what a meeting must get through; --send posts it
@@ -141,6 +142,35 @@ tell a file quietly accreting from a tool that had grown twelve commands where i
 ([`DEC-037`](llmeep/decisions/DEC-037-budget-the-session-not-the-file.md)). The models — `llmeep/tasks/_tooling/ontology.md` and its notes counterpart — are
 deliberately absent from that table and from the budget. They are far larger (~8,600 tokens for
 tasks) and read on demand, when the model changes rather than when work happens.
+
+## Code review before a push
+
+**Off unless you list reviewers.** With `REVIEW=openai,xai` in `llmeep/.env`, `tm review` sends
+the commit — its message, its task's sidecar, its diff — to up to two LLMs. Each returns bullet
+points where it is not satisfied; **any objection from either counts**, because a second reviewer
+is there to catch more, not to overrule the first.
+
+The agent that wrote the code does not pass its own review. It can fix a point, or answer it with
+`tm review --reply "<answer>"` — which goes back to the reviewer, who decides whether the point
+stands. Only reviewers with nothing left to say write the mark:
+
+```
+reviewed: 4f2a9c1b by openai,xai
+```
+
+**A `pre-push` hook refuses a commit without a valid one**, so skipping the review is not
+something an agent can simply forget. The mark hashes the *diff*, not the commit id — which is
+how it survives the amend that adds it, and how a commit that changes afterwards stops passing.
+`git push --no-verify` still gets through, and is recorded like any other bypass.
+
+This spends your own API budget on every commit, and sends the diff to whichever keys you set.
+Your coding agent already holds the whole repository, so a reviewer reading the same material
+under your own key is the same context in the same hands — but it is your call to make, which is
+why nothing happens until you make it.
+
+Both shipped adapters speak the OpenAI chat shape, so `REVIEW_<NAME>_BASE` also reaches Groq,
+OpenRouter or a local server without new code
+([`DEC-039`](llmeep/decisions/DEC-039-review-is-a-gate-not-a-column.md)).
 
 ## Telling llmeep what it got wrong
 

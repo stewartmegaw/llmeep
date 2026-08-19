@@ -149,9 +149,10 @@ A unit of intended change. **One line on a [Board](#board).**
   in progress → prioritised        (returned; no ceremony)
   ```
 
-- **No review state**, deliberately. With one developer, or with AI-generated changes at
-  volume, a review column tracks a step nobody performs. Where acceptance criteria exist, they
-  are the quality gate.
+- **No review *column*.** A status someone has to remember to move decays into theatre, and
+  acceptance criteria are the gate a task carries. Review itself is real and lives elsewhere: it
+  is a gate on `git push`, run by models that did not write the code, and nothing about it
+  touches the board (`DEC-039`).
 - **Title:** a handle, not a description. **Capped at 120 characters**, with **two sentences**
   as the guide — the cap is enforced, the sentence count only warns, because counting terminal
   punctuation false-positives on "e.g." and version numbers and a heuristic that blocks
@@ -270,6 +271,7 @@ step. See [`DEC-003`](https://github.com/stewartmegaw/llmeep/blob/main/decisions
 | `done` | `tm done [id]`       | Defaults to whatever is in progress. Moves to `recent`, prunes, appends to History, notifies. Run **before** committing. |
 | `drop` | `tm drop <id>`       | Removes a task that should not have been filed — the line and its sidecar. Writes **nothing** to History and sends nothing, because nothing happened. Acts immediately; the line it prints is the confirmation (`DEC-024`). |
 | `find` | `tm find <term>`     | Greps History explicitly.                                        |
+| `review` | `tm review [--reply <text>]` | Sends HEAD — message, task sidecar, diff — to up to two configured LLMs. Marks the commit `reviewed: <diff hash> by <who>` only when every reviewer that answered has nothing left to say. Off unless `REVIEW` is set; it spends the adopter's own API budget (`DEC-039`). |
 | | `tm check --context` | Measures what an agent loads. A skill loads whole, so it is the only file with a standing cost; the models are read on demand and excluded. |
 | `why`  | `tm why <term>`      | Greps decisions, pruned ones included. With an id, explains one: supersession chain, which records cite it, and where the tree references it. |
 | | `tm why --stale [--yes]` | Records nothing references — prune candidates. Dry without `--yes`; pruned records leave a stub in `decisions/history.tsv`. |
@@ -528,6 +530,7 @@ git config core.hooksPath tasks/_tooling/hooks
 | `pre-commit`  | `tm check --staged` | **Blocks** on record errors                     |
 | `commit-msg`  | `tm check --msg`    | **Blocks** a `closes <id>` naming no such task   |
 | `post-commit` | `tm check --nudge`  | Warns only — never blocks                       |
+| `pre-push`    | `tm check --push`   | **Blocks** a commit with no valid review mark   |
 
 The hooks are three-line shell scripts calling `tm check`; the logic is in the executable, so
 CI runs the identical checks with `tm check` and any failure reproduces without committing.

@@ -764,6 +764,96 @@ class TestDrop(Fixture):
         self.assertIn(tid, self.board(top))
 
 
+class TestReview(Fixture):
+    """`DEC-039`. Reviewing needs an LLM, so these point the adapter at a local
+    server that answers in the OpenAI chat shape — which is the whole reason the
+    adapter is that shape."""
+
+    def api(self, verdict="SATISFIED"):
+        import http.server, json as _json, threading
+        seen = []
+
+        class H(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                body = _json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                seen.append(body)
+                out = _json.dumps(
+                    {"choices": [{"message": {"content": verdict}}]}).encode()
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(out)))
+                self.end_headers()
+                self.wfile.write(out)
+
+            def log_message(self, *a):
+                pass
+
+        srv = http.server.HTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(srv.shutdown)
+        return f"http://127.0.0.1:{srv.server_address[1]}", seen
+
+    def a_repo(self, verdict="SATISFIED", reviewers="openai"):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        url, seen = self.api(verdict)
+        lines = ["NOTIFY=none", f"REVIEW={reviewers}"]
+        for name in reviewers.split(","):
+            up = name.upper()
+            lines += [f"REVIEW_{up}_KEY=k", f"REVIEW_{up}_MODEL=m", f"REVIEW_{up}_BASE={url}"]
+        with open(os.path.join(self.install_root(top), ".env"), "w") as fh:
+            fh.write("\n".join(lines) + "\n")
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "commit", "-qm", "work to review", cwd=top)
+        return top, seen
+
+    def test_a_satisfied_review_marks_the_commit(self):
+        top, seen = self.a_repo()
+        out = self.tm(top, "review")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        msg = sh("git", "log", "-1", "--format=%B", cwd=top).stdout
+        self.assertIn("reviewed:", msg, "a passed review left no mark")
+        self.assertIn("by openai", msg)
+
+    def test_objections_block_the_mark(self):
+        """The agent cannot declare itself satisfied — only reviewers returning
+        nothing writes the mark."""
+        top, _ = self.a_repo(verdict="- this can spin forever\n- and this")
+        out = self.tm(top, "review")
+        self.assertNotEqual(out.returncode, 0)
+        self.assertIn("spin forever", out.stdout)
+        self.assertNotIn("reviewed:", sh("git", "log", "-1", "--format=%B", cwd=top).stdout)
+
+    def test_both_reviewers_are_asked_and_any_objection_counts(self):
+        top, seen = self.a_repo(verdict="- one objection", reviewers="openai,xai")
+        out = self.tm(top, "review")
+        self.assertEqual(len(seen), 2, "not every configured reviewer was asked")
+        self.assertNotEqual(out.returncode, 0)
+
+    def test_the_diff_and_the_task_go_to_the_reviewer(self):
+        top, seen = self.a_repo()
+        self.tm(top, "review")
+        sent = seen[0]["messages"][1]["content"]
+        self.assertIn("DIFF", sent)
+        self.assertIn("work to review", sent, "the commit message was not included")
+
+    def test_a_reply_is_passed_back_rather_than_settled_locally(self):
+        """An author who disagrees argues with the reviewer; the reviewer decides
+        whether the point stands. That is what stops this being self-marking."""
+        top, seen = self.a_repo()
+        self.tm(top, "review", "--reply", "bounded by max_attempts")
+        sent = seen[-1]["messages"][1]["content"]
+        self.assertIn("bounded by max_attempts", sent)
+        self.assertIn("AUTHOR'S RESPONSE", sent)
+
+    def test_review_is_off_until_configured(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        out = self.tm(top, "review")
+        self.assertNotEqual(out.returncode, 0)
+        self.assertIn("off by default", out.stdout + out.stderr)
+
+
 class TestSweep(Fixture):
     """The collecting half of `DEC-033`. A draft is written where the friction
     happened and sent by nobody, so everything here is about a maintainer being

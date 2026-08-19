@@ -92,3 +92,4 @@
 2026-08-18	PLT-dk4r	platform	Skill descriptions were never updated as commands were added, so agenda routed to nm	stewart
 2026-08-18	PLT-5d25	platform	A sent agenda rolls to a dated file, so the next one starts clean	stewart
 2026-08-18	PLT-zjkf	platform	A worktree has no .env, so --send was impossible there	stewart
+2026-08-19	PLT-sx7r	platform	Code review by two LLM APIs before a commit is pushed, with a permanent reviewed mark	stewart
