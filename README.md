@@ -32,6 +32,13 @@ cd my-project
 That is the whole install — two Python 3 files, standard library only, nothing to build. It sets
 `core.hooksPath` for you, so validation is on from the first commit.
 
+It closes by asking two things it cannot infer: [who will be reading](#who-it-is-writing-for)
+what the agent writes, and whether it should [note what llmeep gets
+wrong](#telling-llmeep-what-it-got-wrong) after each commit. Both land in `llmeep/.env`, both
+take a word, and pressing enter declines — leaving either unset is a real answer. If an agent
+ran the install there is no terminal to ask at, so the questions are written out for it to put
+to you instead ([`DEC-041`](llmeep/decisions/DEC-041-an-install-asks-two-questions-and-hands-them-on-when-it-cannot.md)).
+
 **Starting from nothing?** `mkdir my-project && cd my-project && git init`, then the same three
 lines. There is deliberately no separate path for a new project: llmeep used to be installable
 by cloning it and deleting its `.git`, and one way in is fewer things to keep honest

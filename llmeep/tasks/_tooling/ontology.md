@@ -413,7 +413,8 @@ Two more subcommands exist. Neither touches a task, so neither is a skill:
 ## Audience — who the agent is writing for
 
 `USER_TYPE` in `.env` says what kind of person is on the other side. Two values, and unset is
-not a third: it means nobody has answered, and nothing changes.
+not a third: it means nobody has answered, and nothing changes. `adopt` asks at the end of an
+install, or hands the question to the agent when there is no terminal to ask at (`DEC-041`).
 
 | Value | The agent |
 | --- | --- |

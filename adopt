@@ -747,7 +747,108 @@ def do_update(top, force, dry):
         print(f"    {len(modified)} file(s) you had changed were kept. Diff them against")
         print(f"    {SRC} and re-run with --force when you are ready.")
     print("    Restart your agent session so it re-reads the skills.")
+    prefix = f"{into}/" if into else ""
+    open_keys = unanswered(dest_root)
+    if open_keys:
+        print(f"\n    Still unanswered in {prefix}.env: {', '.join(open_keys)}.")
+        print(f"    {prefix}.env.example says what each does. Put them to the person"
+              "\n    rather than picking for them; unset is a real answer.")
     return 0
+
+
+# The two things an install cannot infer and the adopter answers in a word.
+# Neither has a right answer: one is who is reading, the other spends their
+# tokens. Both are `.env` keys, so both are per-person and stay out of git.
+SETTINGS = [
+    ("USER_TYPE", "Who reads what the agent writes?",
+     [("coder", "bullets, and git named openly"),
+      ("non-coder", "never shown git; the agent decides those and reports the outcome")]),
+    ("FEEDBACK", "Have your agent note what llmeep itself got wrong, after each commit?",
+     [("off", "nothing happens; switch it on whenever you like"),
+      ("on", "costs your tokens every commit; written locally, sent nowhere")]),
+]
+
+
+def unanswered(dest_root):
+    """Which of `SETTINGS` their `.env` has no line for. An install asks; an
+    update only says which are still open, because re-asking on every upgrade
+    would make an answered question look unanswered."""
+    path = os.path.join(dest_root, ".env")
+    text = ""
+    if os.path.exists(path):
+        with open(path) as fh:
+            text = fh.read()
+    return [k for k, _, _ in SETTINGS if not re.search(rf"(?m)^\s*{k}\s*=", text)]
+
+
+def ask(key, question, options):
+    """One question, answered by number or by name. Enter means no answer, and
+    no answer writes nothing — an unset key is a real state in both of these."""
+    print(f"\n  {question}")
+    width = max(len(v) for v, _ in options)
+    for i, (value, gloss) in enumerate(options, 1):
+        print(f"    {i}. {value:<{width}}  {gloss}")
+    try:
+        answer = input("    > ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return None
+    if answer.isdigit() and 1 <= int(answer) <= len(options):
+        return options[int(answer) - 1][0]
+    return next((v for v, _ in options if v == answer), None)
+
+
+def write_env(dest_root, top, answers):
+    """Appends to `.env`, never overwriting a key already there — the same rule
+    `copy` follows, for the same reason: what is already in their repo is
+    theirs. Returns the path written, or None when there was nothing new."""
+    path = os.path.join(dest_root, ".env")
+    existing = ""
+    if os.path.exists(path):
+        with open(path) as fh:
+            existing = fh.read()
+    new = {k: v for k, v in answers.items()
+           if not re.search(rf"(?m)^\s*{k}\s*=", existing)}  # never overwrite theirs
+    if not new:
+        return None
+    with open(path, "a") as fh:
+        if existing and not existing.endswith("\n"):
+            fh.write("\n")
+        fh.write("\n# Answered at install. See .env.example for the rest.\n")
+        for k, v in new.items():
+            fh.write(f"{k}={v}\n")
+    return rel(path, top)
+
+
+def settle(dest_root, top, prefix):
+    """Ask at a terminal; hand the questions to the agent when there is none.
+
+    Most installs are run by an agent, so a prompt alone would mean these are
+    almost never answered. `PLT-eb7v` is the reason the written-out branch is
+    worded as carefully as it is: output phrased as a step gets *performed* by
+    the agent reading it, which there produced a domain ontology nobody asked
+    for. The lesson is not that output must never address an agent — it is that
+    it must never ask one to answer for the adopter. Handing a question to the
+    person is the opposite of that failure, and the only thing that fixes it.
+    """
+    if not sys.stdin.isatty():
+        print("\n    Two things this install could not decide. **Put them to the person,"
+              "\n    and do not answer them yourself:**")
+        for key, question, options in SETTINGS:
+            print(f"\n      {question}")
+            print(f"      {key}=" + "|".join(v for v, _ in options)
+                  + f" in {prefix}.env")
+            for value, gloss in options:
+                print(f"        {value} — {gloss}")
+        print(f"\n    Write their answers into {prefix}.env. Leaving a key unset is a"
+              "\n    real answer too, and it is what happens if you never ask.")
+        return None
+    answers = {}
+    for key, question, options in SETTINGS:
+        value = ask(key, question, options)
+        if value:
+            answers[key] = value
+    return write_env(dest_root, top, answers) if answers else None
 
 
 def main(argv):
@@ -867,12 +968,13 @@ def main(argv):
     print("\n    Optional, whenever you want it — not now, and not for the tooling to work:")
     print(f"    {prefix}ontology/domain-ontology.md explains writing one for your own project.")
     print(f"    Already have one? {prefix}tasks/_tooling/tm ontology <path> records where.")
-    # Off, and described rather than offered. Anything here phrased as a step
-    # gets performed by the agent reading this output (`PLT-eb7v`), and this one
-    # would spend the adopter's tokens on every commit thereafter.
-    print(f"\n    Off unless you switch it on, in {prefix}.env.example: FEEDBACK=on asks your")
-    print("    agent to note what llmeep itself got wrong, after each commit. It costs")
-    print("    tokens and sends nothing — the notes are a local, gitignored file.")
+    # Notifications are named, never configured here. Setting one up needs a bot
+    # token from a service, which is not something an install can go and get.
+    print(f"\n    Notifications are off until you configure them in {prefix}.env —")
+    print(f"    {prefix}.env.example has the steps, and `tm check --notify` verifies them.")
+    written = settle(dest_root, top, prefix)
+    if written:
+        print(f"\n  + {written}  your answers")
     return 0
 
 

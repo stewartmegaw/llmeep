@@ -167,9 +167,19 @@ class Fixture(unittest.TestCase):
 
     def quieten(self, top):
         """No test may reach Telegram. `done` notifies, and a suite that posts to
-        the team channel is a suite nobody runs twice."""
-        with open(os.path.join(self.install_root(top), ".env"), "w") as fh:
-            fh.write("NOTIFY=none\n")
+        the team channel is a suite nobody runs twice.
+
+        Rewrites the `NOTIFY` line and keeps the rest. This used to truncate the
+        file, which was harmless while nothing else wrote one — `adopt` now can
+        (`PLT-8kg9`), and a fixture that silently discards what the code under
+        test just wrote fails the wrong assertion much later."""
+        path = os.path.join(self.install_root(top), ".env")
+        body = ""
+        if os.path.exists(path):
+            with open(path) as fh:
+                body = "".join(l for l in fh if not re.match(r"\s*NOTIFY\s*=", l))
+        with open(path, "w") as fh:
+            fh.write("NOTIFY=none\n" + body)
 
     # -------------------------------------------------------------- assertions
 
@@ -472,6 +482,123 @@ class TestFeedback(Fixture):
                          f"committing broke with feedback on:\n{out.stdout}\n{out.stderr}")
         self.assertNotIn("feedback", (out.stdout + out.stderr).lower(),
                          "the commit path grew feedback output")
+
+
+class TestAdoptAsks(Fixture):
+    """`PLT-8kg9`. Two settings an install cannot infer, and the reason this is
+    delicate: most installs are run by an agent, where there is no terminal to
+    prompt at — and output an agent reads gets acted on (`PLT-eb7v`)."""
+
+    def install(self, top=None):
+        top = top or self.a_project()
+        out = self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        return top, out.stdout
+
+    def env(self, top):
+        path = os.path.join(self.install_root(top), ".env")
+        if not os.path.exists(path):
+            return None
+        with open(path) as fh:
+            return fh.read()
+
+    def test_no_terminal_hands_the_questions_over_rather_than_answering(self):
+        """An agent install has no TTY. Prompting into a pipe would hang or
+        read EOF, and either way the adopter is never asked — so the questions
+        are written out, addressed to whoever is reading."""
+        top, out = self.install()
+        self.assertIn("USER_TYPE", out)
+        self.assertIn("FEEDBACK", out)
+        self.assertIn("do not answer them yourself", out,
+                      "the agent was handed the questions with no instruction to ask")
+        # `quieten` writes its own `.env`, so the claim is about the keys.
+        self.assertNotIn("USER_TYPE", self.env(top) or "",
+                         "an install nobody answered picked a user type anyway")
+        self.assertNotIn("FEEDBACK", self.env(top) or "",
+                         "an install nobody answered switched feedback on or off")
+
+    def test_it_never_picks_an_answer_on_the_adopters_behalf(self):
+        """Both settings have a cost attached — one decides how they are talked
+        to, the other spends their tokens. A default chosen by the installer is
+        a decision taken from them."""
+        top, _ = self.install()
+        out = self.tm(top, "audience")
+        self.assertIn("not declared", out.stdout)
+        self.assertIn("off", self.tm(top, "feedback").stdout)
+
+    def test_an_answer_reaches_the_tools_and_stays_out_of_git(self):
+        """`.env` is the destination because it is per-person and gitignored.
+        Written anywhere committed, one adopter's answer becomes everyone's."""
+        top, _ = self.install()
+        root = self.install_root(top)
+        with open(os.path.join(root, ".env"), "w") as fh:
+            fh.write("USER_TYPE=non-coder\nFEEDBACK=on\n")
+        self.assertIn("non-coder", self.tm(top, "audience").stdout)
+        self.assertEqual(
+            sh("git", "check-ignore", "-q",
+               os.path.relpath(os.path.join(root, ".env"), top), cwd=top).returncode, 0,
+            ".env is not gitignored, so an answer would be committed")
+
+    def test_a_dry_run_asks_nothing_and_writes_nothing(self):
+        """`--dry-run` reports what an install would do. A question is a side
+        effect like any other."""
+        top = self.a_project()
+        out = self.adopt(self.working_copy(), top, "--dry-run")
+        self.assertNotIn("USER_TYPE", out.stdout)
+        self.assertFalse(os.path.exists(os.path.join(self.install_root(top), ".env")))
+
+    def adopt_at_a_terminal(self, top, *answers):
+        """`adopt` under a pty, which is the only way `sys.stdin.isatty()` is
+        true — and the branch a person actually hits. Everything else here runs
+        the pipe path, so without this the interactive half is unexercised."""
+        pty = __import__("pty")
+        src = self.working_copy()
+        pid, fd = pty.fork()
+        if pid == 0:                                     # child: becomes adopt
+            os.chdir(top)
+            os.execv(sys.executable, [sys.executable, os.path.join(src, "adopt")])
+        os.write(fd, ("\n".join(answers) + "\n").encode())
+        out = b""
+        try:
+            while True:
+                chunk = os.read(fd, 4096)
+                if not chunk:
+                    break
+                out += chunk
+        except OSError:                     # the pty raises rather than EOFing
+            pass
+        os.waitpid(pid, 0)
+        return out.decode(errors="replace")
+
+    @unittest.skipUnless(hasattr(os, "fork"), "no pty on this platform")
+    def test_at_a_terminal_it_asks_and_writes_the_answers(self):
+        """Answerable by name or by number, because both are what people type
+        at a numbered list."""
+        top = self.a_project()
+        out = self.adopt_at_a_terminal(top, "non-coder", "2")
+        self.assertIn("Who reads what the agent writes?", out)
+        env = self.env(top)
+        self.assertIn("USER_TYPE=non-coder", env, f"answer not written:\n{out}")
+        self.assertIn("FEEDBACK=on", env, f"numbered answer not taken:\n{out}")
+        self.quieten(top)
+        self.assertIn("non-coder", self.tm(top, "audience").stdout)
+
+    @unittest.skipUnless(hasattr(os, "fork"), "no pty on this platform")
+    def test_at_a_terminal_enter_declines_and_writes_nothing(self):
+        """Unset is a real state for both keys, so declining has to be possible
+        without typing a word — otherwise the prompt is a forced choice."""
+        top = self.a_project()
+        self.adopt_at_a_terminal(top, "", "")
+        self.assertIsNone(self.env(top), "declining both still wrote a .env")
+
+    def test_notifications_are_named_but_never_configured_here(self):
+        """The third thing an adopter needs to know, and the one that is not a
+        question: setting it up needs a token from a service, which an install
+        cannot go and fetch."""
+        top, out = self.install()
+        self.assertIn(".env", out)
+        self.assertIn("Notifications", out)
+        self.assertIn("check --notify", out)
 
 
 class TestAudience(Fixture):

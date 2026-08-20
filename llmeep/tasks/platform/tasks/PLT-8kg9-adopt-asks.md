@@ -15,18 +15,20 @@ At the end of an install/adopt, three prompts:
 3. **Where notifications are configured** — `.env`, and what goes in it. A statement, not a
    question; nothing here should try to set up Telegram during an install.
 
-## The thing this has to solve first
+## Settled
 
-`adopt` is usually run *by an agent*, not typed by a person. `PLT-eb7v` is the incident: output
-phrased as a step got performed by the agent reading it, which is why the closing text describes
-rather than offers.
+**It asks at a terminal, and hands the questions over when there is none.** Most installs are
+agent-run, so a prompt alone would have fired on a small minority — the no-TTY branch writes
+the questions out addressed to the agent, telling it to put them to the person and not answer
+them itself.
 
-So an interactive prompt has an obvious failure mode — the agent answers it, and the user never
-sees the question. Whatever this task does needs an answer to that. Options, unresolved:
+`PLT-eb7v` is the obvious objection: output phrased as a step gets *performed* by the agent
+reading it, which there produced a domain ontology nobody asked for. The line drawn is that
+the lesson was never *do not address the agent* — it was *never ask it to answer on the
+adopter's behalf*. `DEC-041` carries the argument, and the boundary it sets: hand over
+questions, never work.
 
-- Prompt only on a TTY, and print the current description when there is none.
-- Do not prompt at all; have the *skill* ask on first use, where the conversation is with the
-  person.
-- A flag the human path sets.
-
-That choice looks like a decision worth recording (`tm why`), not just an implementation detail.
+Two scope calls made here rather than left open. **Notifications are named, not asked** —
+setting one up needs a token from an external service, which is a separate errand with its own
+verification step. **`--update` asks nothing**; it names whichever keys are still unanswered,
+once, because re-asking on every upgrade makes an answered question look unanswered.
