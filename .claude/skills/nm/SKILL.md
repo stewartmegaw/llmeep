@@ -19,6 +19,11 @@ llmeep/notes/_tooling/nm prune [--yes]                  # bound raw/, drop shipp
 llmeep/notes/_tooling/nm find <term>                    # search every note ever captured
 ```
 
+## Who you are talking to
+
+**Run `llmeep/tasks/_tooling/tm audience` first and write the way it says.** One setting for
+both subsystems, per-person, in `.env`.
+
 ## Distilling is your job, not a command
 
 There is deliberately **no `nm process`**. Deciding what in a conversation mattered is judgement,

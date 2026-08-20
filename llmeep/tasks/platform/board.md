@@ -12,9 +12,13 @@ PLT-3wjv Board could use a per-person filter
 PLT-fqcz An update that fails partway leaves a half-installed repo  filed:2026-08-04
 PLT-6pvp Present the repo for community contributions — README and GitHub setup  filed:2026-08-05
 PLT-fupy Lead the README with what it looks like: tasks, standup --send, notes, agenda  detail  filed:2026-08-18
+PLT-6vgh Test tm review end to end: a real commit through both reviewer APIs  filed:2026-08-19
+PLT-8kg9 adopt should ask: coder or non-coder, feedback on or off, then say where notifications are configured  detail  filed:2026-08-19
+PLT-9t4z throwaway probe                                  filed:2026-08-20
 
 ## recent
 
+2026-08-20  PLT-22fn A user type in .env — coder or non-coder — shapes how the agent talks and what it decides alone  @stewart
 2026-08-19  PLT-sx7r Code review by two LLM APIs before a commit is pushed, with a permanent reviewed mark  @stewart
 2026-08-18  PLT-zjkf A worktree has no .env, so --send was impossible there  @stewart
 2026-08-18  PLT-5d25 A sent agenda rolls to a dated file, so the next one starts clean  @stewart
@@ -29,4 +33,3 @@ PLT-fupy Lead the README with what it looks like: tasks, standup --send, notes, 
 2026-08-17  PLT-uwek Every status transition has a command except prioritised back to backlog  @stewart
 2026-08-17  PLT-gx39 The hint line offers two verbs that do not exist — discuss and drop  @stewart
 2026-08-17  PLT-9v2n Drop install-by-clone and make adopt the only way in  @stewart
-2026-08-12  PLT-8fmj A greenfield clone gets the maintainer sweep at its root  @stewart

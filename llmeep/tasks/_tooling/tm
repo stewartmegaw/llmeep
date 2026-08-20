@@ -474,6 +474,54 @@ def load_env():
                 os.environ.setdefault(k.strip(), v.strip().strip("'\""))
 
 
+# Who the agent is talking to. This lives in `.env` rather than in the skill
+# because it is per-person: two people sharing a repo are not the same person,
+# and the skill is committed (`DEC-040`). Unset is not a third type — it means
+# nobody has answered, and the tool then says nothing at all.
+#
+# The short form is printed above every command, because the reminder has to be
+# where the agent already is. The long form is what `tm audience` prints.
+AUDIENCE = {
+    "coder": (
+        "coder — bullets, not prose; name the mechanics.",
+        "coder\n"
+        "  Bullets over prose, and short lines. Name the machinery rather than\n"
+        "  hiding it: task ids, the commands you ran, what a hook refused and why.",
+    ),
+    "non-coder": (
+        "non-coder — no git, nothing for them to run; decide it and report the outcome.",
+        "non-coder\n"
+        "  Never surface git. Not branches, commits, diffs, conflicts, stashes or\n"
+        "  --no-verify — not even to explain why something worked. Where a git\n"
+        "  decision is needed, make it yourself and say only what changed for them.\n"
+        "\n"
+        "  Never hand over a command for them to run. That rules out worktrees\n"
+        "  wherever there is another way, because a worktree eventually needs one\n"
+        "  pasted into a terminal, which is the handoff this type cannot make.\n"
+        "\n"
+        "  Prose, not bullets, and their words rather than the tool's.",
+    ),
+}
+
+
+def audience():
+    """The declared user type, or None when nobody has declared one."""
+    load_env()
+    kind = (os.environ.get("USER_TYPE") or "").strip().lower()
+    return kind if kind in AUDIENCE else None
+
+
+def cmd_audience(args):
+    if args:
+        raise Fail("audience takes no arguments — set USER_TYPE in .env")
+    kind = audience()
+    if not kind:
+        print("\n  not declared — USER_TYPE is unset in .env, so nothing here"
+              "\n  changes how you write.\n")
+        return
+    print(f"\n  {AUDIENCE[kind][1]}\n")
+
+
 def post(url, data, headers=None):
     req = urllib.request.Request(url, data, headers or {})
     urllib.request.urlopen(req, timeout=5)
@@ -2555,6 +2603,7 @@ USAGE = """tm — taskman
   tm agenda [--send]            what a meeting must get through (--send posts it)
   tm ontology [<path>|--none]   where your domain ontology lives, or that there is none
   tm feedback [<text...>|-]     note what llmeep itself got wrong (opt-in, local, never sent)
+  tm audience                   how this user wants to be talked to (USER_TYPE in .env)
 
   tm check [--staged]           validate records; used by hooks and CI
   tm review [--reply <text>]    have the configured LLMs review HEAD before pushing
@@ -2752,13 +2801,26 @@ def main():
         "prioritise": cmd_prioritise, "prioritize": cmd_prioritise,
         "done": cmd_done, "drop": cmd_drop, "find": cmd_find, "why": cmd_why,
         "standup": cmd_standup, "agenda": cmd_agenda, "ontology": cmd_ontology,
-        "feedback": cmd_feedback,
+        "feedback": cmd_feedback, "audience": cmd_audience,
         "check": cmd_check, "review": cmd_review,
     }
     cmd = commands.get(argv[0])
     if not cmd:
         print(f"unknown command: {argv[0]}\n\n{USAGE}", file=sys.stderr)
         return 2
+    # Above every command, not once a session: there is no session for a tool
+    # that exits, and the reminder is worthless anywhere the agent is not
+    # already looking.
+    #
+    # Two exemptions, both where the reader is not a person. `check` is run by
+    # hooks, and a line addressed to an agent in the middle of `git commit`
+    # output is aimed at nobody. `add --id` prints the bare id for another tool
+    # to consume — `nm promote` reads it — so a banner there is not noise but a
+    # corrupted value.
+    machine = argv[0] == "add" and "--id" in argv
+    kind = None if machine or argv[0] in ("check", "audience") else audience()
+    if kind:
+        print(f"\n  · {AUDIENCE[kind][0]}")
     try:
         cmd(argv[1:])
     except Fail as exc:

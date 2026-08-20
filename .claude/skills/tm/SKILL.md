@@ -28,11 +28,17 @@ llmeep/tasks/_tooling/tm standup --cron             # the crontab line, if sched
 llmeep/tasks/_tooling/tm agenda [--send]            # what a meeting must get through
 llmeep/tasks/_tooling/tm ontology [<path>|--none]   # where this repo's domain ontology lives
 llmeep/tasks/_tooling/tm feedback [<text>|-]        # note what llmeep got wrong; opt-in, never sent
+llmeep/tasks/_tooling/tm audience                   # how this user wants to be talked to
 
 llmeep/tasks/_tooling/tm check                      # validate records (hooks and CI call this)
 llmeep/tasks/_tooling/tm check --context            # what an agent carries, measured
 llmeep/tasks/_tooling/tm check --notify [--send]    # verify the notification channel
 ```
+
+## Who you are talking to
+
+**Run `tm audience` first and write the way it says.** Per-person, in `.env` — not the same
+for the next person here.
 
 ## Translating what the user says
 

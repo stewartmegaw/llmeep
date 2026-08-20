@@ -408,6 +408,41 @@ Two more subcommands exist. Neither touches a task, so neither is a skill:
 | Command             | Does                                                             |
 | ------------------- | ---------------------------------------------------------------- |
 | `tm check [--staged]` | Validates records. What the hooks and CI both call.            |
+| `tm audience`       | Prints how to write for whoever set `USER_TYPE`. Reads `.env`; changes nothing. |
+
+## Audience — who the agent is writing for
+
+`USER_TYPE` in `.env` says what kind of person is on the other side. Two values, and unset is
+not a third: it means nobody has answered, and nothing changes.
+
+| Value | The agent |
+| --- | --- |
+| `coder` | Writes in bullets rather than prose. Names the machinery openly — task ids, the commands it ran, what a hook refused. |
+| `non-coder` | Never surfaces git in any form, makes those calls itself, and reports only what changed in the user's own terms. Never hands over a command to run. Writes prose. |
+
+`tm audience` prints the long form; every other command prints a one-line reminder above its
+output, so the rule is where the agent already is rather than somewhere it has to remember to
+look. `check` is exempt, because hooks run it and its reader is `git`, not a person.
+
+### Why it is configuration and not the skill
+
+The skill is committed and the same for everyone who clones the repo. This is not: one person
+in a team can be a non-coder while the person beside them is not, and putting it in the skill
+would make the last person to edit it the one who decides for the rest. `.env` is per-checkout
+and gitignored, which is exactly the scope the setting has (`DEC-040`).
+
+It also could not have gone in the skill. A task session already sits close to the
+`SESSION_BUDGET` [`DEC-037`](../../decisions/DEC-037-budget-the-session-not-the-file.md) sets,
+and the rules for two user types are more than the headroom left. The tool prints them, which
+costs the always-loaded file one line instead.
+
+### Why `non-coder` rules out worktrees
+
+Everything else the type changes is about wording, and wording is recoverable. A worktree is
+not: it periodically needs a command pasted into a terminal by hand, and that handoff is the
+one thing this user cannot do. So it is a structural rule, not a stylistic one — prefer any
+approach that keeps the work where the conversation is, and where a worktree is genuinely
+unavoidable, drive it rather than handing it over.
 
 ## Notifications — outbound, and swappable
 

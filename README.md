@@ -172,6 +172,23 @@ Both shipped adapters speak the OpenAI chat shape, so `REVIEW_<NAME>_BASE` also 
 OpenRouter or a local server without new code
 ([`DEC-039`](llmeep/decisions/DEC-039-review-is-a-gate-not-a-column.md)).
 
+## Who it is writing for
+
+Set `USER_TYPE` in `llmeep/.env` and the agent writes for the person actually reading.
+
+```sh
+llmeep/tasks/_tooling/tm audience                  # what your agent is being told
+```
+
+`coder` gets bullets rather than prose, with the machinery named openly — task ids, the commands
+that ran, what a hook refused. `non-coder` gets the opposite: **git is never surfaced at all.**
+Not branches, not commits, not conflicts. Where one of those decisions is needed the agent makes
+it and reports only what changed, and nothing is ever handed over to paste into a terminal.
+
+Unset is not a third kind — it means nobody has said, and nothing changes. `.env` is per-checkout
+and gitignored, so this is yours: someone else in the same repo can be the other kind
+([`DEC-040`](llmeep/decisions/DEC-040-the-user-type-is-configuration-and-the-tool-announces-it.md)).
+
 ## Telling llmeep what it got wrong
 
 **Off, and it stays off unless you switch it on.** With `FEEDBACK=on` in `llmeep/.env`, your

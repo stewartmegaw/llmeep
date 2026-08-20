@@ -474,6 +474,100 @@ class TestFeedback(Fixture):
                          "the commit path grew feedback output")
 
 
+class TestAudience(Fixture):
+    """`DEC-040`. The promise is that a non-coder never has git put in front of
+    them, and nothing mechanical can check what an agent says — so what is
+    testable is that the agent is told, every time, and that an adopter who
+    never set this sees no change at all."""
+
+    def install(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        return top
+
+    def declare(self, top, kind):
+        with open(os.path.join(self.install_root(top), ".env"), "a") as fh:
+            fh.write(f"USER_TYPE={kind}\n")
+
+    def board(self, top):
+        with open(os.path.join(self.install_root(top),
+                               "tasks", "platform", "board.md")) as fh:
+            return fh.read()
+
+    def test_unset_says_nothing_anywhere(self):
+        """Unset is not `coder`. An adopter who never answered must get output
+        identical to before this existed, or the setting is opt-out."""
+        top = self.install()
+        self.tm(top, "add", "Fix flaky auth test")
+        for args in (("go",), ("find", "auth"), ("standup",)):
+            out = self.tm(top, *args)
+            self.assertNotIn("coder", out.stdout,
+                             f"`tm {args[0]}` announced an audience nobody set")
+
+    def test_every_command_reminds_the_agent(self):
+        """`tm` exits, so there is no session to remember across. The reminder
+        has to be above whatever command the agent actually ran."""
+        top = self.install()
+        self.declare(top, "non-coder")
+        self.tm(top, "add", "Fix flaky auth test")
+        for args in (("add", "Another thing"), ("go",), ("find", "auth"), ("standup",)):
+            out = self.tm(top, *args)
+            self.assertIn("non-coder", out.stdout.split("\n")[1],
+                          f"`tm {args[0]}` did not lead with the audience")
+
+    def test_check_stays_out_of_the_commit_path(self):
+        """Hooks run `check`, and `git` is its reader. A line addressed to an
+        agent in the middle of `git commit` output is aimed at nobody."""
+        top = self.install()
+        self.declare(top, "non-coder")
+        self.assertNotIn("non-coder", self.tm(top, "check").stdout)
+        sh("git", "add", "-A", cwd=top)
+        out = sh("git", "commit", "-m", "ordinary work", cwd=top)
+        self.assertEqual(out.returncode, 0,
+                         f"committing broke:\n{out.stdout}\n{out.stderr}")
+        self.assertNotIn("non-coder", out.stdout + out.stderr)
+
+    def test_the_rules_are_the_tools_and_not_the_skills(self):
+        """The skill is committed, so it cannot hold a per-person setting, and
+        a task session has no room for two audiences' rules anyway."""
+        top = self.install()
+        self.declare(top, "non-coder")
+        out = self.tm(top, "audience")
+        self.assertEqual(out.returncode, 0)
+        for rule in ("git", "worktree", "Prose"):
+            self.assertIn(rule, out.stdout, f"`tm audience` never mentions {rule}")
+        with open(os.path.join(top, ".claude", "skills", "tm", "SKILL.md")) as fh:
+            skill = fh.read()
+        self.assertIn("tm audience", skill, "the skill never tells an agent to ask")
+        self.assertNotIn("worktree", skill, "the rules leaked into the committed skill")
+
+    def test_machine_readable_output_stays_machine_readable(self):
+        """`add --id` prints the bare id for another tool to read — `nm promote`
+        is the caller. A banner there is not noise, it is a corrupted value, and
+        the failure lands in the notes subsystem rather than here."""
+        top = self.install()
+        self.declare(top, "non-coder")
+        tid = self.tm(top, "add", "--id", "filed by machine").stdout.strip()
+        self.assertRegex(tid, r"^PLT-\S+$", f"`add --id` printed more than an id: {tid!r}")
+
+        note = self.nm(top, "add", "they want SSO before they renew").stdout
+        nid = re.search(r"NTE-\S+", note).group(0)
+        out = self.nm(top, "promote", nid)
+        self.assertEqual(out.returncode, 0, f"promote broke:\n{out.stdout}\n{out.stderr}")
+        self.assertNotIn("non-coder", self.board(top),
+                         "the banner was written into the board as a task id")
+
+    def test_an_unknown_value_is_not_a_third_kind(self):
+        """A typo must fall back to silence rather than inventing a style, and
+        must never stop a command working."""
+        top = self.install()
+        self.declare(top, "Coder-ish")
+        out = self.tm(top, "audience")
+        self.assertEqual(out.returncode, 0)
+        self.assertIn("not declared", out.stdout)
+
+
 class TestAgenda(Fixture):
     """An agenda is what a meeting has to get through — forward-looking, and
     only what cannot move without people in a room."""
