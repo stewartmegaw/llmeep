@@ -95,3 +95,4 @@
 2026-08-19	PLT-sx7r	platform	Code review by two LLM APIs before a commit is pushed, with a permanent reviewed mark	stewart
 2026-08-20	PLT-22fn	platform	A user type in .env — coder or non-coder — shapes how the agent talks and what it decides alone	stewart
 2026-08-20	PLT-8kg9	platform	adopt should ask: coder or non-coder, feedback on or off, then say where notifications are configured	stewart
+2026-08-21	PLT-g9gv	platform	A non-coder's agent pushes on its own, except where the commit could reach a deploy	stewart

@@ -196,6 +196,21 @@ Unset is not a third kind — it means nobody has said, and nothing changes. `.e
 and gitignored, so this is yours: someone else in the same repo can be the other kind
 ([`DEC-040`](llmeep/decisions/DEC-040-the-user-type-is-configuration-and-the-tool-announces-it.md)).
 
+A non-coder's agent also **commits and pushes as it goes**, since waiting to be asked would
+strand their work on one machine. With one exception: a push is where a deploy starts, so when
+what is waiting includes their own code, it says the work is not live yet and asks first.
+
+```sh
+llmeep/tasks/_tooling/tm unpushed                  # records, code, clear, or no upstream
+```
+
+That is the only git word a non-coder ever meets, and it is the price of editing code. Nothing
+else comes with it — a conflict or a rebase is still handled silently, because neither is a
+decision they can take. Saying no is a real answer: the work stays local and the tool keeps
+saying so. There is deliberately no CI detection; a pipeline can hang off a server-side hook
+that leaves nothing in the repo to find
+([`DEC-042`](llmeep/decisions/DEC-042-a-non-coders-agent-pushes-records-and-asks-about-their-code.md)).
+
 ## Telling llmeep what it got wrong
 
 **Off, and it stays off unless you switch it on.** With `FEEDBACK=on` in `llmeep/.env`, your

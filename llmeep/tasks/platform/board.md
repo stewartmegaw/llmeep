@@ -16,6 +16,7 @@ PLT-6vgh Test tm review end to end: a real commit through both reviewer APIs  fi
 
 ## recent
 
+2026-08-21  PLT-g9gv A non-coder's agent pushes on its own, except where the commit could reach a deploy  @stewart
 2026-08-20  PLT-8kg9 adopt should ask: coder or non-coder, feedback on or off, then say where notifications are configured  @stewart
 2026-08-20  PLT-22fn A user type in .env — coder or non-coder — shapes how the agent talks and what it decides alone  @stewart
 2026-08-19  PLT-sx7r Code review by two LLM APIs before a commit is pushed, with a permanent reviewed mark  @stewart
@@ -30,4 +31,3 @@ PLT-6vgh Test tm review end to end: a real commit through both reviewer APIs  fi
 2026-08-17  PLT-s9e7 Agenda should be user-driven: create the draft, name the sources, list nothing  @stewart
 2026-08-17  PLT-ehd6 Build a meeting agenda from tasks and notes, sendable to Telegram  @stewart
 2026-08-17  PLT-uwek Every status transition has a command except prioritised back to backlog  @stewart
-2026-08-17  PLT-gx39 The hint line offers two verbs that do not exist — discuss and drop  @stewart

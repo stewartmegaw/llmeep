@@ -489,7 +489,7 @@ AUDIENCE = {
         "  hiding it: task ids, the commands you ran, what a hook refused and why.",
     ),
     "non-coder": (
-        "non-coder — no git, nothing for them to run; decide it and report the outcome.",
+        "non-coder — no git and nothing to run; decide it, push it, report the outcome.",
         "non-coder\n"
         "  Never surface git. Not branches, commits, diffs, conflicts, stashes or\n"
         "  --no-verify — not even to explain why something worked. Where a git\n"
@@ -499,9 +499,23 @@ AUDIENCE = {
         "  wherever there is another way, because a worktree eventually needs one\n"
         "  pasted into a terminal, which is the handoff this type cannot make.\n"
         "\n"
-        "  Prose, not bullets, and their words rather than the tool's.",
+        "  Prose, not bullets, and their words rather than the tool's.\n"
+        "\n"
+        "  Commit and push as you go — they cannot be asked to, so work that\n"
+        "  waits for them never leaves this machine.\n"
+        "\n"
+        "  One exception to all of the above, and only while `tm unpushed` says\n"
+        "  `code`: whether their own project is live is theirs to decide, so say\n"
+        "  it plainly and ask. Nothing else about git comes with it — a conflict\n"
+        "  or a rebase is still yours to handle silently.",
     ),
 }
+
+# What the banner says while a non-coder has unpushed work of their own. The
+# `code` line is the only place git reaches them, so it says what to do rather
+# than naming a state.
+PAUSED = ("non-coder — their project is unpushed. Say it is not live yet and ask;"
+          " nothing else about git.")
 
 
 def audience():
@@ -509,6 +523,73 @@ def audience():
     load_env()
     kind = (os.environ.get("USER_TYPE") or "").strip().lower()
     return kind if kind in AUDIENCE else None
+
+
+# What a push can reach, and who may be told about it. `DEC-040` says a
+# non-coder is never shown git; taken literally that traps their work on one
+# machine, because an agent that may neither push on its own nor ask has no way
+# to get anything out. So the rule gains exactly one exception, and it is the
+# one git term that carries a consequence they can weigh: is this live yet.
+#
+# Records are pushed without asking. Anything touching their own project is
+# not, because a push is where a deploy starts.
+#
+# **No attempt to detect CI.** A pipeline can hang off a server-side hook that
+# nothing in the repo mentions, so *this push is safe* is not a claim that can
+# be made from in here. Anything outside the record trees asks (`PLT-g9gv`).
+RECORD_TREES = ("tasks", "notes", "decisions", "ontology")
+
+
+def record_prefixes(top):
+    """Where this install's records sit, relative to the repo root. Built from
+    `REPO` rather than assumed, because `adopt --into ops` moves all four and a
+    flat install leaves them at the root with the adopter's code beside them."""
+    ours = os.path.relpath(os.path.realpath(REPO), os.path.realpath(top))
+    base = "" if ours == "." else ours.replace(os.sep, "/") + "/"
+    return tuple(f"{base}{tree}/" for tree in RECORD_TREES)
+
+
+def push_state():
+    """`clear`, `records`, `code` or `no upstream`, and how many commits.
+
+    Reads and reports; it never pushes. Every git call in this file is a read,
+    and `DEC-005` keeps it that way — the agent acts on this, the tool does not.
+    """
+    top = (git("rev-parse", "--show-toplevel") or "").strip()
+    if not top:
+        return ("no upstream", 0)
+    upstream = git("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}").strip()
+    if not upstream:
+        return ("no upstream", 0)
+    commits = [c for c in git("rev-list", f"{upstream}..HEAD").split() if c]
+    if not commits:
+        return ("clear", 0)
+    changed = [p for p in git("diff", "--name-only", f"{upstream}..HEAD").split("\n") if p]
+    records = record_prefixes(top)
+    if changed and all(p.startswith(records) for p in changed):
+        return ("records", len(commits))
+    return ("code", len(commits))
+
+
+def cmd_unpushed(args):
+    if args:
+        raise Fail("unpushed takes no arguments")
+    state, count = push_state()
+    plural = "" if count == 1 else "s"
+    if state == "no upstream":
+        print("\n  no upstream — this branch tracks nothing, so nothing can be"
+              "\n  pushed from here.\n")
+    elif state == "clear":
+        print("\n  clear — nothing unpushed.\n")
+    elif state == "records":
+        print(f"\n  records — {count} commit{plural} unpushed, all of it llmeep's own"
+              "\n  records. Nothing here can reach a build. Push it yourself.\n")
+    else:
+        print(f"\n  code — {count} commit{plural} unpushed, and some of it is their"
+              "\n  project. A push is where a deploy starts, so this one is theirs to"
+              "\n  call: say plainly that the work is not live yet and ask."
+              "\n"
+              "\n  No is a real answer. It stays here, and this keeps saying so.\n")
 
 
 def cmd_audience(args):
@@ -2604,6 +2685,7 @@ USAGE = """tm — taskman
   tm ontology [<path>|--none]   where your domain ontology lives, or that there is none
   tm feedback [<text...>|-]     note what llmeep itself got wrong (opt-in, local, never sent)
   tm audience                   how this user wants to be talked to (USER_TYPE in .env)
+  tm unpushed                   whether what is unpushed can reach a build
 
   tm check [--staged]           validate records; used by hooks and CI
   tm review [--reply <text>]    have the configured LLMs review HEAD before pushing
@@ -2802,6 +2884,7 @@ def main():
         "done": cmd_done, "drop": cmd_drop, "find": cmd_find, "why": cmd_why,
         "standup": cmd_standup, "agenda": cmd_agenda, "ontology": cmd_ontology,
         "feedback": cmd_feedback, "audience": cmd_audience,
+        "unpushed": cmd_unpushed,
         "check": cmd_check, "review": cmd_review,
     }
     cmd = commands.get(argv[0])
@@ -2818,9 +2901,15 @@ def main():
     # to consume — `nm promote` reads it — so a banner there is not noise but a
     # corrupted value.
     machine = argv[0] == "add" and "--id" in argv
-    kind = None if machine or argv[0] in ("check", "audience") else audience()
+    kind = None if machine or argv[0] in ("check", "audience", "unpushed") else audience()
     if kind:
-        print(f"\n  · {AUDIENCE[kind][0]}")
+        # The push state is read here rather than left to the agent to go and
+        # ask for, on the same argument as the banner itself: a rule that needs
+        # a second command to discover is a rule that gets missed.
+        line = AUDIENCE[kind][0]
+        if kind == "non-coder" and push_state()[0] == "code":
+            line = PAUSED
+        print(f"\n  · {line}")
     try:
         cmd(argv[1:])
     except Fail as exc:

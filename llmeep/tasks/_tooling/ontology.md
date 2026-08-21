@@ -419,7 +419,7 @@ install, or hands the question to the agent when there is no terminal to ask at 
 | Value | The agent |
 | --- | --- |
 | `coder` | Writes in bullets rather than prose. Names the machinery openly — task ids, the commands it ran, what a hook refused. |
-| `non-coder` | Never surfaces git in any form, makes those calls itself, and reports only what changed in the user's own terms. Never hands over a command to run. Writes prose. |
+| `non-coder` | Never surfaces git in any form, makes those calls itself, and reports only what changed in the user's own terms. Never hands over a command to run. Writes prose. Commits and pushes as it goes — see below for the one thing it asks about. |
 
 `tm audience` prints the long form; every other command prints a one-line reminder above its
 output, so the rule is where the agent already is rather than somewhere it has to remember to
@@ -436,6 +436,33 @@ It also could not have gone in the skill. A task session already sits close to t
 `SESSION_BUDGET` [`DEC-037`](../../decisions/DEC-037-budget-the-session-not-the-file.md) sets,
 and the rules for two user types are more than the headroom left. The tool prints them, which
 costs the always-loaded file one line instead.
+
+### The one git word a non-coder sees
+
+A non-coder cannot be asked to push, so the agent has to — otherwise their work never leaves
+the machine, which is `DEC-040` read literally and the failure it hides. But a push is where a
+deploy starts, and no repo can prove its own push is inert: a pipeline can hang off a
+server-side hook or a platform watching the branch, neither of which leaves anything in the
+tree to find. So there is no detection, and the split is by what is being pushed.
+
+`tm unpushed` classifies the whole unpushed range — not each commit, because a push moves the
+branch and records sitting behind a code change go out with it.
+
+| State | The agent |
+| --- | --- |
+| `clear` | Nothing to do. |
+| `records` | Pushes without asking. Boards, notes, decisions and history reach no build. |
+| `code` | Does not push. Says the work is not live yet, and asks. |
+| `no upstream` | Says nothing about pushing; there is nowhere to push to. |
+
+The banner carries the same answer above every command, so this does not depend on an agent
+thinking to look it up. `tm unpushed` reports and never pushes — every git call in `tm` is a
+read, and [`DEC-005`](../../decisions/DEC-005-agent-mediated-git.md) keeps it that way.
+
+**Git becomes visible here, bounded to one thing: whether their project is live.** That is the
+price of editing code, and it stops there — a conflict, a rebase or `--no-verify` is still
+handled silently, because none of those is a decision they can take. Declining is a real
+answer: the work stays local and the banner keeps saying so (`DEC-042`).
 
 ### Why `non-coder` rules out worktrees
 
