@@ -410,6 +410,36 @@ Two more subcommands exist. Neither touches a task, so neither is a skill:
 | `tm check [--staged]` | Validates records. What the hooks and CI both call.            |
 | `tm audience`       | Prints how to write for whoever set `USER_TYPE`. Reads `.env`; changes nothing. |
 
+## Handover — what a session holds that the records do not
+
+The case for records in the repo is that carrying them beats the tracker they replace, and
+[`go`](#skill) is a context loader rather than a state change. Both being true means a session
+is disposable exactly when `go` plus the board would bring it all back — so clearing early is
+the ordinary habit here, not the nervous one.
+
+**The question is never how full the context is.** Clearing loses the conversation and never
+the files, so what matters is which of it nothing on disk could reconstruct. That is not
+directly checkable, so `tm handover` lists proxies:
+
+| Loose | Because |
+| --- | --- |
+| A task in progress with no sidecar | The title survives a clear; where the work got to does not |
+| Captures in `notes/raw` | The transcript is on disk, the judgement about it is not |
+| An agenda draft past its scaffold | The conversation shaping it is the unwritten part |
+| Uncommitted changes | The files keep; the reason for them may not |
+
+**The list is knowingly incomplete, and says so.** A decision that should have been written and
+was not is the most expensive thing a clear can cost, and nothing detects it. Unpushed commits
+are deliberately absent — they are on disk and survive intact; that is `tm unpushed`, asking
+*is this live* rather than *is this saved*.
+
+`tm done` says it unasked, once per closed task, projecting past the commit it just asked for —
+the one moment where the answer is nearly always "nothing", because board, history and code are
+about to land together. Everywhere else it is asked for.
+
+**Nothing here names a way to clear.** That is a harness feature with a vendor-specific
+spelling; the tool reports and the reader acts (`DEC-043`, [principle 3](../../ontology/principles.md)).
+
 ## Audience — who the agent is writing for
 
 `USER_TYPE` in `.env` says what kind of person is on the other side. Two values, and unset is

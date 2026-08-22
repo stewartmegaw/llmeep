@@ -211,6 +211,26 @@ saying so. There is deliberately no CI detection; a pipeline can hang off a serv
 that leaves nothing in the repo to find
 ([`DEC-042`](llmeep/decisions/DEC-042-a-non-coders-agent-pushes-records-and-asks-about-their-code.md)).
 
+## Knowing when to clear
+
+The case for keeping records in the repo is that carrying them beats the tracker they replace.
+If that holds, a session is disposable the moment `tm go` and the board would bring back
+everything that mattered — so clearing early should be the ordinary habit, not the nervous one.
+
+```sh
+llmeep/tasks/_tooling/tm handover                  # what this session holds that the records do not
+```
+
+**Not a context meter.** Clearing loses the conversation and never the files, so the question is
+which of it nothing on disk could reconstruct: a task in progress with no sidecar, a capture in
+`notes/raw` nobody distilled, an agenda mid-draft, uncommitted work whose reason is unwritten.
+
+The list is deliberately honest about being incomplete — a decision that should have been
+written and was not is the most expensive thing a clear can cost, and nothing can detect it.
+`tm done` volunteers the answer once per closed task, projecting past the commit it just asked
+for, because that is the moment it is nearly always "nothing"
+([`DEC-043`](llmeep/decisions/DEC-043-clearing-is-judged-by-what-the-records-do-not-hold.md)).
+
 ## Telling llmeep what it got wrong
 
 **Off, and it stays off unless you switch it on.** With `FEEDBACK=on` in `llmeep/.env`, your

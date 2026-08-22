@@ -571,6 +571,72 @@ def push_state():
     return ("code", len(commits))
 
 
+def handover(committing=False):
+    """What this session holds that the records do not.
+
+    **Not a context meter.** Clearing loses the conversation and never the
+    files, so the question is not how full anything is — it is which of what
+    was worked out here nothing on disk could reconstruct.
+
+    That is not directly checkable, so these are proxies, and the list is
+    knowingly incomplete: a decision that should have been written and was not
+    is the most expensive thing a clear can cost, and nothing can detect it
+    (`PLT-t774`).
+
+    Deliberately not here: unpushed commits. They are on disk and survive a
+    clear intact — that is `tm unpushed`, and a different question.
+    """
+    loose = []
+    for ledger in LEDGERS:
+        for task in Board(ledger).in_progress:
+            if not sidecar_path(ledger, task.id):
+                loose.append((f"{task.id} is in progress with no sidecar",
+                              "where the work got to is only in this conversation"))
+    # Same filter `nm` uses on this directory: dotfiles are not captures, and
+    # `adopt` ships a `.gitkeep` — counting it made every fresh install report
+    # a capture it did not have.
+    raw = os.path.join(REPO, "notes", "raw")
+    captures = [n for n in sorted(os.listdir(raw))
+                if not n.startswith(".") and os.path.isfile(os.path.join(raw, n))
+                ] if os.path.isdir(raw) else []
+    if captures:
+        loose.append((f"{len(captures)} capture(s) in notes/raw",
+                      "the transcript is on disk; what mattered in it is not"))
+    path = agenda_path()
+    if os.path.exists(path):
+        with open(path) as fh:
+            body = fh.read().strip()
+        if body and body != AGENDA_SCAFFOLD.strip():
+            loose.append(("an agenda draft is open",
+                          "the conversation shaping it is the part not written down"))
+    # `committing` is `done` asking what will still be loose *after* the commit
+    # it just told you to make. Without it the answer is always "uncommitted
+    # changes", since `done` wrote them a line ago — true, useless, and it
+    # would bury the one moment this is worth saying.
+    top = "" if committing else (git("rev-parse", "--show-toplevel") or "").strip()
+    dirty = [l for l in git("status", "--porcelain").split("\n") if l.strip()] if top else []
+    if dirty:
+        loose.append((f"{len(dirty)} uncommitted change(s)",
+                      "the files keep, but the reason for them may not"))
+    return loose
+
+
+def cmd_handover(args):
+    if args:
+        raise Fail("handover takes no arguments")
+    loose = handover()
+    if not loose:
+        print("\n  nothing carries over — the records hold it."
+              "\n  A good moment to clear, and clearing hard is the cheaper habit.\n")
+        return
+    width = max(len(what) for what, _ in loose)
+    print()
+    for what, why in loose:
+        print(f"  · {what:<{width}}  {why}")
+    print("\n  Write these down or finish them, then clearing costs nothing.")
+    print("  Judge it yourself — this lists what is loose, not what matters.\n")
+
+
 def cmd_unpushed(args):
     if args:
         raise Fail("unpushed takes no arguments")
@@ -1426,6 +1492,16 @@ def cmd_done(args):
         print(f"  {ledger}{who} · {task.done_on}"
               + (f" · {sent} sent" if sent else ""))
         print(f'\n  commit with:  closes {task.id}')
+        # The one moment worth saying this unasked: board, history and code are
+        # about to land together, so by construction the session is holding
+        # nothing. Once per closed task, not once per commit — a line that
+        # appears every time is a line nobody reads.
+        rest = handover(committing=True)
+        if rest:
+            print("\n  still carrying after that:  "
+                  + "; ".join(what for what, _ in rest))
+        else:
+            print("\n  nothing carries over after that — a good moment to clear.")
         return
     raise Fail(f"no task {tid}" if tid else "nothing in progress")
 
@@ -2686,6 +2762,7 @@ USAGE = """tm — taskman
   tm feedback [<text...>|-]     note what llmeep itself got wrong (opt-in, local, never sent)
   tm audience                   how this user wants to be talked to (USER_TYPE in .env)
   tm unpushed                   whether what is unpushed can reach a build
+  tm handover                   what this session holds that the records do not
 
   tm check [--staged]           validate records; used by hooks and CI
   tm review [--reply <text>]    have the configured LLMs review HEAD before pushing
@@ -2884,7 +2961,7 @@ def main():
         "done": cmd_done, "drop": cmd_drop, "find": cmd_find, "why": cmd_why,
         "standup": cmd_standup, "agenda": cmd_agenda, "ontology": cmd_ontology,
         "feedback": cmd_feedback, "audience": cmd_audience,
-        "unpushed": cmd_unpushed,
+        "unpushed": cmd_unpushed, "handover": cmd_handover,
         "check": cmd_check, "review": cmd_review,
     }
     cmd = commands.get(argv[0])

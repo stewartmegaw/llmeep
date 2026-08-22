@@ -601,6 +601,102 @@ class TestAdoptAsks(Fixture):
         self.assertIn("check --notify", out)
 
 
+class TestHandover(Fixture):
+    """`PLT-t774`. Clearing loses the conversation and never the files, so this
+    is not a context meter — it is a list of what nothing on disk could
+    reconstruct. Every item is a proxy, and the list is knowingly incomplete."""
+
+    def install(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "commit", "-m", "adopt llmeep", cwd=top)
+        return top
+
+    def out(self, top):
+        return self.tm(top, "handover").stdout
+
+    def sidecar(self, top, tid, title):
+        path = os.path.join(self.install_root(top), "tasks", "platform", "tasks",
+                            f"{tid}-detail.md")
+        with open(path, "w") as fh:
+            fh.write(f'---\nid: {tid}\ntitle: "{title}"\ncreated: 2026-08-22\n---\n\n'
+                     f"# {tid} — {title}\n")
+
+    def test_a_clean_adopted_repo_carries_nothing(self):
+        """`adopt` ships `notes/raw/.gitkeep`, and counting it made a fresh
+        install report a capture nobody had — a false positive on the one
+        answer that has to be trustworthy to be worth printing."""
+        top = self.install()
+        self.assertIn("nothing carries over", self.out(top))
+
+    def test_an_in_progress_task_with_no_sidecar_is_loose(self):
+        """The title survives a clear. Where the work got to does not."""
+        top = self.install()
+        tid = self.tm(top, "add", "--id", "-n", "Do a thing").stdout.strip()
+        self.tm(top, "go")
+        self.assertIn("no sidecar", self.out(top))
+        self.sidecar(top, tid, "Do a thing")
+        self.assertNotIn("no sidecar", self.out(top))
+
+    def test_an_unprocessed_capture_is_loose(self):
+        """The transcript is on disk. What mattered in it was worked out here."""
+        top = self.install()
+        raw = os.path.join(self.install_root(top), "notes", "raw")
+        with open(os.path.join(raw, "call.md"), "w") as fh:
+            fh.write("they want SSO before they renew\n")
+        self.assertIn("notes/raw", self.out(top))
+
+    def test_the_bare_agenda_scaffold_is_not_a_draft(self):
+        """`tm agenda` writes a scaffold whether or not anyone then works on
+        it. Treating that as loose would flag every repo that ever ran it."""
+        top = self.install()
+        self.tm(top, "agenda")
+        self.assertNotIn("agenda draft", self.out(top))
+        with open(os.path.join(self.install_root(top), ".notes", "agenda.md"), "w") as fh:
+            fh.write("1. Injury Database - Value?\n\n- who would pay for it\n")
+        self.assertIn("agenda draft", self.out(top))
+
+    def test_done_answers_for_after_the_commit_it_just_asked_for(self):
+        """`done` writes the board and history a line before saying this, so
+        without projecting past the pending commit the answer is always
+        `uncommitted changes` — true, useless, and it buries the one moment
+        this is worth saying unasked."""
+        top = self.install()
+        tid = self.tm(top, "add", "--id", "-n", "Do a thing").stdout.strip()
+        self.tm(top, "go")
+        self.sidecar(top, tid, "Do a thing")
+        out = self.tm(top, "done").stdout
+        self.assertIn("nothing carries over after that", out)
+        self.assertNotIn("uncommitted", out)
+
+    def test_done_names_what_is_still_loose(self):
+        top = self.install()
+        tid = self.tm(top, "add", "--id", "-n", "Do a thing").stdout.strip()
+        self.tm(top, "go")
+        self.sidecar(top, tid, "Do a thing")
+        raw = os.path.join(self.install_root(top), "notes", "raw")
+        with open(os.path.join(raw, "call.md"), "w") as fh:
+            fh.write("they want SSO\n")
+        out = self.tm(top, "done").stdout
+        self.assertIn("still carrying after that", out)
+        self.assertIn("notes/raw", out)
+
+    def test_unpushed_work_is_not_a_handover_concern(self):
+        """A commit is on disk and survives a clear intact. Listing it here
+        would conflate `is this saved` with `is this live`, which is the
+        separate question `tm unpushed` answers."""
+        top = self.install()
+        with open(os.path.join(top, "app.py"), "a") as fh:
+            fh.write("# changed\n")
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "commit", "-m", "change the app", cwd=top)
+        out = self.out(top)
+        self.assertIn("nothing carries over", out)
+        self.assertNotIn("push", out)
+
+
 class TestPushState(Fixture):
     """`PLT-g9gv`. A non-coder cannot be asked to push, so the agent must — but
     a push is where a deploy starts, and no repo can prove its own push is
