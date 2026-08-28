@@ -144,10 +144,9 @@ def working_agreement(top, dest_root, into, report):
     of its own. Extracted rather than maintained separately, because a second
     copy of a document is a copy that goes stale.
 
-    Always at the repo root, even for a nested install. Inside the install it
-    would need its markdown links relative to itself and its shell commands
-    relative to the repo root — one file cannot be both, and rerooting it there
-    broke every link in it (`PLT-yftg`).
+    It lives with the install rather than at the repo root — `llmeep/README.md`
+    for the default layout, which is where anyone opening the folder looks
+    (`PLT-h6fq`). `working_path` is the only thing that resolves it.
     """
     src = os.path.join(SRC, "README.md")
     if not os.path.exists(src):
@@ -178,7 +177,7 @@ def working_agreement(top, dest_root, into, report):
         # repo root and is not. Rerooting both is what broke every link last
         # time (`PLT-yftg`).
         body = reroot_code(body, into)
-    dst = os.path.join(dest_root, working_name(into))
+    dst = working_path(top, dest_root, into)
     if os.path.exists(dst):
         report.append(("skip", rel(dst, top), "exists"))
         return
@@ -194,6 +193,14 @@ def working_name(into):
     no directory of its own, and the repo root already has a README that belongs
     to the adopter, so there it needs a name of its own (`PLT-h6fq`)."""
     return "README.md" if into else "LLMEEP.md"
+
+
+def working_path(top, dest_root, into):
+    """Where the working agreement sits. Deliberately not `dest_of`: for a
+    nested install the name is a bare `README.md`, which `nested()` reads as a
+    repo-root path and resolves to the adopter's own README — so the manifest
+    recorded their file and the real one went unmanaged (`PLT-z3hf`)."""
+    return os.path.join(dest_root, working_name(into))
 
 
 def version_of(src):
@@ -319,12 +326,22 @@ def install_self(top, dest_root, into, report, kept=(), ontology=None):
     # repo whose `ontology/core.md` predated its adoption by two weeks
     # (`PLT-s9ea`).
     files = {}
-    for r in managed(SRC) + AGENT_FILES + [working_name(into)]:
+    for r in managed(SRC) + AGENT_FILES:
         d = dest_of(r, top, dest_root)
         if not os.path.isfile(d):
             continue
         src = src_of(r, SRC)
         files[r] = sha(src) if r in kept and os.path.isfile(src) else sha(d)
+
+    # The working agreement is resolved on its own, for two reasons. `dest_of`
+    # sends its nested name to the wrong file (`working_path`), and it is
+    # generated rather than copied, so the `kept` branch above has no source to
+    # checksum — `src_of` would hand back llmeep's own README, a different
+    # document. It is never in `kept` anyway: that set is drawn from the copied
+    # files only.
+    wa = working_path(top, dest_root, into)
+    if os.path.isfile(wa):
+        files[working_name(into)] = sha(wa)
     doc = {"version": version_of(SRC), "on": date.today().isoformat(),
            "into": into, "files": files}
     # Where the adopter keeps their own domain ontology, set by `tm ontology`
@@ -723,7 +740,15 @@ def do_update(top, force, dry):
     # update instructions, and an install that never refreshes it keeps whatever
     # the version it adopted happened to say (`PLT-yftg`).
     name = working_name(into)
-    wa, rec = os.path.join(dest_root, name), recorded.get(name)
+    wa, rec = working_path(top, dest_root, into), recorded.get(name)
+    # A pre-`PLT-z3hf` manifest recorded the adopter's repo-root README under
+    # this key. That sha never matches the real file, so the comparison below
+    # reports "changed since install" on every run and the working agreement is
+    # never refreshed again. A record that is demonstrably their README is
+    # treated as no record at all, which is what it was worth.
+    own = os.path.join(top, "README.md")
+    if into and rec and os.path.isfile(own) and rec == sha(own):
+        rec = None
     if os.path.isfile(wa) and rec and sha(wa) != rec and not force:
         print(f"  ! {name}  changed since install — kept")
     else:

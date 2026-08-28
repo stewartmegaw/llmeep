@@ -82,6 +82,12 @@ class Fixture(unittest.TestCase):
     def path(self, *parts):
         return os.path.join(self.tmp, *parts)
 
+    def sha16(self, path):
+        """What `.llmeep` records: the first sixteen hex of a sha256."""
+        import hashlib
+        with open(path, "rb") as fh:
+            return hashlib.sha256(fh.read()).hexdigest()[:16]
+
     # ---------------------------------------------------------------- builders
 
     def a_project(self, name="project", extra_dirs=()):
@@ -402,6 +408,32 @@ class TestFreshInstall(Fixture):
                          "a freshly installed session is already over budget")
         for expected in ("a task session", "a notes session"):
             self.assertIn(expected, out.stdout, f"{expected} is not measured")
+
+    def test_the_manifest_records_the_working_agreement_not_their_readme(self):
+        """A nested install calls the working agreement `README.md`, and
+        `nested()` reads that bare name as a repo-root path — so `dest_of` sent
+        it to the adopter's own README and the manifest recorded their file
+        under our key. The working agreement itself was then managed by
+        nothing, and `do_update` compared it against a checksum belonging to a
+        different document, reporting it changed on every run and refreshing it
+        on none (`PLT-z3hf`). Both halves are asserted: their file is not
+        recorded as ours, and ours is."""
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+
+        theirs = os.path.join(top, "README.md")
+        ours = os.path.join(self.install_root(top), "README.md")
+        self.assertNotEqual(os.path.abspath(theirs), os.path.abspath(ours),
+                            "this case only exists for a nested install")
+        self.assertTrue(os.path.isfile(ours), "no working agreement was installed")
+
+        recorded = self.manifest(top)["files"].get("README.md")
+        self.assertIsNotNone(recorded, "the working agreement is in no manifest")
+        self.assertNotEqual(recorded, self.sha16(theirs),
+                            "the manifest records the adopter's own README as the "
+                            "working agreement")
+        self.assertEqual(recorded, self.sha16(ours),
+                         "the manifest does not record the working agreement installed")
 
     def test_their_code_and_readme_are_untouched(self):
         top = self.a_project()
@@ -1537,6 +1569,42 @@ class TestUpgrade(Fixture):
                 self.assert_healthy(top)
                 self.assert_records_survived(top)
 
+    def test_upgrade_stops_recording_their_readme_as_the_working_agreement(self):
+        """Every release before `PLT-z3hf` wrote the adopter's repo-root README
+        into the manifest under the working agreement's key. The upgrade has to
+        correct that, or the record outlives the bug and the working agreement
+        stays frozen at whatever version it was adopted at. Their README is
+        edited first, because an untouched one is the case that happens to come
+        out right for the wrong reason.
+
+        The key is read off the install rather than assumed: `v26` predates
+        `DEFAULT_INTO` and adopts flat, where the working agreement is
+        `LLMEEP.md` and never had a name to collide with."""
+        for tag in self.tags:
+            with self.subTest(tag=tag):
+                src_old = self.clone_tag(tag)
+                top = self.a_project(name=f"wa-{tag}")
+                self.adopt(src_old, top)
+                self.quieten(top)
+                with open(os.path.join(top, "README.md"), "a") as fh:
+                    fh.write("\nA line the adopter added after adopting.\n")
+                sh("git", "add", "-A", cwd=top)
+                sh("git", "commit", "-qm", f"adopt {tag}", cwd=top)
+
+                self.adopt(self.working_copy(), top, "--update", "--force")
+
+                root = self.install_root(top)
+                nested = os.path.abspath(root) != os.path.abspath(top)
+                name = "README.md" if nested else "LLMEEP.md"
+                ours = os.path.join(root, name)
+                recorded = self.manifest(top)["files"].get(name)
+                self.assertEqual(recorded, self.sha16(ours),
+                                 f"the upgrade did not record the {name} it left behind")
+                if nested:
+                    self.assertNotEqual(recorded, self.sha16(os.path.join(top, "README.md")),
+                                        "the upgrade left the adopter's README recorded "
+                                        "as the working agreement")
+
     def test_upgrade_leaves_one_ontology(self):
         """Called out separately from assert_no_duplicates because this is the
         regression, and a named test is what a future reader greps for."""
@@ -1742,13 +1810,8 @@ class TestUpgrade(Fixture):
             self.assertIn("theirs, not llmeep's", fh.read(),
                           "adopt overwrote a file that was already there")
 
-        import hashlib
         recorded = self.manifest(top)["files"]
-
-        def sha16(path):
-            with open(path, "rb") as fh:
-                return hashlib.sha256(fh.read()).hexdigest()[:16]
-
+        sha16 = self.sha16
         self.assertNotEqual(
             recorded.get(target), sha16(mine),
             "the manifest records their file's checksum as ours — a later "
