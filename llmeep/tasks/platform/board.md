@@ -5,6 +5,8 @@
 
 ## prioritised
 
+PLT-z3hf adopt checksums the working agreement against the repo-root README, not the installed copy  filed:2026-08-28
+PLT-e5hw Hook warns of unfiled work on every correctly-ordered commit; a closes trailer should satisfy it  filed:2026-08-28
 
 ## backlog
 
@@ -13,6 +15,10 @@ PLT-fqcz An update that fails partway leaves a half-installed repo  filed:2026-0
 PLT-6pvp Present the repo for community contributions — README and GitHub setup  filed:2026-08-05
 PLT-fupy Lead the README with what it looks like: tasks, standup --send, notes, agenda  detail  filed:2026-08-18
 PLT-6vgh Test tm review end to end: a real commit through both reviewer APIs  filed:2026-08-19
+PLT-2xj3 Show the board on session start, and again after a context clear  filed:2026-08-28
+PLT-b8gk park unassigns, so part-done work looks untouched; show a commit count on the board line  filed:2026-08-28
+PLT-hwx5 Give sidecars a verb: attaching one needs a hand edit to board.md that the guidance forbids  filed:2026-08-28
+PLT-tabe New-file check asks about the ontology for every new file, including ones with no domain concept  filed:2026-08-28
 
 ## recent
 
