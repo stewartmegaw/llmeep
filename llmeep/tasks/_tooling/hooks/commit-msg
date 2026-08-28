@@ -1,5 +1,10 @@
 #!/bin/sh
 # Rejects a `closes <id>` trailer naming a task that does not exist. The
 # trailer is the only link between task and commit, so a typo severs it.
+#
+# Also nudges about work committed with no task, which lives here rather than
+# in pre-commit because a valid trailer excuses it and this is the only stage
+# holding both the staged diff and the message (`PLT-e5hw`). It warns; only the
+# trailer check can block.
 HERE="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 exec "$HERE/../tm" check --msg "$1" --quiet

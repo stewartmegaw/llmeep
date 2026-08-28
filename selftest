@@ -1520,6 +1520,90 @@ class TestSweep(Fixture):
         self.assertIn("FEEDBACK_REPOS", out.stdout + out.stderr)
 
 
+class TestUnfiledWork(Fixture):
+    """`PLT-e5hw`. The nudge that fires when code lands with nothing on the
+    board — and, until two adopters reported it independently, on every
+    correctly-ordered commit as well, because the documented order closes the
+    task before committing it. Uncovered before this: the cases below are the
+    ones that were passing wrongly and the ones that must keep passing."""
+
+    def adopted(self, name="project"):
+        top = self.a_project(name=name)
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "commit", "-qm", "adopt", cwd=top)
+        return top
+
+    def work(self, top, line):
+        with open(os.path.join(top, "src", "app.py"), "a") as fh:
+            fh.write(line + "\n")
+        sh("git", "add", "-A", cwd=top)
+
+    def commit(self, top, msg):
+        """Combined, because git routes hook output to its own stderr and which
+        stream a nudge lands on is not what any of these cases are about."""
+        out = sh("git", "commit", "-m", msg, cwd=top)
+        out.both = out.stdout + out.stderr
+        return out
+
+    def filed_task(self, top):
+        """A task in progress, whichever id `add` happened to mint."""
+        self.tm(top, "add", "-n", "a real piece of work")
+        self.tm(top, "go")
+        board = os.path.join(self.install_root(top), "tasks", "platform", "board.md")
+        with open(board) as fh:
+            started = fh.read().split("## prioritised")[0]
+        found = re.search(r"\b(PLT-\S+)", started)
+        self.assertIsNotNone(found, "nothing reached in progress")
+        return found.group(1)
+
+    NUDGE = "no task in progress"
+
+    def test_work_with_no_task_at_all_is_still_nudged(self):
+        """The case the nudge exists for. If this stops firing the exemption
+        below has been written too wide."""
+        top = self.adopted()
+        self.work(top, "y = 2")
+        self.assertIn(self.NUDGE, self.commit(top, "some work").both)
+
+    def test_a_closes_trailer_satisfies_the_nudge(self):
+        """The documented order — `add`, `go`, work, `done`, commit — left
+        nothing in progress by commit time, so the correctly-ordered commit was
+        the one being warned about, every time."""
+        top = self.adopted()
+        tid = self.filed_task(top)
+        self.work(top, "z = 3")
+        self.tm(top, "done")
+        sh("git", "add", "-A", cwd=top)
+        out = self.commit(top, f"do the work\n\ncloses {tid}")
+        self.assertNotIn(self.NUDGE, out.both,
+                         "a commit closing the task it implements was nudged")
+        self.assertEqual(out.returncode, 0, out.both)
+
+    def test_a_trailer_naming_no_task_buys_no_silence(self):
+        """The exemption is narrowed to ids the records know, because a typo is
+        already the thing `commit-msg` refuses — it must not also become a way
+        of switching the nudge off."""
+        top = self.adopted()
+        self.work(top, "w = 4")
+        before = sh("git", "rev-list", "--count", "HEAD", cwd=top).stdout.strip()
+        out = self.commit(top, "do the work\n\ncloses PLT-zzzz")
+        self.assertIn(self.NUDGE, out.both, "a bogus trailer silenced the nudge")
+        self.assertIn("no such task exists", out.both)
+        after = sh("git", "rev-list", "--count", "HEAD", cwd=top).stdout.strip()
+        self.assertEqual(before, after, "a commit with a bogus trailer landed")
+
+    def test_records_alone_are_not_platform_work(self):
+        """Filing a task changes only llmeep's own paths, so committing the
+        board must say nothing. The nudge counts the platform, and a nudge that
+        fires on its own bookkeeping is the same failure in another cell."""
+        top = self.adopted()
+        self.tm(top, "add", "something for later")
+        sh("git", "add", "-A", cwd=top)
+        self.assertNotIn(self.NUDGE, self.commit(top, "file a task").both)
+
+
 class TestUpgrade(Fixture):
     """The axis that was covered by nothing, and where all three bugs lived."""
 

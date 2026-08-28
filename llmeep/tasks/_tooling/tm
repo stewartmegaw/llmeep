@@ -2368,12 +2368,23 @@ def check_hooks(rep):
                  f"`git config core.hooksPath {want}`")
 
 
-def check_untracked_work(rep, root):
+def check_untracked_work(rep, root, msg_path=None):
     """Work landing with no task is the drift that makes the board useless.
 
     Warns rather than blocks, because commit time is already too late — the
     work is done. The real catch is the agent creating the task when the user
-    says "let's build X". This is only the backstop."""
+    says "let's build X". This is only the backstop.
+
+    **A `closes` trailer satisfies it.** The documented order is `tm done` and
+    then commit, so by the time this runs nothing is in progress and the
+    correctly-ordered commit was the one being warned about — every time, on
+    every install. A warning you are meant to ignore stops being read, and it
+    was crowding out the case this exists for. Reported independently by two
+    adopters before it was believed (`PLT-e5hw`).
+
+    The trailer is why this moved from `pre-commit` to `commit-msg`: it is the
+    only hook stage where the staged diff and the message are both in hand.
+    """
     touched = platform_changes()
     if not touched:
         return
@@ -2383,23 +2394,45 @@ def check_untracked_work(rep, root):
                 return
         except Fail:
             pass
+    # A trailer naming a task that does not exist is `check_trailer`'s to
+    # refuse, and it is refusing it on this same message. Exempting only known
+    # ids keeps a typo from buying silence here as well.
+    if msg_path and os.path.isfile(msg_path):
+        with open(msg_path) as fh:
+            if set(closes_ids(fh.read())) & known_ids():
+                return
     rep.warn(
         f"{len(touched)} platform file(s) changed with no task in progress — "
         "`tm add <title>` then `tm go` if this was real work"
     )
 
 
-def check_trailer(rep, msg_path):
-    with open(msg_path) as fh:
-        msg = fh.read()
+CLOSES_RE = re.compile(r"\bcloses\s+([A-Z]{3}-\S+)")
+
+
+def closes_ids(msg):
+    """Task ids a commit message claims to close. Trailing punctuation is
+    stripped: `closes PLT-9puy.` at the end of a sentence is the same claim."""
+    return [tid.rstrip(".,;") for tid in CLOSES_RE.findall(msg)]
+
+
+def known_ids():
+    """Every id the records have ever held — closed or still on a board."""
     known = {r["id"] for r in history_rows()}
     for ledger in LEDGERS:
         try:
             known |= Board(ledger).all_ids()
         except Fail:
             pass
-    for tid in re.findall(r"\bcloses\s+([A-Z]{3}-\S+)", msg):
-        if tid.rstrip(".,;") not in known:
+    return known
+
+
+def check_trailer(rep, msg_path):
+    with open(msg_path) as fh:
+        msg = fh.read()
+    known = known_ids()
+    for tid in closes_ids(msg):
+        if tid not in known:
             rep.error(
                 f'commit message says "closes {tid}" but no such task exists — '
                 "the trailer is the only link between task and commit"
@@ -2723,7 +2756,12 @@ def cmd_check(args):
         check_push(rep, root, sys.stdin.read().split("\n"))
         sys.exit(rep.emit())
     if "--msg" in args:
-        check_trailer(rep, args[args.index("--msg") + 1])
+        msg_path = args[args.index("--msg") + 1]
+        check_trailer(rep, msg_path)
+        # A merge writes a message and stages a tree nobody authored here, so
+        # the diff is not this author's work and the nudge would be noise.
+        if not os.path.exists(_gitpath(root, "MERGE_HEAD") or ""):
+            check_untracked_work(rep, root, msg_path)
     elif "--nudge" in args:
         check_nudge(rep, root)
         record_verified(root)
@@ -2735,7 +2773,6 @@ def cmd_check(args):
             check_bypass(rep, root)
             check_decisions(rep, root)
             check_decision_graph(rep, root)
-            check_untracked_work(rep, root)
             check_ontology_currency(rep, root)
     code = rep.emit()
     if code == 0 and not rep.warnings and "--quiet" not in args:

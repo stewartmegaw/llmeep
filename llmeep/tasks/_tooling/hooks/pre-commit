@@ -1,5 +1,8 @@
 #!/bin/sh
 # Validates records before the commit lands. Blocks on errors.
+#
+# The unfiled-work nudge is not here: it turns on the commit message, which git
+# does not hand to this stage (`PLT-e5hw`). See commit-msg.
 # Logic lives in the executables — hooks are thin (DEC-003).
 #
 # Paths are resolved from this file, not from the git toplevel: llmeep may sit

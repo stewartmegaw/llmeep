@@ -5,7 +5,6 @@
 
 ## prioritised
 
-PLT-e5hw Hook warns of unfiled work on every correctly-ordered commit; a closes trailer should satisfy it  filed:2026-08-28
 
 ## backlog
 
@@ -22,6 +21,7 @@ PLT-pmqf Rename sidecar to detail, the word the board tag already uses; sidecar 
 
 ## recent
 
+2026-08-28  PLT-e5hw Hook warns of unfiled work on every correctly-ordered commit; a closes trailer should satisfy it  @stewart
 2026-08-28  PLT-z3hf adopt checksums the working agreement against the repo-root README, not the installed copy  @stewart
 2026-08-22  PLT-t774 Say when it is safe to clear context: report what the session holds that the records do not  @stewart
 2026-08-21  PLT-g9gv A non-coder's agent pushes on its own, except where the commit could reach a deploy  @stewart
@@ -36,4 +36,3 @@ PLT-pmqf Rename sidecar to detail, the word the board tag already uses; sidecar 
 2026-08-17  PLT-rsn4 The tm skill outgrew its 4,000-token budget; every new command adds to it  @stewart
 2026-08-17  PLT-4daz Agenda: offer found records rather than adding them, and show the whole draft after every change  @stewart
 2026-08-17  PLT-ntec Agenda points should pull in aligned records, and hand unknowns back as tasks or notes  @stewart
-2026-08-17  PLT-s9e7 Agenda should be user-driven: create the draft, name the sources, list nothing  @stewart
