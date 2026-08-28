@@ -19,6 +19,7 @@ PLT-2xj3 Show the board on session start, and again after a context clear  filed
 PLT-b8gk park unassigns, so part-done work looks untouched; show a commit count on the board line  filed:2026-08-28
 PLT-hwx5 Give sidecars a verb: attaching one needs a hand edit to board.md that the guidance forbids  filed:2026-08-28
 PLT-tabe New-file check asks about the ontology for every new file, including ones with no domain concept  filed:2026-08-28
+PLT-pmqf Rename sidecar to detail, the word the board tag already uses; sidecar means nothing to a non-coder  filed:2026-08-28
 
 ## recent
 
