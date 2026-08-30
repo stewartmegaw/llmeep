@@ -101,3 +101,4 @@
 2026-08-28	PLT-e5hw	platform	Hook warns of unfiled work on every correctly-ordered commit; a closes trailer should satisfy it	stewart
 2026-08-30	PLT-pmqf	platform	Rename sidecar to detail, the word the board tag already uses; sidecar means nothing to a non-coder	stewart
 2026-08-30	PLT-tabe	platform	New-file check asks about the ontology for every new file, including ones with no domain concept	stewart
+2026-08-30	PLT-hwx5	platform	Give sidecars a verb: attaching one needs a hand edit to board.md that the guidance forbids	stewart

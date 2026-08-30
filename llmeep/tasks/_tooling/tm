@@ -399,7 +399,14 @@ def detail_extras(path):
 
 def unchecked_acceptance(path):
     """Acceptance is optional. Where it exists, it is the gate — with no
-    reviewer, it is the only quality gate there is."""
+    reviewer, it is the only quality gate there is.
+
+    **An empty box is not a criterion.** `_template.md` ships a bare `- [ ]` to
+    show the shape, so anyone who copied it — and, since `PLT-hwx5`, anyone who
+    ran `tm detail` — armed a gate that says nothing and can never be met.
+    `done` then refused with `[ ]` and no text beside it, and the only way past
+    was `--force`, which skips the criteria that *were* written. Blank boxes are
+    a blank form, not a standard nobody reached."""
     path = detail_doc(path)
     if not path:
         return []
@@ -410,7 +417,9 @@ def unchecked_acceptance(path):
                 section = line[3:].strip().lower() == "acceptance"
                 continue
             if section and line.strip().startswith("- [ ]"):
-                pending.append(summarise(line.strip()[5:]))
+                text = line.strip()[5:].strip()
+                if text:
+                    pending.append(summarise(text))
     return pending
 
 
@@ -1510,6 +1519,108 @@ def cmd_done(args):
             print("\n  nothing carries over after that — a good moment to clear.")
         return
     raise Fail(f"no task {tid}" if tid else "nothing in progress")
+
+
+def cmd_detail(args):
+    """**Attach a detail to a task, and tag the board line to say so.**
+
+    The one transition with no verb behind it. `check` enforced the pairing in
+    both directions — a `detail` tag with no file is an error, and a file with
+    no tag is an error — while the guidance said never to hand-edit `board.md`
+    (`DEC-036`). So writing a detail meant doing the forbidden thing, and doing
+    it in the window between the two errors. An adopter reported it
+    (`PLT-hwx5`).
+
+    Named after the tag it writes, which `DEC-045` is what made possible: the
+    verb, the tag, the file and the prose are now one word.
+
+    **Idempotent.** Called on a task that already has one it prints the path and
+    changes nothing. "Open the detail" and "start a detail" are the same
+    sentence to anyone who has not memorised which state they are in, and a
+    verb that destroys work on the second run is not one you can say casually.
+    """
+    folder = "--folder" in args
+    rest = [a for a in args if a != "--folder"]
+    tid = rest[0] if rest else None
+    for ledger in LEDGERS:
+        board = Board(ledger)
+        if tid:
+            task, bucket = board.find(tid)
+            if task and bucket is board.recent:
+                raise Fail(f"{task.id} is already done — `tm go {task.id}` reopens it")
+        else:
+            # A bare `detail` is about the thing you are doing, the same reading
+            # `park` and `done` take.
+            task, bucket = (board.in_progress[0], board.in_progress) \
+                if board.in_progress else (None, None)
+        if not task:
+            continue
+
+        existing = detail_path(ledger, task.id)
+        if existing:
+            doc = detail_doc(existing)
+            print(f"\n  {task.id}  {task.title}")
+            print(f"  detail: {os.path.relpath(doc or existing, os.getcwd())}")
+            if not task.has_detail:
+                # The half `check` calls "no board line tagged detail". Reached
+                # by a detail written before this verb existed.
+                _tag_detail(task)
+                board.save()
+                print("  tagged the board line, which was missing it")
+            print()
+            return 0
+
+        d = os.path.join(ROOT, ledger, "tasks")
+        os.makedirs(d, exist_ok=True)
+        name = f"{task.id}-{slug(task.title)[:40].rstrip('-')}"
+        if folder:
+            os.makedirs(os.path.join(d, name), exist_ok=True)
+            path = os.path.join(d, name, "README.md")
+        else:
+            path = os.path.join(d, f"{name}.md")
+        with open(path, "w") as fh:
+            fh.write(_detail_body(task))
+        _tag_detail(task)
+        board.save()
+
+        print(f"\n  {task.id}  {task.title}")
+        print(f"  detail: {os.path.relpath(path, os.getcwd())}")
+        print("  board line tagged detail\n")
+        return 0
+    if tid:
+        raise Fail(f"no task {tid} on either board — `tm find {tid}` if it was completed")
+    raise Fail("nothing in progress — `tm detail <id>`, or `tm go` to start one")
+
+
+def _tag_detail(task):
+    """`detail` sits after the assignee and before `filed:`, matching every
+    line already on a board. Order is cosmetic to the parser and not to the
+    person reading it."""
+    if task.has_detail:
+        return
+    at = next((i for i, t in enumerate(task.tags) if t.startswith("filed:")),
+              len(task.tags))
+    task.tags.insert(at, "detail")
+
+
+def _detail_body(task):
+    """`_tooling/_template.md` filled in, so the shape a person is told to copy
+    and the shape the verb writes cannot drift. Falls back to the frontmatter
+    alone if the template has been removed — a missing template should cost the
+    headings, not the command."""
+    head = (f"---\nid: {task.id}\ntitle: {task.title}\n"
+            f"created: {date.today().isoformat()}\n---\n\n"
+            f"# {task.id} — {task.title}\n")
+    try:
+        with open(os.path.join(HERE, "_template.md")) as fh:
+            body = fh.read()
+    except OSError:
+        return head
+    # Everything below the template's own heading line: its frontmatter is a
+    # blank form and its title is a placeholder, both of which we just wrote
+    # properly.
+    parts = body.split("\n# <ID> — <title>\n", 1)
+    return head + (parts[1] if len(parts) == 2 else "")
 
 
 def cmd_drop(args):
@@ -2851,6 +2962,7 @@ USAGE = """tm — taskman
   tm park [id] [-n]             step it back one section (-n for the top of prioritised)
   tm done [id] [--force]        complete it, then commit with "closes <id>"
   tm drop <id>                  remove a task that should not have been filed
+  tm detail [id] [--folder]     attach a detail to a task and tag its board line
   tm find <term>                search every task ever completed
   tm why <term|DEC-000>         search decisions, or explain one and its chain
   tm why --stale [--yes]        records nothing references; --yes prunes to a stub
@@ -3057,7 +3169,8 @@ def main():
     commands = {
         "add": cmd_add, "go": cmd_go, "park": cmd_park,
         "prioritise": cmd_prioritise, "prioritize": cmd_prioritise,
-        "done": cmd_done, "drop": cmd_drop, "find": cmd_find, "why": cmd_why,
+        "done": cmd_done, "drop": cmd_drop, "detail": cmd_detail,
+        "find": cmd_find, "why": cmd_why,
         "standup": cmd_standup, "agenda": cmd_agenda, "ontology": cmd_ontology,
         "feedback": cmd_feedback, "audience": cmd_audience,
         "unpushed": cmd_unpushed, "handover": cmd_handover,

@@ -15,10 +15,10 @@ PLT-fupy Lead the README with what it looks like: tasks, standup --send, notes, 
 PLT-6vgh Test tm review end to end: a real commit through both reviewer APIs  filed:2026-08-19
 PLT-2xj3 Show the board on session start, and again after a context clear  filed:2026-08-28
 PLT-b8gk park unassigns, so part-done work looks untouched; show a commit count on the board line  filed:2026-08-28
-PLT-hwx5 Give sidecars a verb: attaching one needs a hand edit to board.md that the guidance forbids  filed:2026-08-28
 
 ## recent
 
+2026-08-30  PLT-hwx5 Give sidecars a verb: attaching one needs a hand edit to board.md that the guidance forbids  @stewart
 2026-08-30  PLT-tabe New-file check asks about the ontology for every new file, including ones with no domain concept  @stewart
 2026-08-30  PLT-pmqf Rename sidecar to detail, the word the board tag already uses; sidecar means nothing to a non-coder  @stewart
 2026-08-28  PLT-e5hw Hook warns of unfiled work on every correctly-ordered commit; a closes trailer should satisfy it  @stewart
@@ -33,4 +33,3 @@ PLT-hwx5 Give sidecars a verb: attaching one needs a hand edit to board.md that 
 2026-08-18  PLT-dk4r Skill descriptions were never updated as commands were added, so agenda routed to nm  @stewart
 2026-08-18  PLT-qe3p update fetches the default branch, so latest means main's tip rather than the newest release  @stewart
 2026-08-17  PLT-43nz tm --help still describes park as it was before it learned to step back  @stewart
-2026-08-17  PLT-rsn4 The tm skill outgrew its 4,000-token budget; every new command adds to it  @stewart

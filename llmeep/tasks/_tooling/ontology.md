@@ -196,6 +196,9 @@ until `PLT-pmqf`, which is worth knowing only for reading older records (`DEC-04
   its `README.md`, the same "start here" convention the rest of the skeleton uses; a folder
   without one is an error, since there is nothing to read and no acceptance to find. Everything
   else in the folder is supporting material, and `go` lists it.
+- **Written by:** `tm detail [id]`, which fills the frontmatter and tags the board line.
+  Both halves matter — `check` errors on a tag with no file *and* a file with no tag, so
+  writing one by hand meant a hand edit of `board.md` that the guidance forbids (`DEC-046`).
 - **Frontmatter:** `id`, `title`, `created` — on the file, or on the folder's `README.md`.
 - **Notes:** write one when the work is subtle, the acceptance is non-obvious, or the
   reasoning is worth keeping — **not by default.** Its absence is meaningful and free to
@@ -210,7 +213,7 @@ title.
 | Section        | For                                                        | Effect                                    |
 | -------------- | ---------------------------------------------------------- | ----------------------------------------- |
 | **Outcome**    | What is true when this is done, observably.                | None. Write it when "done" is ambiguous.  |
-| **Acceptance** | Checkable conditions, as a task list.                      | **`done` refuses until every box is checked.** Omit it and there is no gate. |
+| **Acceptance** | Checkable conditions, as a task list.                      | **`done` refuses until every box is checked.** Omit it and there is no gate. An empty `- [ ]` is a blank form, not a criterion, and is ignored. |
 | **Context**    | Why this exists — the problem, not the solution.           | None. Skip if git already says it.        |
 | **Log**        | Append-only, newest last, absolute dates.                  | None. For work spanning sessions.         |
 
@@ -218,8 +221,9 @@ Acceptance being both optional and load-bearing is the design: at MVP pace most 
 earn a detail, but where there is no reviewer, criteria are the only quality gate that
 exists. You opt into the gate by writing it.
 
-[`_template.md`](_template.md) is the copyable skeleton of the above — an artifact, not part
-of this ontology. It carries no guidance, because guidance you delete on every use is friction.
+[`_template.md`](_template.md) is the skeleton of the above — an artifact, not part of this
+ontology. It carries no guidance, because guidance you delete on every use is friction. `tm
+detail` writes from it, so the shape it shows and the shape the verb produces cannot drift.
 
 ## Window
 
@@ -270,6 +274,7 @@ step. See [`DEC-003`](https://github.com/stewartmegaw/llmeep/blob/main/decisions
 | `prioritise` | `tm prioritise <id> [-n]` | `backlog` → `prioritised`, at the bottom (`-n` for the top). |
 | `park` | `tm park [id] [-n]`  | Steps a task back one section: `in progress` → `prioritised` (bottom, `-n` for the top), or `prioritised` → `backlog`. Unassigns it. A bare `park` always means the one in progress. |
 | `done` | `tm done [id]`       | Defaults to whatever is in progress. Moves to `recent`, prunes, appends to History, notifies. Run **before** committing. |
+| `detail` | `tm detail [id] [--folder]` | Writes the detail from `_template.md` and tags the board line. Defaults to what is in progress. Idempotent: an existing one is printed, not overwritten, and a line missing its tag is repaired. `--folder` for a task needing several artifacts (`DEC-046`). |
 | `drop` | `tm drop <id>`       | Removes a task that should not have been filed — the line and its detail. Writes **nothing** to History and sends nothing, because nothing happened. Acts immediately; the line it prints is the confirmation (`DEC-024`). |
 | `find` | `tm find <term>`     | Greps History explicitly.                                        |
 | `review` | `tm review [--reply <text>]` | Sends HEAD — message, task detail, diff — to up to two configured LLMs. Marks the commit `reviewed: <diff hash> by <who>` only when every reviewer that answered has nothing left to say. Off unless `REVIEW` is set; it spends the adopter's own API budget (`DEC-039`). |

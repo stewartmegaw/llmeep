@@ -19,6 +19,7 @@ llmeep/tasks/_tooling/tm prioritise <id> [-n]       # backlog → prioritised, -
 llmeep/tasks/_tooling/tm park [id] [-n]             # step it back one section, unassigned
 llmeep/tasks/_tooling/tm done [id] [--force]        # complete it
 llmeep/tasks/_tooling/tm drop <id>                  # remove one that should not have been filed
+llmeep/tasks/_tooling/tm detail [id] [--folder]     # attach a detail and tag the board line
 llmeep/tasks/_tooling/tm find <term>                # search every task ever completed
 llmeep/tasks/_tooling/tm review [--reply <text>]    # LLM review of HEAD before pushing
 llmeep/tasks/_tooling/tm why <term|DEC-000>         # search decisions, or explain one
@@ -54,6 +55,7 @@ for the next person here.
 | "give this to sam" | `tm add -f sam <title>`, or `tm go <id> -f sam` |
 | "commit task" / "that's done" | `tm done`, then commit with `closes <id>` |
 | "drop that" / "we're not doing that" | `tm drop <id>` — removes the line, writes no history |
+| a task needs more than its title holds | `tm detail [id]` — writes the file *and* tags the line; never both by hand |
 | "let's discuss PLT-9puy" / "that title is vague" | talk it over; record the outcome with the ordinary verbs |
 | "have we done this before" | `tm find <term>` |
 | "review this" / a push refused as unreviewed | `tm review` — then fix, or `--reply` to argue a point back |
@@ -185,8 +187,9 @@ and the board looks fine because the fragment is still a valid title.
 **120 characters, two sentences.** `tm add` refuses a longer title. When the user describes work
 in a paragraph, write a short handle and put the rest in the task's detail.
 
-A detail is `llmeep/tasks/<ledger>/tasks/<id>-<slug>.md` — note the ledger — or a **folder** of
-that name with a `README.md` plus whatever else the task needs.
+**`tm detail [id]` makes one** — file plus board tag, which `check` requires together, so
+never write either by hand. `--folder` when a task needs several artifacts. Running it again
+just prints the path, so it is safe to say when unsure. It lands under the task's own ledger.
 
 **Notes are a separate subsystem.** If the user pastes a transcript or wants something
 remembered rather than done, that is `nm` — see its skill. A note becomes a task with
@@ -275,7 +278,7 @@ over Remote Control — tested 2026-08-01. Plain bold ids only.
 
     ---
 
-    *start · prioritise · done · park · drop · discuss*
+    *start · prioritise · done · park · detail · drop · discuss*
 
 Omit empty sections. Omit `recent` unless asked.
 
