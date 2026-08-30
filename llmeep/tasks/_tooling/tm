@@ -2312,6 +2312,55 @@ def ontology_path(top):
     return manifest(top).get("ontology")
 
 
+# Files that cannot introduce a domain concept, so their arrival cannot make an
+# ontology stale. Three groups, each with its own reason (`PLT-tabe`):
+#
+#   - **Presentation and assets.** A stylesheet, an icon, a font, a video. They
+#     carry no vocabulary, and they are the case the adopter who reported this
+#     was actually hitting.
+#   - **Generated files.** Lockfiles, checksums, minified output, source maps,
+#     test snapshots. Named after a tool rather than a domain, and written by a
+#     command rather than a person.
+#   - **Tests.** A new test names a concept the code it tests already
+#     introduced, and that file triggers this check on its own. A commit adding
+#     only tests has added no vocabulary.
+#
+# A denylist and not a list of source extensions, on purpose. An extension
+# nobody here has heard of should still ask: a check that goes quiet on an
+# unfamiliar language is the failure nobody notices, which is the half worth
+# avoiding (`PLT-tdb5` is the same lesson from the other direction).
+NO_CONCEPT_SUFFIXES = (
+    ".css", ".scss", ".sass", ".less", ".styl",
+    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".ico", ".svg",
+    ".woff", ".woff2", ".ttf", ".otf", ".eot",
+    ".mp3", ".mp4", ".wav", ".mov", ".webm", ".pdf",
+    ".lock", ".sum", ".snap", ".map", ".min.js", ".min.css",
+)
+
+# Path segments whose contents are generated, or are tests by convention.
+# `spec/` is deliberately absent: RSpec files are always `*_spec.rb` and the
+# name rule below has them, while a `spec/` holding an API description is
+# domain vocabulary of exactly the kind this check exists to ask about.
+NO_CONCEPT_DIRS = ("__snapshots__", "__tests__", "tests", "test")
+
+# Test filenames in the shapes the common ecosystems use, matched on the
+# basename so a `src/` layout is covered too. Every alternative anchors on a
+# separator or a capital, so `protest.py`, `latest.rb` and `Manifest.java` are
+# not mistaken for tests.
+TEST_NAME_RE = re.compile(
+    r"^test_|^conftest\.py$|_test\.|_spec\.|\.test\.|\.spec\.|Tests?\.\w+$|Spec\.\w+$")
+
+
+def introduces_no_concept(path):
+    """Whether an added file is one the ontology could not have a word for."""
+    name = path.rsplit("/", 1)[-1]
+    if path.lower().endswith(NO_CONCEPT_SUFFIXES):
+        return True
+    if set(path.split("/")[:-1]) & set(NO_CONCEPT_DIRS):
+        return True
+    return bool(TEST_NAME_RE.search(name))
+
+
 def check_ontology_currency(rep, root):
     """New platform files suggest a new concept. Only *added* files are
     considered — warning on every modification would be noise, and a noisy hook
@@ -2327,8 +2376,15 @@ def check_ontology_currency(rep, root):
     triggering commit rather than told off. Both messages name the command that
     ends them, because a warning with no way to satisfy it is the one that
     teaches people to pass `--no-verify`.
+
+    `introduces_no_concept` narrows *which* additions count. Asking about a
+    stylesheet, an icon or a lockfile is asking a question with no possible
+    answer, and an adopter reported exactly that (`PLT-tabe`). The count in the
+    message is of the files that survive the filter, so the number and the
+    question agree.
     """
-    added = platform_changes("--diff-filter=A")
+    added = [p for p in platform_changes("--diff-filter=A")
+             if not introduces_no_concept(p)]
     if not added:
         return
     top = (git("rev-parse", "--show-toplevel") or root).strip()

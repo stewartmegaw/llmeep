@@ -1604,6 +1604,96 @@ class TestUnfiledWork(Fixture):
         self.assertNotIn(self.NUDGE, self.commit(top, "file a task").both)
 
 
+class TestOntologyCurrency(Fixture):
+    """`PLT-tabe`. The check that asks whether a new file introduced a domain
+    concept. It used to ask about every added file, stylesheets and lockfiles
+    included — a question with no possible answer, which is how a warning
+    teaches people to pass `--no-verify`. Uncovered before this."""
+
+    WARNING = "is unchanged"
+
+    def adopted_with_ontology(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        os.makedirs(os.path.join(top, "docs"), exist_ok=True)
+        with open(os.path.join(top, "docs", "domain.md"), "w") as fh:
+            fh.write("# Our domain\n\n- **Invoice** — a demand for payment.\n")
+        self.tm(top, "ontology", "docs/domain.md")
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "commit", "-qm", "adopt", cwd=top)
+        return top
+
+    def add(self, top, *paths):
+        for rel in paths:
+            full = os.path.join(top, *rel.split("/"))
+            os.makedirs(os.path.dirname(full), exist_ok=True)
+            with open(full, "w") as fh:
+                fh.write("x\n")
+        sh("git", "add", "-A", cwd=top)
+
+    def commit(self, top, msg="add files"):
+        out = sh("git", "commit", "-m", msg, cwd=top)
+        return out.stdout + out.stderr
+
+    def test_a_new_source_file_asks(self):
+        """The case the check exists for, and the guard on everything below:
+        if this stops firing the filter has been written too wide."""
+        top = self.adopted_with_ontology()
+        self.add(top, "src/dunning.py")
+        self.assertIn(self.WARNING, self.commit(top))
+
+    def test_stylesheets_and_assets_do_not_ask(self):
+        """Presentation carries no vocabulary. This is what the adopter who
+        reported it was hitting."""
+        top = self.adopted_with_ontology()
+        self.add(top, "src/styles/app.css", "public/logo.svg", "public/hero.png")
+        self.assertNotIn(self.WARNING, self.commit(top))
+
+    def test_generated_files_do_not_ask(self):
+        """A lockfile is named after a tool, not a domain, and no person wrote
+        it."""
+        top = self.adopted_with_ontology()
+        self.add(top, "yarn.lock", "web/bundle.min.js", "src/__snapshots__/H.snap")
+        self.assertNotIn(self.WARNING, self.commit(top))
+
+    def test_tests_alone_do_not_ask(self):
+        """A test names a concept the code it tests already introduced, and
+        that file triggers this check on its own."""
+        top = self.adopted_with_ontology()
+        self.add(top, "tests/test_invoice.py", "src/billing.test.ts")
+        self.assertNotIn(self.WARNING, self.commit(top))
+
+    def test_an_unfamiliar_extension_still_asks(self):
+        """The filter is a denylist on purpose. A language nobody here has
+        heard of must not buy silence — going quiet on the unfamiliar is the
+        failure nobody notices."""
+        top = self.adopted_with_ontology()
+        self.add(top, "src/pricing.zig")
+        self.assertIn(self.WARNING, self.commit(top))
+
+    def test_a_mixed_commit_counts_only_what_could_carry_a_concept(self):
+        """The number in the message and the question it asks have to agree, or
+        the reader goes looking for four concepts in one new module."""
+        top = self.adopted_with_ontology()
+        self.add(top, "src/dunning.py", "src/styles/app.css",
+                 "public/logo.png", "tests/test_dunning.py")
+        out = self.commit(top)
+        self.assertIn(self.WARNING, out)
+        self.assertIn("1 new file(s)", out,
+                      "the count included files the check had already excluded")
+
+    def test_touching_the_ontology_settles_it(self):
+        """The way out of the warning, and proof the recorded path is the one
+        being watched."""
+        top = self.adopted_with_ontology()
+        self.add(top, "src/dunning.py")
+        with open(os.path.join(top, "docs", "domain.md"), "a") as fh:
+            fh.write("- **Dunning** — chasing an unpaid invoice.\n")
+        sh("git", "add", "-A", cwd=top)
+        self.assertNotIn(self.WARNING, self.commit(top))
+
+
 class TestUpgrade(Fixture):
     """The axis that was covered by nothing, and where all three bugs lived."""
 

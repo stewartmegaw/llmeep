@@ -622,7 +622,7 @@ git config core.hooksPath tasks/_tooling/hooks
 | Hook          | Runs                | Effect                                          |
 | ------------- | ------------------- | ----------------------------------------------- |
 | `pre-commit`  | `tm check --staged` | **Blocks** on record errors                     |
-| `commit-msg`  | `tm check --msg`    | **Blocks** a `closes <id>` naming no such task   |
+| `commit-msg`  | `tm check --msg`    | **Blocks** a bad `closes`; warns on unfiled work |
 | `post-commit` | `tm check --nudge`  | Warns only — never blocks                       |
 | `pre-push`    | `tm check --push`   | **Blocks** a commit with no valid review mark   |
 
@@ -634,9 +634,18 @@ over-long or misordered `recent`, a dangling `blocked:` or `detail` tag, a detai
 line or a mismatched frontmatter id, a decision rewritten in substance without being superseded,
 and a `closes` trailer naming nothing.
 
-**Warns** — a task still in progress after a commit, `platform/` changed with nothing in progress,
-new files under `platform/` while the recorded domain ontology is untouched, and commits that
-bypassed the checks.
+**Warns** — a task still in progress after a commit, platform files changed with nothing in
+progress *and* no `closes` trailer to account for them, new platform files that could carry a
+concept while the recorded domain ontology is untouched, and commits that bypassed the checks.
+
+The unfiled-work warning runs from `commit-msg` rather than `pre-commit`, because the trailer
+excuses it and that is the only stage holding the staged diff and the message at once. Without
+it the warning fired on every correctly-ordered commit, since `done` runs before the commit
+(`DEC-044`).
+
+The ontology warning skips added files that cannot introduce a concept — stylesheets and
+assets, generated files like lockfiles and snapshots, and tests, which name a concept the code
+they test already introduced. A denylist, so an unfamiliar language still gets asked (`PLT-tabe`).
 
 The ontology path is the repo's, recorded in `.llmeep` by `tm ontology <path>`. Three states:
 a path is watched, `--none` is silence, and never-asked warns with the command that ends it.
