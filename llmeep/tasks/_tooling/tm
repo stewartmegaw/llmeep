@@ -30,7 +30,7 @@ HISTORY = os.path.join(HERE, "history.tsv")
 LEDGERS = {"platform": "PLT", "business": "BUS"}
 WINDOW = 15
 MAX_HITS = 3
-TITLE_MAX = 120   # hard cap; past this the detail belongs in a sidecar
+TITLE_MAX = 120   # hard cap; past this the rest belongs in the task's detail
 TITLE_SENTENCES = 2
 
 # Unambiguous alphabet: no 0/1/i/l/o. 30^4 = 810k, and allocation also checks
@@ -132,11 +132,11 @@ def title_problems(title):
     errors, warnings = [], []
     if len(title) > TITLE_MAX:
         errors.append(f"title is {len(title)} characters; the cap is {TITLE_MAX}. "
-                      "Shorten it and put the detail in a sidecar.")
+                      "Shorten it and put the rest in the task's detail.")
     sentences = len([m for m in re.findall(r"[.!?](?:\s|$)", title)])
     if sentences > TITLE_SENTENCES:
         warnings.append(f"title reads as {sentences} sentences; {TITLE_SENTENCES} is the "
-                        "guide. A sidecar holds what will not fit.")
+                        "guide. The task's detail holds what will not fit.")
     return errors, warnings
 
 
@@ -224,7 +224,7 @@ class Board:
         tid = tokens.pop(0)
         tokens, tags = self._split_tags(tokens)
         # Keep the assignee; drop `detail`/`blocked:` — a completed task has no
-        # blocker, and its sidecar is found by id, not by a tag.
+        # blocker, and its detail is found by id, not by a tag.
         tags = [t for t in tags if t.startswith("@")]
         return Task(tid, " ".join(tokens), tags, done_on=done_on)
 
@@ -341,12 +341,18 @@ def show_related(term):
         print("    " + history_line(row))
 
 
-# -------------------------------------------------------------------- sidecar
+# --------------------------------------------------------------------- detail
+#
+# A task's detail: the file or folder that holds what would not fit in 120
+# characters. It was called a sidecar until `PLT-pmqf` — the board tag was
+# always `detail`, so the machinery said one word and every doc said another,
+# and the second one meant nothing to anyone who had not met it (`DEC-045`).
 
 
-def sidecar_path(ledger, tid):
-    """One file, or a folder when a task needs several — a spec plus a diagram,
-    a rubric, sample data. Same `<id>-<slug>` name either way."""
+def detail_path(ledger, tid):
+    """A task's detail: one file, or a folder when it needs several — a spec
+    plus a diagram, a rubric, sample data. Same `<id>-<slug>` name either
+    way."""
     d = os.path.join(ROOT, ledger, "tasks")
     if not os.path.isdir(d):
         return None
@@ -359,8 +365,8 @@ def sidecar_path(ledger, tid):
     return None
 
 
-def sidecar_all(ledger):
-    """Every sidecar in a ledger, file or folder. Same rule as `sidecar_path`,
+def detail_all(ledger):
+    """Every detail in a ledger, file or folder. Same rule as `detail_path`,
     which is the point — anything that rule can find, `reset` has to clear."""
     d = os.path.join(ROOT, ledger, "tasks")
     if not os.path.isdir(d):
@@ -375,7 +381,7 @@ def sidecar_all(ledger):
     return out
 
 
-def sidecar_doc(path):
+def detail_doc(path):
     """The readable entry point. A folder's is its README.md — the same
     convention the rest of the skeleton uses for 'start here'."""
     if path and os.path.isdir(path):
@@ -384,8 +390,8 @@ def sidecar_doc(path):
     return path
 
 
-def sidecar_extras(path):
-    """Everything in a folder sidecar besides its README, for `go` to list."""
+def detail_extras(path):
+    """Everything in a folder detail besides its README, for `go` to list."""
     if not (path and os.path.isdir(path)):
         return []
     return [f for f in sorted(os.listdir(path)) if f != "README.md"]
@@ -394,7 +400,7 @@ def sidecar_extras(path):
 def unchecked_acceptance(path):
     """Acceptance is optional. Where it exists, it is the gate — with no
     reviewer, it is the only quality gate there is."""
-    path = sidecar_doc(path)
+    path = detail_doc(path)
     if not path:
         return []
     section, pending = False, []
@@ -589,8 +595,8 @@ def handover(committing=False):
     loose = []
     for ledger in LEDGERS:
         for task in Board(ledger).in_progress:
-            if not sidecar_path(ledger, task.id):
-                loose.append((f"{task.id} is in progress with no sidecar",
+            if not detail_path(ledger, task.id):
+                loose.append((f"{task.id} is in progress with no detail",
                               "where the work got to is only in this conversation"))
     # Same filter `nm` uses on this directory: dotfiles are not captures, and
     # `adopt` ships a `.gitkeep` — counting it made every fresh install report
@@ -1334,11 +1340,11 @@ def show_task(board, task, started):
     blocker = board.is_blocked(task)
     if blocker:
         print(f"  ! blocked by {blocker}")
-    path = sidecar_path(board.ledger, task.id)
+    path = detail_path(board.ledger, task.id)
     if path:
         rel = os.path.relpath(path, REPO)
         print(f"\n  detail: {rel}{'/' if os.path.isdir(path) else ''}")
-        for extra in sidecar_extras(path):
+        for extra in detail_extras(path):
             print(f"          {extra}")
         pending = unchecked_acceptance(path)
         if pending:
@@ -1469,7 +1475,7 @@ def cmd_done(args):
             continue
         if bucket is board.recent:
             raise Fail(f"{task.id} is already done")
-        pending = unchecked_acceptance(sidecar_path(ledger, task.id))
+        pending = unchecked_acceptance(detail_path(ledger, task.id))
         if pending and not force:
             print(f"  {task.id} has unmet acceptance criteria:")
             for item in pending:
@@ -1539,12 +1545,12 @@ def cmd_drop(args):
         # either — `check` calls it dangling and refuses the commit.
         board.clear_blocker(task.id)
         board.save()
-        side = sidecar_path(ledger, task.id)
-        if side:
-            shutil.rmtree(side) if os.path.isdir(side) else os.remove(side)
+        detail = detail_path(ledger, task.id)
+        if detail:
+            shutil.rmtree(detail) if os.path.isdir(detail) else os.remove(detail)
         print(f"  dropped {task.id}  {task.title}")
-        if side:
-            print(f"  and its sidecar {os.path.relpath(side, os.getcwd())}")
+        if detail:
+            print(f"  and its detail {os.path.relpath(detail, os.getcwd())}")
         print(f"  git keeps it — `git log -S {task.id}`")
         return
     raise Fail(f"no task {tid} on either board — `tm find {tid}` if it was completed")
@@ -1668,9 +1674,9 @@ def review_subject(diff):
     m = re.search(r"closes\s+((?:PLT|BUS)-\S+)", msg)
     if m:
         for ledger in LEDGERS:
-            side = sidecar_path(ledger, m.group(1))
-            if side:
-                doc = sidecar_doc(side)
+            detail = detail_path(ledger, m.group(1))
+            if detail:
+                doc = detail_doc(detail)
                 if doc:
                     with open(doc) as fh:
                         parts.append(f"TASK DETAIL ({m.group(1)})\n{fh.read()}")
@@ -1838,8 +1844,8 @@ def check_boards(rep):
             b = task.blocker
             if b and b not in live and b not in seen:
                 rep.error(f"{task.id} is blocked by {b}, which does not exist")
-            if task.has_detail and not sidecar_path(ledger, task.id):
-                rep.error(f"{task.id} is tagged detail but has no sidecar")
+            if task.has_detail and not detail_path(ledger, task.id):
+                rep.error(f"{task.id} is tagged detail but no detail file or folder exists")
             # A tag only stays a tag while it matches. `filed:tomorrow` fails
             # TAG_RE, so `_split_tags` leaves it on the end of the title and the
             # board still looks fine — the one failure mode of adding a dated
@@ -1849,7 +1855,7 @@ def check_boards(rep):
                           "the tag must read filed:YYYY-MM-DD to parse as one")
 
 
-def check_sidecars(rep):
+def check_details(rep):
     for ledger in LEDGERS:
         d = os.path.join(ROOT, ledger, "tasks")
         if not os.path.isdir(d):
@@ -1870,9 +1876,9 @@ def check_sidecars(rep):
             if len(parts) < 2:
                 continue
             tid = f"{parts[0]}-{parts[1]}"
-            doc = sidecar_doc(path)
+            doc = detail_doc(path)
             if doc is None:
-                rep.error(f"{name}/: folder sidecar has no README.md — nothing to read, "
+                rep.error(f"{name}/: a folder detail has no README.md — nothing to read, "
                           "and acceptance criteria cannot be found")
             else:
                 with open(doc) as fh:
@@ -2767,7 +2773,7 @@ def cmd_check(args):
         record_verified(root)
     else:
         check_boards(rep)
-        check_sidecars(rep)
+        check_details(rep)
         check_hooks(rep)
         if "--staged" in args:
             check_bypass(rep, root)

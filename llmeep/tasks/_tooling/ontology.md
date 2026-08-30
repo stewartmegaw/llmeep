@@ -15,7 +15,7 @@ the [root README](../../../README.md) and not repeated here.
 llmeep/tasks/
   platform/
     board.md
-    tasks/         <- optional sidecars
+    tasks/         <- optional details
   business/
     board.md
     tasks/
@@ -47,7 +47,7 @@ customer research and recurring obligations are business, **even when delivering
 code**. The test is the done-state, not the activity.
 
 When work genuinely spans both, put it on the board that owns the outcome and reference the
-counterpart from a sidecar.
+counterpart from its detail.
 
 Business tasks run longer and vaguer, and with acceptance criteria optional nothing forces
 them to sharpen. The check that still applies: if there is no outcome you would recognise on
@@ -113,7 +113,7 @@ PLT-021  Audit the retry timeouts         filed:2026-07-11
   back-filling from git would write wrong dates — renames move the board, and a commit date is
   not a filing date. `check` never complains about a missing one.
 - **`@stew`** — who owns it. See [Assignee](#assignee).
-- **`detail`** — a [Sidecar](#sidecar) exists. Its absence means the line is the whole task,
+- **`detail`** — a [Detail](#detail) exists. Its absence means the line is the whole task,
   so nothing goes looking.
 
 ### Reordering is a hand edit
@@ -157,10 +157,10 @@ A unit of intended change. **One line on a [Board](#board).**
   as the guide — the cap is enforced, the sentence count only warns, because counting terminal
   punctuation false-positives on "e.g." and version numbers and a heuristic that blocks
   legitimate work is worse than one that mentions it. The board is read far more often than any
-  sidecar, so the title pays for width it does not earn.
+  detail, so the title pays for width it does not earn.
 - **Notes:** a title is the floor and usually the ceiling. A lengthy description of work that
-  takes an hour is friction with no reader. Anything that will not fit belongs in a
-  [Sidecar](#sidecar).
+  takes an hour is friction with no reader. Anything that will not fit belongs in the task's
+  [Detail](#detail).
 
 ## Assignee
 
@@ -186,9 +186,10 @@ Git already answers *who did* finished work — the commit author, via `find`. W
 answer is *who owns* open work, and that is the case that causes two people to pick up the same
 task. See [`DEC-010`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-010-tasks-carry-an-assignee.md).
 
-## Sidecar
+## Detail
 
-Optional detail for a Task whose title was not sufficient.
+What a Task needs beyond its title, when the title was not sufficient. Called a *sidecar*
+until `PLT-pmqf`, which is worth knowing only for reading older records (`DEC-045`).
 
 - **Lives in:** `tasks/<ledger>/tasks/<id>-<slug>.md` — **or a folder** at
   `tasks/<ledger>/tasks/<id>-<slug>/` when one file is not enough. A folder's entry point is
@@ -214,7 +215,7 @@ title.
 | **Log**        | Append-only, newest last, absolute dates.                  | None. For work spanning sessions.         |
 
 Acceptance being both optional and load-bearing is the design: at MVP pace most tasks never
-earn a sidecar, but where there is no reviewer, criteria are the only quality gate that
+earn a detail, but where there is no reviewer, criteria are the only quality gate that
 exists. You opt into the gate by writing it.
 
 [`_template.md`](_template.md) is the copyable skeleton of the above — an artifact, not part
@@ -269,9 +270,9 @@ step. See [`DEC-003`](https://github.com/stewartmegaw/llmeep/blob/main/decisions
 | `prioritise` | `tm prioritise <id> [-n]` | `backlog` → `prioritised`, at the bottom (`-n` for the top). |
 | `park` | `tm park [id] [-n]`  | Steps a task back one section: `in progress` → `prioritised` (bottom, `-n` for the top), or `prioritised` → `backlog`. Unassigns it. A bare `park` always means the one in progress. |
 | `done` | `tm done [id]`       | Defaults to whatever is in progress. Moves to `recent`, prunes, appends to History, notifies. Run **before** committing. |
-| `drop` | `tm drop <id>`       | Removes a task that should not have been filed — the line and its sidecar. Writes **nothing** to History and sends nothing, because nothing happened. Acts immediately; the line it prints is the confirmation (`DEC-024`). |
+| `drop` | `tm drop <id>`       | Removes a task that should not have been filed — the line and its detail. Writes **nothing** to History and sends nothing, because nothing happened. Acts immediately; the line it prints is the confirmation (`DEC-024`). |
 | `find` | `tm find <term>`     | Greps History explicitly.                                        |
-| `review` | `tm review [--reply <text>]` | Sends HEAD — message, task sidecar, diff — to up to two configured LLMs. Marks the commit `reviewed: <diff hash> by <who>` only when every reviewer that answered has nothing left to say. Off unless `REVIEW` is set; it spends the adopter's own API budget (`DEC-039`). |
+| `review` | `tm review [--reply <text>]` | Sends HEAD — message, task detail, diff — to up to two configured LLMs. Marks the commit `reviewed: <diff hash> by <who>` only when every reviewer that answered has nothing left to say. Off unless `REVIEW` is set; it spends the adopter's own API budget (`DEC-039`). |
 | | `tm check --context` | Measures what an agent loads. A skill loads whole, so it is the only file with a standing cost; the models are read on demand and excluded. |
 | `why`  | `tm why <term>`      | Greps decisions, pruned ones included. With an id, explains one: supersession chain, which records cite it, and where the tree references it. |
 | | `tm why --stale [--yes]` | Records nothing references — prune candidates. Dry without `--yes`; pruned records leave a stub in `decisions/history.tsv`. |
@@ -303,7 +304,7 @@ inferred from state has to be typed.
 
 `go` is the one that beats a tracker: with no argument it is a **context loader**, not a state
 change. It answers "what am I doing?" and "what's next?" with the same command, and puts the
-task, its sidecar, its blockers and any linked decisions in front of the agent.
+task, its detail, its blockers and any linked decisions in front of the agent.
 
 ### Why `prioritise` is a command when reordering is not
 
@@ -336,7 +337,7 @@ the verb set is how it gets taught (`DEC-036`).
 So the test used to be *"does the tool leave you any other way?"* and it is now *"is this a
 transition a person asks for out loud?"* Under the old test `park` qualified because WIP-1
 forced it, and demoting did not. Under the new one both qualify, and so does `drop`, which
-carries a sidecar and a `blocked:` tag with it and cannot be done correctly by hand at all.
+carries a detail and a `blocked:` tag with it and cannot be done correctly by hand at all.
 
 `park` **steps a task back one section** — `in progress` → `prioritised` → `backlog`, and no
 further. Which rung is read off the record rather than guessed: the section a line sits in is
@@ -366,7 +367,7 @@ user meant, it does not belong in the executable.**
 Both appear on the hint line under a rendered board, and they are the cleanest illustration of
 the rule above.
 
-**`drop` changes a record.** A line comes off the board, a sidecar is deleted, a `blocked:` tag
+**`drop` changes a record.** A line comes off the board, a detail is deleted, a `blocked:` tag
 pointing at it is cleared. That is mechanism, it has invariants, and [principle
 2](../../ontology/principles.md) puts it behind tooling. It deliberately writes nothing to
 History: only `done` writes there, so a dropped task leaves the ledger silent, which is the
@@ -423,7 +424,7 @@ directly checkable, so `tm handover` lists proxies:
 
 | Loose | Because |
 | --- | --- |
-| A task in progress with no sidecar | The title survives a clear; where the work got to does not |
+| A task in progress with no detail | The title survives a clear; where the work got to does not |
 | Captures in `notes/raw` | The transcript is on disk, the judgement about it is not |
 | An agenda draft past its scaffold | The conversation shaping it is the unwritten part |
 | Uncommitted changes | The files keep; the reason for them may not |
@@ -579,7 +580,7 @@ Two tasks in one commit is not fatal — two trailers in one message is legal �
 being one-to-one and the history gets harder to read back.
 
 > **If you are an agent: run `done` before committing, and include `closes <id>` in the
-> message** when the acceptance criteria are met. You have the sidecar and the diff at that
+> message** when the acceptance criteria are met. You have the detail and the diff at that
 > moment — that is where the judgement belongs, and doing it in this order is what keeps the
 > board and the commit consistent.
 >
@@ -602,7 +603,7 @@ Information, never a gate. No prompt, no network, no cost.
 | Command | Writes               | Git                                 |
 | ------- | -------------------- | ----------------------------------- |
 | `add`   | board line           | none                                |
-| `go`    | board, reads sidecar | none                                |
+| `go`    | board, reads detail  | none                                |
 | `done`  | board, history       | none                                |
 | `find`  | nothing              | `git log --grep` to resolve commits |
 
@@ -629,7 +630,7 @@ The hooks are three-line shell scripts calling `tm check`; the logic is in the e
 CI runs the identical checks with `tm check` and any failure reproduces without committing.
 
 **Blocks** — duplicate IDs across boards and history, a reused ID, two tasks in progress, an
-over-long or misordered `recent`, a dangling `blocked:` or `detail` tag, a sidecar with no board
+over-long or misordered `recent`, a dangling `blocked:` or `detail` tag, a detail with no board
 line or a mismatched frontmatter id, a decision rewritten in substance without being superseded,
 and a `closes` trailer naming nothing.
 
@@ -869,7 +870,7 @@ That is also the useful version. A suggestion phrased in someone else's domain i
 upstream, so "carries no private context" and "is worth receiving" turn out to be the same rule.
 
 ```sh
-tm feedback "go printed the sidecar path but not its acceptance, so I opened the file to find it"
+tm feedback "go printed the detail path but not its acceptance, so I opened the file to find it"
 tm feedback -          # multi-line, from stdin
 tm feedback            # what has been drafted, and whether the switch is on
 ```
@@ -890,15 +891,15 @@ is what runs, plus the model it implements.
 
 ```
 llmeep/tasks/
-  platform/          board.md + tasks/ sidecars
-  business/          board.md + tasks/ sidecars
+  platform/          board.md + tasks/ details
+  business/          board.md + tasks/ details
   _tooling/
     ontology.md      this file
     tm               the executable
     history.tsv      every completion, append-only, grep-only
     hooks/           pre-commit, commit-msg, post-commit
     blueprints/      optional, run by nothing here
-    _template.md     the copyable sidecar skeleton
+    _template.md     the copyable detail skeleton
 ```
 
 The line is **what a human edits in the course of working** (`DEC-026`). `board.md` gets
@@ -918,7 +919,7 @@ The underscore says *not a record* — the same signal `_template.md` already ca
 | **board**    | The one file holding a ledger's live state.                             |
 | **ledger**   | One of the two streams: `platform` or `business`.                       |
 | **task**     | A unit of intended change. One line. Not "ticket", "issue", "story".    |
-| **sidecar**  | Optional detail file for a task whose title was not enough.             |
+| **detail**   | The file or folder holding what a task's title could not.               |
 | **window**   | The `recent` section — last 15 completed.                               |
 | **prune**    | Drop an entry off the end of the window, out of the working tree.       |
 | **history**  | `tasks/_tooling/history.tsv`. Grep-only, never loaded.                   |

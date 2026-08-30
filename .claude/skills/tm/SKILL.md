@@ -148,12 +148,12 @@ says `sent <date>`, and `edited since` if it moved on.
 Both are on the board's hint line, and they resolve opposite ways for the reason
 [principle 7](../../../llmeep/ontology/principles.md) gives.
 
-**`drop` changes a record, so it is a command.** `tm drop <id>` removes the line and its sidecar
+**`drop` changes a record, so it is a command.** `tm drop <id>` removes the line and its detail
 and writes no history — nothing happened. Never use `done` instead: that files a completion and
 broadcasts one for work nobody did.
 
 **`discuss` changes nothing, so it is not.** It means *talk this task over and sharpen it*: read
-the sidecar, ask what "done" looks like, propose a better title. Record the outcome with the
+the detail, ask what "done" looks like, propose a better title. Record the outcome with the
 verbs that exist. There is no `tm discuss` — a command that only starts a conversation does
 nothing.
 
@@ -183,9 +183,9 @@ the user said will split the command and silently truncate the title — `tm` ne
 and the board looks fine because the fragment is still a valid title.
 
 **120 characters, two sentences.** `tm add` refuses a longer title. When the user describes work
-in a paragraph, write a short handle and put the rest in a sidecar.
+in a paragraph, write a short handle and put the rest in the task's detail.
 
-A sidecar is `llmeep/tasks/<ledger>/tasks/<id>-<slug>.md` — note the ledger — or a **folder** of
+A detail is `llmeep/tasks/<ledger>/tasks/<id>-<slug>.md` — note the ledger — or a **folder** of
 that name with a `README.md` plus whatever else the task needs.
 
 **Notes are a separate subsystem.** If the user pastes a transcript or wants something

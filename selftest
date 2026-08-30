@@ -649,7 +649,7 @@ class TestHandover(Fixture):
     def out(self, top):
         return self.tm(top, "handover").stdout
 
-    def sidecar(self, top, tid, title):
+    def detail(self, top, tid, title):
         path = os.path.join(self.install_root(top), "tasks", "platform", "tasks",
                             f"{tid}-detail.md")
         with open(path, "w") as fh:
@@ -663,14 +663,14 @@ class TestHandover(Fixture):
         top = self.install()
         self.assertIn("nothing carries over", self.out(top))
 
-    def test_an_in_progress_task_with_no_sidecar_is_loose(self):
+    def test_an_in_progress_task_with_no_detail_is_loose(self):
         """The title survives a clear. Where the work got to does not."""
         top = self.install()
         tid = self.tm(top, "add", "--id", "-n", "Do a thing").stdout.strip()
         self.tm(top, "go")
-        self.assertIn("no sidecar", self.out(top))
-        self.sidecar(top, tid, "Do a thing")
-        self.assertNotIn("no sidecar", self.out(top))
+        self.assertIn("no detail", self.out(top))
+        self.detail(top, tid, "Do a thing")
+        self.assertNotIn("no detail", self.out(top))
 
     def test_an_unprocessed_capture_is_loose(self):
         """The transcript is on disk. What mattered in it was worked out here."""
@@ -698,7 +698,7 @@ class TestHandover(Fixture):
         top = self.install()
         tid = self.tm(top, "add", "--id", "-n", "Do a thing").stdout.strip()
         self.tm(top, "go")
-        self.sidecar(top, tid, "Do a thing")
+        self.detail(top, tid, "Do a thing")
         out = self.tm(top, "done").stdout
         self.assertIn("nothing carries over after that", out)
         self.assertNotIn("uncommitted", out)
@@ -707,7 +707,7 @@ class TestHandover(Fixture):
         top = self.install()
         tid = self.tm(top, "add", "--id", "-n", "Do a thing").stdout.strip()
         self.tm(top, "go")
-        self.sidecar(top, tid, "Do a thing")
+        self.detail(top, tid, "Do a thing")
         raw = os.path.join(self.install_root(top), "notes", "raw")
         with open(os.path.join(raw, "call.md"), "w") as fh:
             fh.write("they want SSO\n")
@@ -1209,16 +1209,16 @@ class TestDrop(Fixture):
             rows = [l for l in fh if l.strip() and not l.startswith("#")]
         self.assertEqual(rows, [], "drop wrote a history row for a task that never happened")
 
-    def test_drop_takes_the_sidecar_with_it(self):
+    def test_drop_takes_the_detail_with_it(self):
         top = self.a_repo()
         tid = self.filed(top, "has detail")
-        side = os.path.join(self.install_root(top), "tasks", "platform",
-                            "tasks", f"{tid}-has-detail.md")
-        os.makedirs(os.path.dirname(side), exist_ok=True)
-        with open(side, "w") as fh:
+        detail = os.path.join(self.install_root(top), "tasks", "platform",
+                              "tasks", f"{tid}-has-detail.md")
+        os.makedirs(os.path.dirname(detail), exist_ok=True)
+        with open(detail, "w") as fh:
             fh.write(f"---\nid: {tid}\ntitle: has detail\ncreated: 2026-08-17\n---\n")
         self.tm(top, "drop", tid)
-        self.assertFalse(os.path.exists(side), "the sidecar outlived its task")
+        self.assertFalse(os.path.exists(detail), "the detail outlived its task")
 
     def test_drop_clears_a_tag_that_pointed_at_it(self):
         """A `blocked:` tag naming nothing is what `check` calls dangling, and

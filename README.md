@@ -153,7 +153,7 @@ tasks) and read on demand, when the model changes rather than when work happens.
 ## Code review before a push
 
 **Off unless you list reviewers.** With `REVIEW=openai,xai` in `llmeep/.env`, `tm review` sends
-the commit — its message, its task's sidecar, its diff — to up to two LLMs. Each returns bullet
+the commit — its message, its task's detail, its diff — to up to two LLMs. Each returns bullet
 points where it is not satisfied; **any objection from either counts**, because a second reviewer
 is there to catch more, not to overrule the first.
 
@@ -222,7 +222,7 @@ llmeep/tasks/_tooling/tm handover                  # what this session holds tha
 ```
 
 **Not a context meter.** Clearing loses the conversation and never the files, so the question is
-which of it nothing on disk could reconstruct: a task in progress with no sidecar, a capture in
+which of it nothing on disk could reconstruct: a task in progress with no detail, a capture in
 `notes/raw` nobody distilled, an agenda mid-draft, uncommitted work whose reason is unwritten.
 
 The list is deliberately honest about being incomplete — a decision that should have been

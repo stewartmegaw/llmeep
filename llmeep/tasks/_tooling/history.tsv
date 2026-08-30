@@ -99,3 +99,4 @@
 2026-08-22	PLT-t774	platform	Say when it is safe to clear context: report what the session holds that the records do not	stewart
 2026-08-28	PLT-z3hf	platform	adopt checksums the working agreement against the repo-root README, not the installed copy	stewart
 2026-08-28	PLT-e5hw	platform	Hook warns of unfiled work on every correctly-ordered commit; a closes trailer should satisfy it	stewart
+2026-08-30	PLT-pmqf	platform	Rename sidecar to detail, the word the board tag already uses; sidecar means nothing to a non-coder	stewart

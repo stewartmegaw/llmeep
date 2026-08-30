@@ -20,7 +20,7 @@ subsystem is named here.
 
 | Term          | Defined in                                        |
 | ------------- | ------------------------------------------------- |
-| **task**      | [`llmeep/tasks/_tooling/ontology.md`](../tasks/_tooling/ontology.md) — with ledger, board, sidecar, window, history |
+| **task**      | [`llmeep/tasks/_tooling/ontology.md`](../tasks/_tooling/ontology.md) — with ledger, board, detail, window, history |
 | **note**      | [`llmeep/notes/_tooling/ontology.md`](../notes/_tooling/ontology.md) — with capture, archive, distil, promote, prune |
 | **decision**  | below — it belongs to the project, not to a subsystem |
 | **scratch**   | [`llmeep/.notes/README.md`](../.notes/README.md) — local, disposable, never a source of truth |
