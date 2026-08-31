@@ -115,6 +115,19 @@ PLT-021  Audit the retry timeouts         filed:2026-07-11
 - **`@stew`** — who owns it. See [Assignee](#assignee).
 - **`detail`** — a [Detail](#detail) exists. Its absence means the line is the whole task,
   so nothing goes looking.
+- **`commits:3`** — commits landed while this task was in progress, accumulated over every
+  stretch it has been picked up for. Written by `park`, which unassigns; without it a task with
+  work behind it and one nobody has touched render identically, and the part-done one is the
+  cheaper to finish (`PLT-b8gk`). Absent means none, and a task completed before the tag
+  existed has none forever — the same rule as `filed:`.
+- **`since:b9b3829`** — where HEAD was when the task was last started. **Only ever on a line in
+  `in progress`**; `park` folds it into `commits:` and removes it, and `check` warns if it is
+  found anywhere else. Written by `go`, read by nobody but `park`.
+
+  The count is attributable because of WIP-1: one task is in progress at a time, so what was
+  committed in that window was committed against it. Counting commits that *name* the task is
+  the obvious alternative and does not work — `closes <id>` is written once, at completion, so
+  it reports zero for exactly the unfinished tasks the count exists to tell apart.
 
 ### Reordering is a hand edit
 
@@ -272,7 +285,7 @@ step. See [`DEC-003`](https://github.com/stewartmegaw/llmeep/blob/main/decisions
 | `add`  | `tm add <title…>`    | Allocates the ID, files it in the `backlog` pool. `-n` prioritises it instead; `-f <name>` assigns. **Searches History.** |
 | `go`   | `tm go [id]`         | No id: shows what is in progress, or starts the top of `prioritised` if nothing is. With an id: starts that one, from either open section. **Searches History.** |
 | `prioritise` | `tm prioritise <id> [-n]` | `backlog` → `prioritised`, at the bottom (`-n` for the top). |
-| `park` | `tm park [id] [-n]`  | Steps a task back one section: `in progress` → `prioritised` (bottom, `-n` for the top), or `prioritised` → `backlog`. Unassigns it. A bare `park` always means the one in progress. |
+| `park` | `tm park [id] [-n]`  | Steps a task back one section: `in progress` → `prioritised` (bottom, `-n` for the top), or `prioritised` → `backlog`. Unassigns it, and folds the work done into `commits:` so the line still says it was started. A bare `park` always means the one in progress. |
 | `done` | `tm done [id]`       | Defaults to whatever is in progress. Moves to `recent`, prunes, appends to History, notifies. Run **before** committing. |
 | `detail` | `tm detail [id] [--folder]` | Writes the detail from `_template.md` and tags the board line. Defaults to what is in progress. Idempotent: an existing one is printed, not overwritten, and a line missing its tag is repaired. `--folder` for a task needing several artifacts (`DEC-046`). |
 | `drop` | `tm drop <id>`       | Removes a task that should not have been filed — the line and its detail. Writes **nothing** to History and sends nothing, because nothing happened. Acts immediately; the line it prints is the confirmation (`DEC-024`). |

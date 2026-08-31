@@ -50,7 +50,8 @@ SECTIONS = {"in progress": "in_progress",
             "backlog": "backlog"}
 
 TAG_RE = re.compile(r"^(detail|@[a-z0-9][a-z0-9._-]*|blocked:[A-Za-z]{3}-\S+"
-                    r"|filed:\d{4}-\d{2}-\d{2})$")
+                    r"|filed:\d{4}-\d{2}-\d{2}|since:[0-9a-f]{7,40}"
+                    r"|commits:\d+)$")
 ID_RE = re.compile(r"^(PLT|BUS)-\S+$")
 
 
@@ -78,6 +79,41 @@ class Task:
     @property
     def has_detail(self):
         return "detail" in self.tags
+
+    @property
+    def since(self):
+        """Where HEAD was when this task was last started. Present only while it
+        is in progress; `park` folds it into `commits` and removes it."""
+        for t in self.tags:
+            if t.startswith("since:"):
+                return t.split(":", 1)[1]
+        return None
+
+    @property
+    def commits(self):
+        """Commits landed while this task was in progress, across every stretch
+        it has been picked up for. Zero and absent are the same thing.
+
+        Attributable because of WIP-1: one task is in progress at a time, so
+        everything committed in that window was committed against it. That is
+        the only correlation the records support — `closes <id>` is written once,
+        at completion, so counting commits that *name* a task would report zero
+        for exactly the unfinished ones this exists to tell apart (`PLT-b8gk`).
+        """
+        for t in self.tags:
+            if t.startswith("commits:"):
+                return int(t.split(":", 1)[1])
+        return 0
+
+    def set_tag(self, prefix, value):
+        """One `<prefix>:<value>` tag, replacing any it already had. Ordered
+        before `filed:`, which every board line ends with."""
+        self.tags = [t for t in self.tags if not t.startswith(prefix + ":")]
+        if value is None:
+            return
+        at = next((i for i, t in enumerate(self.tags) if t.startswith("filed:")),
+                  len(self.tags))
+        self.tags.insert(at, f"{prefix}:{value}")
 
     @property
     def filed(self):
@@ -328,6 +364,24 @@ def resolve_commit(tid):
         return out.stdout.strip() or None
     except Exception:
         return None
+
+
+def head_sha():
+    return (git("rev-parse", "--short=7", "HEAD") or "").strip() or None
+
+
+def commits_since(sha):
+    """How many commits have landed since `sha`, or 0 if it cannot be counted.
+
+    Fails to zero on purpose. A missing anchor means a rebase, a shallow clone
+    or a repo with no commits yet, and none of those are worth an error in a
+    number that only decorates a board line."""
+    if not sha:
+        return 0
+    try:
+        return int((git("rev-list", "--count", f"{sha}..HEAD") or "").strip())
+    except ValueError:
+        return 0
 
 
 def show_related(term):
@@ -1336,6 +1390,7 @@ def start(board, task, who=None):
     if blocker:
         raise Fail(f"{task.id} is blocked by {blocker} — finish that first")
     task.assign(who)
+    task.set_tag("since", head_sha())
     (board.prioritised if task in board.prioritised else board.backlog).remove(task)
     board.in_progress.append(task)
     board.save()
@@ -1349,6 +1404,9 @@ def show_task(board, task, started):
     blocker = board.is_blocked(task)
     if blocker:
         print(f"  ! blocked by {blocker}")
+    if task.commits:
+        n = task.commits
+        print(f"  picked up before — {n} commit{'s' if n != 1 else ''} behind it already")
     path = detail_path(board.ledger, task.id)
     if path:
         rel = os.path.relpath(path, REPO)
@@ -1460,6 +1518,15 @@ def cmd_park(args):
             print(f"  {ledger} · returned to the backlog, unranked")
             return
         board.in_progress.remove(task)
+        # **Parking unassigns, so the line must carry the work some other way.**
+        # Without this a task with three commits behind it and one nobody has
+        # touched render identically, and part-done work is the cheaper of the
+        # two to pick up — which is the whole question the board is asked
+        # (`PLT-b8gk`). Accumulated, because a task can be parked and resumed
+        # more than once.
+        done_here = commits_since(task.since)
+        task.set_tag("commits", (task.commits + done_here) or None)
+        task.set_tag("since", None)
         task.unassign()  # parked means available; assign again with `go`
         # Back to the queue, not the pool. Something you started was decided
         # work; parking says "not now", not "never ranked this".
@@ -1957,6 +2024,12 @@ def check_boards(rep):
                 rep.error(f"{task.id} is blocked by {b}, which does not exist")
             if task.has_detail and not detail_path(ledger, task.id):
                 rep.error(f"{task.id} is tagged detail but no detail file or folder exists")
+            # `since:` anchors a commit count for work in flight, and `park`
+            # folds it away. Anywhere else it is a leftover, and left there it
+            # would be folded again on the next park and double-count.
+            if task.since and task not in board.in_progress:
+                rep.warn(f"{task.id} carries since: but is not in progress — "
+                         "`tm go` then `tm park` folds it, or drop the tag")
             # A tag only stays a tag while it matches. `filed:tomorrow` fails
             # TAG_RE, so `_split_tags` leaves it on the end of the title and the
             # board still looks fine — the one failure mode of adding a dated

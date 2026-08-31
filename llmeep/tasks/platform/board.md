@@ -14,10 +14,10 @@ PLT-6pvp Present the repo for community contributions — README and GitHub setu
 PLT-fupy Lead the README with what it looks like: tasks, standup --send, notes, agenda  detail  filed:2026-08-18
 PLT-6vgh Test tm review end to end: a real commit through both reviewer APIs  filed:2026-08-19
 PLT-2xj3 Show the board on session start, and again after a context clear  filed:2026-08-28
-PLT-b8gk park unassigns, so part-done work looks untouched; show a commit count on the board line  filed:2026-08-28
 
 ## recent
 
+2026-08-31  PLT-b8gk park unassigns, so part-done work looks untouched; show a commit count on the board line  @stewart
 2026-08-30  PLT-hwx5 Give sidecars a verb: attaching one needs a hand edit to board.md that the guidance forbids  @stewart
 2026-08-30  PLT-tabe New-file check asks about the ontology for every new file, including ones with no domain concept  @stewart
 2026-08-30  PLT-pmqf Rename sidecar to detail, the word the board tag already uses; sidecar means nothing to a non-coder  @stewart
@@ -32,4 +32,3 @@ PLT-b8gk park unassigns, so part-done work looks untouched; show a commit count 
 2026-08-18  PLT-5d25 A sent agenda rolls to a dated file, so the next one starts clean  @stewart
 2026-08-18  PLT-dk4r Skill descriptions were never updated as commands were added, so agenda routed to nm  @stewart
 2026-08-18  PLT-qe3p update fetches the default branch, so latest means main's tip rather than the newest release  @stewart
-2026-08-17  PLT-43nz tm --help still describes park as it was before it learned to step back  @stewart

@@ -265,7 +265,7 @@ over Remote Control — tested 2026-08-01. Plain bold ids only.
     ### prioritised
     ---
 
-    **PLT-k3f9**  Migrate config loader — @sam
+    **PLT-k3f9**  Migrate config loader — 3 commits in, *unassigned*
 
     **PLT-2m4x**  Upgrade toolchain — blocked by PLT-9puy
 
@@ -291,6 +291,11 @@ print, never what is in `board.md` (`DEC-027`). Undated lines sort last. Never c
 
 **Never print the date** (`DEC-030`). It is the sort key and nothing else. Beside a title it
 reads as a deadline, which is exactly what a pool line does not carry.
+
+**Always print `commits:N` as "N commits in".** A parked task is unassigned, so this is the only
+thing on the line saying anyone ever started it — and part-done work is the cheaper of two
+candidates to pick up. Dropping it hides the one fact that answers "what next". `since:` is
+plumbing and never renders.
 
 **End with the hint line** whenever the board is not empty — one italic line, no prompt, no
 blocking. The verbs already work in conversation; someone who did not design them has no way
