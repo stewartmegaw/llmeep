@@ -6,6 +6,25 @@ created: 2026-09-07
 
 # PLT-6yjz — A mobile-first web UI for llmeep
 
+## Framing
+
+**The repo is the centre of all knowledge, memory and planning. The UI is a means to help
+non-techies interact with it.** Stated 2026-09-07, and it settles more than it looks like.
+
+*The repo is the centre* means the UI is a client and never a store. Nothing exists because
+the UI holds it; every screen is a view of a file, and every action is a `tm` or `nm` call that
+lands as a commit. A feature that would only work while the UI is up is out of scope by
+definition — not deferred, wrong.
+
+*For non-techies* names the audience, and llmeep already knows what that means. `DEC-040` put
+`USER_TYPE` in `.env`; `DEC-042` gave a non-coder's agent different latitude; `DEC-045` renamed
+*sidecar* to *detail* on exactly this ground. The UI is where that work pays off or does not.
+
+It also resolves a tension in [principle 1](../../../ontology/principles.md), which says on-disk
+formats are machine-first and human readability is best-effort. That is affordable precisely
+because a person is not meant to read `board.md`. The UI is what makes it true rather than an
+excuse.
+
 ## Outcome
 
 A persistently available surface — "llmeep chrome" — serving every llmeep skill from a phone,
@@ -24,6 +43,9 @@ Today the only surfaces are a terminal agent and an outbound Telegram channel. N
 - [ ] Notes and transcripts can be dropped in
 - [ ] Every write goes through `tm` / `nm`, never straight at the files
 - [ ] The API commits its writes to the repo, and says what it did
+- [ ] Nothing is reachable only through the UI — every screen has a file behind it
+- [ ] A non-technical person completes add, edit and read without being told an id, a command
+      or a file path
 
 ## Context
 
@@ -38,7 +60,8 @@ Today the only surfaces are a terminal agent and an outbound Telegram channel. N
 - **Edit and delete tasks.** Neither has a verb today. `tm drop` is delete; there is no retitle
   at all, which this session hit twice.
 - **View details.** Called *sidecars* in the request — renamed by `DEC-045` on 2026-08-30, and
-  now the word for the tag, the file, the verb and the prose.
+  now the word for the tag, the file, the verb and the prose. That rename was made for this
+  audience; the UI is the first place it is tested against a real one.
 - **Drop notes and transcripts.** `nm` territory; `notes/raw` is where transcripts land.
 - **The API commits to the repo.** Settled 2026-09-07. It is not a read-through view over a
   working tree someone else commits — a write from a phone lands as a commit, like every other
@@ -69,6 +92,10 @@ halfway through. A decision superseding or narrowing `DEC-007` is likely part of
   an uncommitted board is a conflict in `board.md`, which the ontology has a resolution table
   for and no automation. What the API does when the tree is already dirty is undecided and has
   to be, before the first write.
+- **Ids are not handles for people.** `PLT-6egb` exists because a bare id in prose is
+  unreadable to a human, and the rule to attach a title snippet is almost never followed. A UI
+  for non-techies cannot show an id where a title belongs, and probably should not show one at
+  all outside a detail view.
 - **Reordering `prioritised` is a hand edit by design** — the one exemption in `DEC-036`. A
   drag-to-reorder list is the obvious mobile gesture and is exactly this. Probably the single
   most valuable thing the UI can offer that the terminal cannot.
@@ -88,3 +115,4 @@ halfway through. A decision superseding or narrowing `DEC-007` is likely part of
 
 - 2026-09-07 — Filed from a verbal scope. Nothing designed or chosen yet.
 - 2026-09-07 — The API commits to the repo. Scheduled connectors split out as `PLT-2gdj`.
+- 2026-09-07 — Framing added: the repo is the centre, the UI is how a non-techie reaches it.

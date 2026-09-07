@@ -6,6 +6,17 @@ created: 2026-09-07
 
 # PLT-2gdj — Periodically check connectors
 
+## Framing
+
+**The repo is the centre of all knowledge, memory and planning** (stated 2026-09-07, with
+`PLT-6yjz`). A connector is a *feeder* to that centre and never a second store: what it finds
+becomes a capture in the repo, or it did not happen. There is no connector inbox to check, no
+sync state a person has to reason about, and nothing that is true in Gmail but not on disk.
+
+This is what makes the inbound question below answerable at all. Reading a mailbox on a
+schedule is not adding a second way to drive llmeep — it is widening what reaches the one
+place everything already lives.
+
 ## Outcome
 
 llmeep notices things without being told. Gmail, Google Docs and whatever comes after are
@@ -22,6 +33,7 @@ can ship alone.
 - [ ] A run that finds nothing is silent, and a run that fails says so somewhere a person looks
 - [ ] Credentials are not in the repo
 - [ ] Adding the second connector does not mean rewriting the first
+- [ ] Nothing is left holding state outside the repo except the poll watermark and credentials
 
 ## Context
 
@@ -71,3 +83,4 @@ why these are different.
 ## Log
 
 - 2026-09-07 — Filed, split out of `PLT-6yjz` (the mobile-first UI). Nothing designed yet.
+- 2026-09-07 — Framing added: a connector feeds the repo, it is not a second store.
