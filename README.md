@@ -276,7 +276,7 @@ startup.
 
 ## Start here
 
-1. [`llmeep/ontology/principles.md`](llmeep/ontology/principles.md) — the seven rules everything follows from.
+1. [`llmeep/ontology/principles.md`](llmeep/ontology/principles.md) — the eight rules everything follows from.
 2. [`llmeep/ontology/core.md`](llmeep/ontology/core.md) — the entities that cut across subsystems. A
    self-contained subsystem keeps its vocabulary next to itself instead, like
    [`llmeep/tasks/_tooling/ontology.md`](llmeep/tasks/_tooling/ontology.md).

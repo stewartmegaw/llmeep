@@ -21,6 +21,7 @@ PLT-2gdj Periodically check connectors — Gmail, Google Docs — and turn what 
 
 ## recent
 
+2026-09-07  PLT-8evz Draft an eighth principle: the repo is the centre and the UI is how a non-technical person reaches it  @stewart
 2026-08-31  PLT-b8gk park unassigns, so part-done work looks untouched; show a commit count on the board line  @stewart
 2026-08-30  PLT-hwx5 Give sidecars a verb: attaching one needs a hand edit to board.md that the guidance forbids  @stewart
 2026-08-30  PLT-tabe New-file check asks about the ontology for every new file, including ones with no domain concept  @stewart
@@ -35,4 +36,3 @@ PLT-2gdj Periodically check connectors — Gmail, Google Docs — and turn what 
 2026-08-18  PLT-zjkf A worktree has no .env, so --send was impossible there  @stewart
 2026-08-18  PLT-5d25 A sent agenda rolls to a dated file, so the next one starts clean  @stewart
 2026-08-18  PLT-dk4r Skill descriptions were never updated as commands were added, so agenda routed to nm  @stewart
-2026-08-18  PLT-qe3p update fetches the default branch, so latest means main's tip rather than the newest release  @stewart

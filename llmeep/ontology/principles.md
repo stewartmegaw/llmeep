@@ -1,6 +1,6 @@
 # Principles
 
-Seven rules. Everything else in the skeleton is a consequence of one of them.
+Eight rules. Everything else in the skeleton is a consequence of one of them.
 
 ---
 
@@ -222,3 +222,46 @@ agent, and the tool should take an explicit flag, argument or declaration instea
 - **Nudge, never judge.** Where a tool notices something might be wrong, it says so in one line
   and exits. Information, not a gate — a tool that blocks on uncertainty gets bypassed, and a
   bypassed tool enforces nothing at all.
+
+---
+
+## 8. The repo is the centre; interfaces reach into it
+
+**All knowledge, memory and planning live in the repository. Everything else is a way of
+reaching it, and holds nothing of its own.**
+
+A terminal agent, a notification channel, a web UI, a scheduled connector: each is a means of
+access, and none of them is a place where something can be true. If a thing exists, there is a
+file. If an interface went away tomorrow, nothing would be lost but the convenience of that
+particular door.
+
+This is the rule the other seven were already assuming. [Principle 6](#6-context-is-tiered-and-the-working-tree-is-bounded)
+treats git as the database, and a session as disposable — which is only safe because the
+session holds nothing the repo does not. [Principle 4](#4-committed-knowledge-and-local-memory-are-different-things)
+draws the same line inside the repo, between what is committed and what is one machine's
+scratch. Stating it plainly matters once there is more than one door.
+
+### What it rules out
+
+- **An interface that is the only place something lives.** A draft held in a UI's session, a
+  connector's unread inbox, a queue waiting to be flushed. Not deferred work — the wrong shape.
+- **State an interface has to reconcile.** Two stores means sync, sync means conflict, and
+  conflict means someone is asked which copy is real. There is one copy.
+- **Anything true "in the tool" but not on disk.** If a connector has seen it and the repo has
+  not, it has not happened yet.
+
+### The consequence people notice
+
+**[Principle 1](#1-machine-first-representation) says on-disk formats are machine-first and
+human readability is best-effort.** That is only affordable if a person is not the one reading
+them — and until there is an interface, that claim is an excuse rather than a design.
+
+So an interface is not a nicety layered on top. It is what makes principle 1 honest, and its
+job is the exact inverse: the files optimise for the machine, the interface optimises for the
+person, and neither compromises for the other. Where the person is not technical, that is the
+whole burden of the interface and none of the burden of the format.
+
+### The test
+
+**If this interface disappeared, what would be lost?** Access, always. Anything else is a
+record that should have been in the repo.

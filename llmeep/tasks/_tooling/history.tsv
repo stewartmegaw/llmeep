@@ -103,3 +103,4 @@
 2026-08-30	PLT-tabe	platform	New-file check asks about the ontology for every new file, including ones with no domain concept	stewart
 2026-08-30	PLT-hwx5	platform	Give sidecars a verb: attaching one needs a hand edit to board.md that the guidance forbids	stewart
 2026-08-31	PLT-b8gk	platform	park unassigns, so part-done work looks untouched; show a commit count on the board line	stewart
+2026-09-07	PLT-8evz	platform	Draft an eighth principle: the repo is the centre and the UI is how a non-technical person reaches it	stewart
