@@ -14,7 +14,7 @@ PLT-6pvp Present the repo for community contributions — README and GitHub setu
 PLT-fupy Lead the README with what it looks like: tasks, standup --send, notes, agenda  detail  filed:2026-08-18
 PLT-6vgh Test tm review end to end: a real commit through both reviewer APIs  filed:2026-08-19
 PLT-2xj3 Show the board on session start, and again after a context clear  filed:2026-08-28
-PLT-2cyh The tm skill is back over its 4,000-token budget; three verbs have been added since PLT-rsn4  filed:2026-08-31
+PLT-2cyh The tm skill is back over its 4,000-token budget; three verbs have been added since PLT-rsn4  detail  filed:2026-08-31
 PLT-6egb A task id in prose must carry a title snippet; the rule exists and is almost never followed  filed:2026-09-04
 
 ## recent
