@@ -1,7 +1,7 @@
 import React from 'react'
 import {
-  AppBar, Box, Chip, CircularProgress, Container, IconButton, Link,
-  List, ListItem, ListItemText, Stack, Toolbar, Typography,
+  Alert, AppBar, Box, Chip, CircularProgress, Container, IconButton,
+  List, ListItem, ListItemText, Paper, Stack, TextField, Toolbar, Typography,
 } from '@mui/material'
 
 // Where this is mounted. The server injects it; a dev server has none.
@@ -19,6 +19,12 @@ export default function App() {
   const [board, setBoard] = React.useState(null)
   const [error, setError] = React.useState(null)
   const [loading, setLoading] = React.useState(true)
+  const [canWrite, setCanWrite] = React.useState(false)
+
+  React.useEffect(() => {
+    fetch(`${BASE}/api/config`).then((r) => r.json())
+      .then((c) => setCanWrite(c.can_write)).catch(() => {})
+  }, [])
 
   const load = React.useCallback(() => {
     setLoading(true)
@@ -51,7 +57,80 @@ export default function App() {
           <Ledger key={ledger} name={ledger} sections={sections} />
         ))}
       </Container>
+      {canWrite && <Say onDone={load} />}
     </Box>
+  )
+}
+
+// One box for everything: a new task, a change to one, or a question. Which of
+// those it is, is the agent's to work out and not the person's to declare —
+// asking them to pick a verb first is asking them to learn the system before
+// they can use it, and this screen exists for people who should not have to.
+function Say({ onDone }) {
+  const [text, setText] = React.useState('')
+  const [busy, setBusy] = React.useState(false)
+  const [reply, setReply] = React.useState(null)
+
+  function send() {
+    if (!text.trim() || busy) return
+    setBusy(true); setReply(null)
+    fetch(`${BASE}/api/intent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.error) return setReply({ error: d.error })
+        setReply({ text: d.answer, changed: d.action !== 'none' })
+        setText('')
+        if (d.action !== 'none') onDone()
+      })
+      .catch((e) => setReply({ error: e.message }))
+      .finally(() => setBusy(false))
+  }
+
+  return (
+    <Paper
+      elevation={3}
+      square
+      sx={{
+        position: 'sticky', bottom: 0, mt: 3, py: 1.5,
+        borderTop: 1, borderColor: 'divider',
+        // Clear of the home indicator on a phone.
+        pb: 'calc(12px + env(safe-area-inset-bottom))',
+      }}
+    >
+      <Container maxWidth="sm" sx={{ px: 2 }}>
+        {reply && (
+          <Alert
+            severity={reply.error ? 'error' : reply.changed ? 'success' : 'info'}
+            sx={{ mb: 1.5 }}
+            onClose={() => setReply(null)}
+          >
+            {reply.error || reply.text}
+          </Alert>
+        )}
+        <Stack direction="row" spacing={1} alignItems="flex-end">
+          <TextField
+            fullWidth multiline maxRows={6} size="small"
+            placeholder="Add something, change something, or just ask"
+            value={text}
+            disabled={busy}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter sends; shift+enter is a newline. On a phone the return
+              // key is the send button.
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
+            }}
+          />
+          <IconButton onClick={send} disabled={busy || !text.trim()}
+                      aria-label="Send" color="primary" sx={{ mb: 0.25 }}>
+            {busy ? <CircularProgress size={18} /> : <span aria-hidden>↑</span>}
+          </IconButton>
+        </Stack>
+      </Container>
+    </Paper>
   )
 }
 

@@ -12,6 +12,7 @@ ask for and a `pip install` between them and a working container.
 import json
 import mimetypes
 import os
+import re
 import subprocess
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -25,7 +26,62 @@ WEB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "web", "dis
 # `refusal()` for why this is a gate rather than a warning.
 AUTH_HANDLED = os.environ.get("LLMEEP_AUTH_HANDLED", "").strip()
 
+# Who the commits are from. A person did the deciding, so the default says the
+# door rather than claiming to be them.
+GIT_NAME = os.environ.get("LLMEEP_GIT_NAME", "llmeep chrome")
+GIT_EMAIL = os.environ.get("LLMEEP_GIT_EMAIL", "chrome@llmeep.invalid")
+
 TIMEOUT = 20
+
+# The model configuration, in the shape `tm review` already ships (`DEC-039`):
+# an endpoint rather than a vendor, the adopter's own key, and a model that is
+# required rather than defaulted — a wrong default bills someone for a call that
+# was never going to work. Empty means the text box is simply not offered.
+LLM_KEY = os.environ.get("CHROME_KEY", "").strip()
+LLM_BASE = os.environ.get("CHROME_BASE", "").strip().rstrip("/")
+LLM_MODEL = os.environ.get("CHROME_MODEL", "").strip()
+LLM_TIMEOUT = 60
+
+# **The whole write surface.** A model never supplies a command; it supplies an
+# action name and data, and this table turns that into argv. Anything not here
+# cannot be reached, whatever the model returns or the sender types.
+#
+# Every verb writes inside the install folder and nowhere else, which is the
+# first of two guards — the second is that only that folder is ever staged.
+ACTIONS = {
+    "add":        lambda a: ["add"] + (["-b"] if a.get("ledger") == "business" else [])
+                            + (["-n"] if a.get("prioritise") else []) + [a["title"]],
+    "retitle":    lambda a: ["retitle", a["id"], a["title"]],
+    "prioritise": lambda a: ["prioritise", a["id"]] + (["-n"] if a.get("top") else []),
+    "park":       lambda a: ["park", a["id"]],
+    "start":      lambda a: ["go", a["id"]],
+    "done":       lambda a: ["done", a["id"]],
+    "drop":       lambda a: ["drop", a["id"]],
+    "detail":     lambda a: ["detail", a["id"]],
+}
+
+ID_RE = re.compile(r"^(PLT|BUS)-[A-Za-z0-9]{1,12}$")
+
+INTENT_PROMPT = """You turn one message from a person into one action on their task board.
+
+Reply with JSON only, no prose around it:
+
+  {"action": "<name>", "id": "<task id>", "title": "<text>",
+   "ledger": "platform|business", "prioritise": true, "top": true,
+   "answer": "<one or two sentences for the person>"}
+
+Actions: add, retitle, prioritise, park, start, done, drop, detail, none.
+
+- "none" is a real answer. A question, or a discussion that changed nobody's
+  mind, leaves no record — say what you think in "answer" and change nothing.
+- "add" needs "title" and "ledger". Code, infra, tooling, tests and tech debt
+  are platform. Pricing, contracts, hiring and customer work are business, even
+  when delivering them needs code. The test is the done-state, not the activity.
+- Everything else needs "id", exactly as it appears on the board.
+- A title is a handle: at most 120 characters, two sentences. Put the rest in
+  "answer" and suggest they add a detail.
+- "answer" is always required, and is written for someone who may not be a
+  developer. Never make them read an id back to you."""
 
 
 def tm(*args):
@@ -68,7 +124,6 @@ def explain(args, out):
 def install_folder():
     """What `adopt` recorded in `.llmeep`. Read by pattern rather than by running
     the script — inspecting an install and trusting it should not be one act."""
-    import re
     path = os.path.join(REPO, ".llmeep")
     if not os.path.isfile(path):
         return ""
@@ -117,6 +172,187 @@ def with_base(raw):
     return raw[:i] + tag + raw[end + 3:]
 
 
+def act(text):
+    """One message in, one action out.
+
+    The judgement — is this a new task, a change to one, or a question — is the
+    model's, and the mechanism is `tm`'s. Nothing in between improvises: the
+    model returns an action name and data, `argv_for` validates it against a
+    fixed table, and the result is a subprocess call with no shell.
+
+    A commit is only written when something actually changed, so a question
+    costs nothing and leaves nothing.
+    """
+    intent = ask_model(text, tm("board"))
+    argv = argv_for(intent)
+    if argv is not None:
+        # Before anything is written, not after. A refusal that leaves the tree
+        # exactly as it found it is one nobody has to clean up.
+        theirs = already_staged_elsewhere()
+        if theirs:
+            raise RuntimeError(
+                "you have changes staged outside the records — "
+                f"{', '.join(theirs[:3])}. Commit or unstage them first; this app "
+                "will not put them in a commit about a task.")
+    answer = str(intent.get("answer", "")).strip()
+    if argv is None:
+        return {"action": "none", "answer": answer or "Nothing to change."}
+
+    output = tm(*argv)
+    action = intent["action"]
+    subject = intent.get("id") or intent.get("title", "")
+    sha = commit(f"{action}: {subject}".strip()[:72],
+                 closes=intent.get("id") if action == "done" else None)
+    return {"action": action, "answer": answer or output.strip(),
+            "output": output.strip(), "commit": sha}
+
+
+def ask_model(text, board):
+    """One call, in the OpenAI chat shape — the same shape `tm review` uses, so
+    `CHROME_BASE` reaches OpenAI, Anthropic's compatible endpoint, Groq,
+    OpenRouter or something on the adopter's own machine. No vendor is
+    privileged here and none should be (principle 3)."""
+    import urllib.request
+    if not (LLM_KEY and LLM_MODEL and LLM_BASE):
+        raise RuntimeError("no model configured — set CHROME_KEY, CHROME_MODEL and CHROME_BASE")
+    body = json.dumps({
+        "model": LLM_MODEL,
+        "messages": [
+            {"role": "system", "content": INTENT_PROMPT},
+            {"role": "user", "content": f"The board:\n{board}\n\nThe message:\n{text}"},
+        ],
+    }).encode()
+    req = urllib.request.Request(
+        f"{LLM_BASE}/chat/completions", data=body,
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {LLM_KEY}"})
+    with urllib.request.urlopen(req, timeout=LLM_TIMEOUT) as resp:
+        answer = json.loads(resp.read())["choices"][0]["message"]["content"]
+    return json.loads(strip_fence(answer))
+
+
+def strip_fence(text):
+    """Models wrap JSON in a code fence about half the time. Cheaper to accept
+    it than to argue with the prompt."""
+    text = text.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1] if "\n" in text else text
+        text = text.rsplit("```", 1)[0]
+    return text.strip()
+
+
+def argv_for(intent):
+    """Validate the model's data and build argv from the table. Returns None for
+    an action that writes nothing.
+
+    Every field is checked here rather than trusted, because everything in
+    `intent` came from a model reading text a person typed — which is to say
+    from outside. The id shape is checked before it reaches a shell-free
+    subprocess call, and an unknown action is a refusal rather than a
+    passthrough."""
+    action = str(intent.get("action", "none")).strip()
+    if action in ("none", ""):
+        return None
+    if action not in ACTIONS:
+        raise RuntimeError(f"not an action this app can take: {action}")
+    if action != "add":
+        tid = str(intent.get("id", "")).strip()
+        if not ID_RE.match(tid):
+            raise RuntimeError(f"{action} needs a task id and got {tid!r}")
+        intent["id"] = tid
+    else:
+        title = str(intent.get("title", "")).strip()
+        if not title:
+            raise RuntimeError("nothing to file — no title came back")
+        intent["title"] = title
+        if intent.get("ledger") not in ("platform", "business"):
+            intent["ledger"] = "platform"
+    if action == "retitle":
+        title = str(intent.get("title", "")).strip()
+        if not title:
+            raise RuntimeError("retitle needs the new words")
+        intent["title"] = title
+    return ACTIONS[action](intent)
+
+
+# The only trees this app may write, relative to the install. Not the whole
+# install: `decisions/` is written by an agent that reasoned about a change, and
+# `.claude/` is the adapter. A text box on a phone has business in neither.
+WRITABLE = ("tasks", "notes")
+
+
+def writable_paths():
+    """Repo-relative paths this app may stage, for whichever layout is here.
+
+    **Not a single prefix.** A nested install has one — `llmeep/` — but a flat
+    install puts `tasks/` and `notes/` at the repo root beside the adopter's
+    code, and there is no prefix that means "ours" there. Treating the absence
+    of one as "everything" is how a guard becomes a `git add -A` in disguise, so
+    the trees are named instead and both layouts are the same code path.
+    """
+    folder = install_folder()
+    return [f"{folder}/{t}" if folder else t for t in WRITABLE]
+
+
+def commit(message, closes=None):
+    """Stage **only** the install folder, then commit.
+
+    This is where "the app may change `llmeep/` and nothing else" is actually
+    enforced. Not by trusting the verbs — though every one of them writes only
+    there — and not by cleaning up afterwards, which would mean deleting work
+    that was never ours. By never staging anything else: `git add <prefix>`
+    rather than `git add -A`, and a check on what was staged before the commit
+    is written.
+
+    So an adopter's uncommitted code sitting in the tree is untouched and stays
+    untouched, and a verb that somehow wrote outside the folder produces a
+    refusal rather than a commit.
+    """
+    allowed = writable_paths()
+    git("add", "--", *allowed)
+    staged = staged_paths()
+    if not staged:
+        return None
+    stray = [p for p in staged if not any(p.startswith(a + "/") for a in allowed)]
+    if stray:
+        # `git add -- <trees>` cannot reach outside them, so this is either a
+        # verb that wrote somewhere it should not have or something staged
+        # before we arrived. Refuse rather than tidy: unstaging is a guess about
+        # whose change it is.
+        raise RuntimeError(
+            f"refusing to commit outside {', '.join(allowed)}: {', '.join(stray[:3])}")
+    body = message if not closes else f"{message}\n\ncloses {closes}"
+    git("-c", f"user.name={GIT_NAME}", "-c", f"user.email={GIT_EMAIL}",
+        "commit", "-m", body)
+    return git("rev-parse", "--short", "HEAD").strip()
+
+
+def staged_paths():
+    return [p for p in git("diff", "--cached", "--name-only").split("\n") if p.strip()]
+
+
+def already_staged_elsewhere():
+    """Whatever the adopter has staged outside the install folder, before this
+    app touches anything.
+
+    Checked first and acted on by refusing, because their index is theirs. The
+    alternative — stage ours alongside and commit the lot — would sweep an
+    unfinished change of theirs into a commit about a task, and the alternative
+    to *that* — unstage it — is taking their work apart to make room for ours.
+    Neither is this app's call to make.
+    """
+    allowed = writable_paths()
+    return [p for p in staged_paths()
+            if not any(p.startswith(a + "/") for a in allowed)]
+
+
+def git(*args):
+    out = subprocess.run(["git", *args], cwd=REPO,
+                         capture_output=True, text=True, timeout=TIMEOUT)
+    if out.returncode != 0:
+        raise RuntimeError((out.stderr or out.stdout).strip().split("\n")[0] or "git failed")
+    return out.stdout
+
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = self.path.split("?")[0]
@@ -127,11 +363,33 @@ class Handler(BaseHTTPRequestHandler):
 
         if not AUTH_HANDLED:
             return self.send_text(503, refusal())
+        if path == "/api/config":
+            return self.send_json(200, {"can_write": bool(LLM_KEY and LLM_MODEL and LLM_BASE)})
         if path == "/api/board":
             return self.send_json_from(lambda: json.loads(tm("board", "--json")))
         if path == "/api/status":
             return self.send_json_from(lambda: {"text": tm("status")})
         return self.send_static(path)
+
+    def do_POST(self):
+        path = self.path.split("?")[0]
+        if BASE != "/" and path.startswith(BASE):
+            path = path[len(BASE):] or "/"
+        if not AUTH_HANDLED:
+            return self.send_text(503, refusal())
+        if path != "/api/intent":
+            return self.send_json(404, {"error": "nothing here"})
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+            text = json.loads(self.rfile.read(length) or b"{}").get("text", "").strip()
+        except Exception:                              # noqa: BLE001
+            return self.send_json(400, {"error": "send {\"text\": \"...\"}"})
+        if not text:
+            return self.send_json(400, {"error": "nothing to act on"})
+        try:
+            self.send_json(200, act(text))
+        except Exception as exc:                       # noqa: BLE001 — reported, not raised
+            self.send_json(500, {"error": str(exc)})
 
     def send_json_from(self, produce):
         try:

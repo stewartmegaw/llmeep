@@ -1102,6 +1102,203 @@ class TestAgenda(Fixture):
                          "the agenda draft is not gitignored")
 
 
+class TestChromeGuard(Fixture):
+    """`PLT-6yjz`. The web app may change the records and nothing else. That is
+    the one property in it worth a test in CI rather than a promise in a README:
+    it runs in an adopter's cluster, holds a credential that can push their
+    repo, and acts on text a model read."""
+
+    DRIVER = """import json, os, sys
+sys.path.insert(0, os.path.join(sys.argv[1], "ui", "api"))
+import server
+server.ask_model = lambda text, board: json.loads(sys.argv[2])
+try:
+    print(json.dumps({"ok": server.act("go on then")}))
+except Exception as exc:
+    print(json.dumps({"error": str(exc)}))
+"""
+    def adopted(self, name, *args):
+        top = self.a_project(name=name)
+        self.adopt(self.working_copy(), top, *args)
+        self.quieten(top)
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "commit", "-qm", "adopt", cwd=top)
+        return top
+
+    def drive(self, top, intent):
+        """Run the real `act()` with only the model call replaced, in a
+        subprocess — the same way every other case here reaches the code under
+        test."""
+        script = self.path("drive_chrome.py")
+        with open(script, "w") as fh:
+            fh.write(self.DRIVER)
+        env = dict(os.environ, LLMEEP_REPO=top, LLMEEP_AUTH_HANDLED="yes")
+        out = sh(sys.executable, script, self.working_copy(), json.dumps(intent),
+                 cwd=top, env=env)
+        self.assertTrue(out.stdout.strip(), out.stderr)
+        return json.loads(out.stdout.strip().split("\n")[-1])
+
+    def theirs_dirty(self, top):
+        with open(os.path.join(top, "src", "app.py"), "a") as fh:
+            fh.write("y = 2  # work in progress\n")
+        with open(os.path.join(top, "src", "scratch.txt"), "w") as fh:
+            fh.write("theirs\n")
+
+    def committed_files(self, top):
+        return [p for p in sh("git", "show", "--pretty=", "--name-only", "HEAD",
+                              cwd=top).stdout.split("\n") if p.strip()]
+
+    FILE_ONE = {"action": "add", "title": "Filed by the app",
+                "ledger": "platform", "answer": "done"}
+
+    def test_a_nested_install_commits_only_records(self):
+        top = self.adopted("nested")
+        self.theirs_dirty(top)
+        result = self.drive(top, self.FILE_ONE)
+        self.assertNotIn("error", result, result)
+        self.assertEqual(self.committed_files(top), ["llmeep/tasks/platform/board.md"])
+
+    def test_a_flat_install_commits_only_records(self):
+        """The case a prefix cannot express. `tasks/` and `notes/` sit at the
+        repo root beside the adopter's code, so there is no prefix meaning
+        "ours" — and reading the absence of one as "everything" turns the guard
+        into `git add -A` wearing a disguise."""
+        top = self.adopted("flat", "--into", "")
+        self.theirs_dirty(top)
+        result = self.drive(top, self.FILE_ONE)
+        self.assertNotIn("error", result, result)
+        self.assertEqual(self.committed_files(top), ["tasks/platform/board.md"])
+
+    def test_their_uncommitted_work_is_exactly_as_they_left_it(self):
+        top = self.adopted("untouched")
+        self.theirs_dirty(top)
+        app = os.path.join(top, "src", "app.py")
+        with open(app, "rb") as fh:
+            before = fh.read()
+        self.drive(top, self.FILE_ONE)
+        with open(app, "rb") as fh:
+            self.assertEqual(fh.read(), before, "the app changed their source")
+        self.assertTrue(os.path.isfile(os.path.join(top, "src", "scratch.txt")),
+                        "the app removed an untracked file of theirs")
+
+    def test_it_refuses_before_writing_when_they_have_staged_work(self):
+        """Their index is theirs. Sweeping an unfinished change of theirs into a
+        commit about a task is wrong, and unstaging it to make room is wrong;
+        neither is this app's call, so it stops before touching anything."""
+        top = self.adopted("staged")
+        self.theirs_dirty(top)
+        sh("git", "add", "src/app.py", cwd=top)
+        head = sh("git", "rev-parse", "HEAD", cwd=top).stdout.strip()
+
+        result = self.drive(top, self.FILE_ONE)
+        self.assertIn("error", result, result)
+        self.assertIn("staged outside", result["error"])
+        self.assertEqual(sh("git", "rev-parse", "HEAD", cwd=top).stdout.strip(), head,
+                         "it committed anyway")
+        with open(os.path.join(self.install_root(top),
+                               "tasks", "platform", "board.md")) as fh:
+            self.assertNotIn("Filed by the app", fh.read(),
+                             "it wrote the record before checking")
+
+    def test_an_action_it_does_not_have_is_refused(self):
+        """The model returns a name and data, never a command. Anything outside
+        the table is a refusal rather than a passthrough."""
+        top = self.adopted("unknown-action")
+        result = self.drive(top, {"action": "push", "answer": "..."})
+        self.assertIn("error", result, result)
+        self.assertIn("not an action", result["error"])
+
+    def test_a_malformed_id_never_reaches_the_tool(self):
+        top = self.adopted("bad-id")
+        result = self.drive(top, {"action": "drop", "id": "PLT-x; rm -rf /", "answer": "..."})
+        self.assertIn("error", result, result)
+        self.assertIn("task id", result["error"])
+
+    def test_a_question_writes_nothing_and_commits_nothing(self):
+        top = self.adopted("question")
+        head = sh("git", "rev-parse", "HEAD", cwd=top).stdout.strip()
+        result = self.drive(top, {"action": "none", "answer": "Nothing is running."})
+        self.assertEqual(result["ok"]["action"], "none")
+        self.assertEqual(sh("git", "rev-parse", "HEAD", cwd=top).stdout.strip(), head)
+
+
+class TestRetitle(Fixture):
+    """`PLT-6yjz`. "Edit this task" had no verb at all, so the only way to act
+    on a better title was the hand edit `DEC-036` forbids — which is why two
+    tasks closed this month still carry a word the project renamed."""
+
+    def a_repo(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        return top
+
+    def line(self, top, tid):
+        with open(os.path.join(self.install_root(top),
+                               "tasks", "platform", "board.md")) as fh:
+            return next(l for l in fh if tid in l)
+
+    def test_the_words_change_and_the_handle_does_not(self):
+        """History, the commits behind a task and anything blocked on it all key
+        off the id. Rewording must not rename."""
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "vague thing").stdout.strip()
+        out = self.tm(top, "retitle", tid, "Rework the dunning emails")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        line = self.line(top, tid)
+        self.assertIn("Rework the dunning emails", line)
+        self.assertNotIn("vague thing", line)
+
+    def test_it_stays_in_the_section_it_was_in(self):
+        """A retitle is not a refiling."""
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "ranked thing").stdout.strip()
+        self.tm(top, "retitle", tid, "still ranked")
+        with open(os.path.join(self.install_root(top),
+                               "tasks", "platform", "board.md")) as fh:
+            body = fh.read()
+        self.assertIn(tid, body.split("## prioritised")[1].split("##")[0])
+
+    def test_the_old_title_is_printed(self):
+        """Said back, because the person asking may not have seen the words they
+        are replacing — over a phone the board is not in front of them."""
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "the old words").stdout.strip()
+        self.assertIn("the old words", self.tm(top, "retitle", tid, "the new words").stdout)
+
+    def test_a_completed_task_keeps_its_title(self):
+        """`recent` is the record of what was done, and its titles are what the
+        history says was done."""
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "shipped it").stdout.strip()
+        self.tm(top, "go", tid)
+        self.tm(top, "done")
+        out = self.tm(top, "retitle", tid, "something else")
+        self.assertNotEqual(out.returncode, 0)
+        self.assertIn("already done", out.stdout + out.stderr)
+
+    def test_the_title_cap_still_applies(self):
+        """`DEC-011`'s cap is enforced wherever a title is written, or the verb
+        becomes the way around it."""
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "short").stdout.strip()
+        out = self.tm(top, "retitle", tid, "x" * 200)
+        self.assertNotEqual(out.returncode, 0)
+        self.assertIn("cap", out.stdout + out.stderr)
+        self.assertIn("short", self.line(top, tid), "the board changed despite refusing")
+
+    def test_an_unknown_task_is_refused(self):
+        top = self.a_repo()
+        out = self.tm(top, "retitle", "PLT-zzzz", "whatever")
+        self.assertNotEqual(out.returncode, 0)
+
+    def test_it_needs_words_to_change_to(self):
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "keep me").stdout.strip()
+        self.assertNotEqual(self.tm(top, "retitle", tid).returncode, 0)
+        self.assertIn("keep me", self.line(top, tid))
+
+
 class TestBoardExport(Fixture):
     """`PLT-6yjz`. An interface reaches into the repo rather than holding state
     of its own, so it needs the board in a shape it can parse. Parsing

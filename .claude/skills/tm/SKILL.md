@@ -158,7 +158,8 @@ broadcasts one for work nobody did.
 
 **`discuss` changes nothing, so it is not.** It means *talk this task over and sharpen it*: read
 the detail, ask what "done" looks like, propose a better title. Record the outcome with the
-verbs that exist. There is no `tm discuss` — a command that only starts a conversation does
+verbs that exist — `retitle` for sharper words, `detail`, `prioritise`, `park`, `drop`. Nothing
+is a legitimate outcome too. There is no `tm discuss` — a command that only starts a conversation does
 nothing.
 
 ## A rejected alternative is a decision, and nobody will prompt you

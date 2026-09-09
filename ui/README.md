@@ -42,6 +42,29 @@ missing this one is your private records on a public URL.
 | `LLMEEP_AUTH_HANDLED` | yes | Any non-empty value. Your assertion that something in front of this handles access. |
 | `LLMEEP_BASE_PATH` | no | Where it is mounted, e.g. `/llmeep`. Default `/`. |
 | `LLMEEP_PORT` | no | Default `8080`. |
+| `CHROME_KEY` `CHROME_MODEL` `CHROME_BASE` | for writing | The model that reads what someone typed. Unset means the text box is not offered and the app is read-only. |
+| `LLMEEP_GIT_NAME` `LLMEEP_GIT_EMAIL` | no | Who its commits are from. Defaults to *llmeep chrome*, not to you. |
 
-Writing needs a git identity and a credential that can push the repo — see `git config` and a
-deploy key or token mounted into the container. Nothing writes yet; this cut is read-only.
+## The model is an endpoint, not a vendor
+
+Same shape `tm review` ships (`DEC-039`): `CHROME_BASE` speaks the OpenAI chat API, which
+reaches OpenAI, Anthropic's compatible endpoint, Groq, OpenRouter or something on your own
+machine. Your key, your budget, your choice of model — and no vendor is privileged in anything
+llmeep installs.
+
+    -e CHROME_BASE=https://api.openai.com/v1 -e CHROME_KEY=sk-... -e CHROME_MODEL=gpt-4.1
+
+## It can only ever change `llmeep/`
+
+One text box takes a new task, a change to one, or a question, and the model decides which.
+It does not decide *how*: it returns an action name and data, which are checked against a fixed
+table of `tm` verbs. There is no shell anywhere in the path, and nothing outside that table can
+be reached whatever comes back.
+
+**Committing is where that is enforced rather than assumed.** The app stages the install folder
+by name — never `git add -A` — and refuses if anything outside it ended up staged. If you have
+your own work staged elsewhere it stops before writing anything and says so, because unstaging
+your change to make room for its own is not its call.
+
+So your uncommitted code stays exactly as you left it, and a commit from this app touches
+records and nothing else.

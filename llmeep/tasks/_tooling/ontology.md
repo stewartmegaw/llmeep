@@ -283,6 +283,7 @@ step. See [`DEC-003`](https://github.com/stewartmegaw/llmeep/blob/main/decisions
 | Skill  | Invocation           | Does                                                            |
 | ------ | -------------------- | --------------------------------------------------------------- |
 | `add`  | `tm add <title…>`    | Allocates the ID, files it in the `backlog` pool. `-n` prioritises it instead; `-f <name>` assigns. **Searches History.** |
+| `retitle` | `tm retitle <id> <title...>` | Rewords a task, keeping its id and its section. A retitle is not a refiling: history, the commits behind it and anything blocked on it key off the id. Refuses a completed task — `recent` titles are the record of what was done. The 120-cap applies, or the verb becomes the way around it (`DEC-011`). |
 | `board` | `tm board [--json]` | The open sections and the completed window. `--json` is for an interface — parsing `board.md` at the far end would be a second implementation of the model, drifting the first time a tag is added (`PLT-6yjz`). Reads only. |
 | `status` | `tm status`        | Where things stand: what is in progress, what a bare `go` would take next, and the two open counts. **Writes nothing and starts nothing** — the reason it is not `go`, which starts the top of the queue when nothing is running (`PLT-2xj3`). |
 | `go`   | `tm go [id]`         | No id: shows what is in progress, or starts the top of `prioritised` if nothing is. With an id: starts that one, from either open section. **Searches History.** |
@@ -398,6 +399,15 @@ and broadcast one.
 vague, acceptance nobody has thought through. All of that is judgement, and whatever comes out of
 it is recorded with verbs that already exist. A `tm discuss` could only print an invitation to
 have a conversation the user is already having.
+
+**What it lands in.** A sharper title is `retitle`; something that needs more than a title is
+`detail`; more or less urgent than anyone thought is `prioritise` or `park`; not worth doing is
+`drop`. And **nothing** is a legitimate outcome — a conversation that changed nobody's mind
+should leave no record, which is the other half of `discuss` not being a command.
+
+`retitle` existed for none of this until `PLT-6yjz` needed it. The instruction to *propose a
+better title* had been in the skill since it was written with no verb to accept the proposal,
+so the only way to act on one was the hand edit `DEC-036` forbids.
 
 So the hint line lists **what you can say**, not what the executable implements, and the two sets
 are allowed to differ. What is not allowed is a word on that line that neither the tool nor the
@@ -638,6 +648,7 @@ Information, never a gate. No prompt, no network, no cost.
 | Command | Writes               | Git                                 |
 | ------- | -------------------- | ----------------------------------- |
 | `add`   | board line           | none                                |
+| `retitle` | board              | none                                |
 | `board` | nothing              | none                                |
 | `status`| nothing              | none                                |
 | `go`    | board, reads detail  | none                                |
