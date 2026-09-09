@@ -36,3 +36,7 @@ llmeep/.env.*
 llmeep/feedback.md
 *.pem
 *.key
+
+# The UI is built into an image; neither of these belongs in the repo.
+ui/web/node_modules/
+ui/web/dist/

@@ -1465,6 +1465,67 @@ def cmd_prioritise(args):
             raise Fail(f"no task {tid}")
 
 
+def cmd_board(args):
+    """**The records, for something that is not a person.** `--json` emits every
+    open section and the completed window; bare it prints them.
+
+    An interface reaches into the repo rather than holding state of its own
+    ([principle 8]), which means it needs the board in a shape it can parse.
+    Parsing `board.md` at the far end would be a second implementation of the
+    model, drifting from this one the first time a tag is added — the mistake
+    `DEC-003` exists to prevent. So the tool exports and the interface renders.
+
+    JSON rather than the on-disk form because that is principle 1 pointed
+    outward: unambiguous to parse, no opinion about who parses it. Nothing here
+    is vendor-shaped; it is the records, named as they are named on the board.
+    """
+    as_json = "--json" in args
+    if [a for a in args if a != "--json"]:
+        raise Fail("usage: tm board [--json]")
+    out = {}
+    for ledger in LEDGERS:
+        try:
+            board = Board(ledger)
+        except Fail:
+            continue
+        out[ledger] = {
+            "in_progress": [task_json(board, ledger, t) for t in board.in_progress],
+            "prioritised": [task_json(board, ledger, t) for t in board.prioritised],
+            "backlog": [task_json(board, ledger, t) for t in board.backlog],
+            "recent": [{"id": t.id, "title": t.title, "done_on": t.done_on,
+                        "assignee": t.assignee} for t in board.recent],
+        }
+    if as_json:
+        print(json.dumps({"ledgers": out}, indent=2))
+        return
+    for ledger, sections in out.items():
+        for name in ("in_progress", "prioritised", "backlog"):
+            rows = sections[name]
+            if not rows:
+                continue
+            print(f"\n  {ledger} · {name.replace('_', ' ')} ({len(rows)})")
+            for t in rows:
+                who = f"  @{t['assignee']}" if t["assignee"] else ""
+                print(f"    {t['id']}  {t['title']}{who}")
+    print()
+
+
+def task_json(board, ledger, task):
+    """One task, named the way the board names it. `detail` is a repo-relative
+    path so a reader can fetch it without knowing the layout."""
+    detail = detail_doc(detail_path(ledger, task.id))
+    return {
+        "id": task.id,
+        "title": task.title,
+        "ledger": ledger,
+        "assignee": task.assignee,
+        "blocked_by": board.is_blocked(task),
+        "detail": os.path.relpath(detail, REPO) if detail else None,
+        "commits": task.commits,
+        "filed": task.filed,
+    }
+
+
 def cmd_status(args):
     """**Where was I.** What is in progress, what a bare `go` would start next,
     and how much is open. Read-only, and that is the whole reason it exists.
@@ -3149,6 +3210,7 @@ USAGE = """tm — taskman
   tm add [-b] [-n] [-f who]     file a task in the backlog (-b business,
          [--id]                 -n prioritises it, -f assigns; --id prints the id)
   tm status                     where things stand; starts nothing, writes nothing
+  tm board [--json]             the open sections and the window, for an interface
   tm go [id] [-f who]           show your current task, or start the next one
   tm prioritise <id> [-n]       backlog → prioritised (-n puts it on top)
   tm park [id] [-n]             step it back one section (-n for the top of prioritised)
@@ -3362,7 +3424,7 @@ def main():
         "add": cmd_add, "go": cmd_go, "park": cmd_park,
         "prioritise": cmd_prioritise, "prioritize": cmd_prioritise,
         "done": cmd_done, "drop": cmd_drop, "detail": cmd_detail,
-        "status": cmd_status,
+        "status": cmd_status, "board": cmd_board,
         "find": cmd_find, "why": cmd_why,
         "standup": cmd_standup, "agenda": cmd_agenda, "ontology": cmd_ontology,
         "feedback": cmd_feedback, "audience": cmd_audience,
@@ -3377,12 +3439,14 @@ def main():
     # that exits, and the reminder is worthless anywhere the agent is not
     # already looking.
     #
-    # Two exemptions, both where the reader is not a person. `check` is run by
+    # Exemptions, all where the reader is not a person. `check` is run by
     # hooks, and a line addressed to an agent in the middle of `git commit`
     # output is aimed at nobody. `add --id` prints the bare id for another tool
     # to consume — `nm promote` reads it — so a banner there is not noise but a
-    # corrupted value.
-    machine = argv[0] == "add" and "--id" in argv
+    # corrupted value. `--json` is the same failure with a wider blast radius:
+    # a banner ahead of the document makes the whole thing unparseable, which
+    # is how `board --json` failed the first time it was run (`PLT-6yjz`).
+    machine = ("--json" in argv) or (argv[0] == "add" and "--id" in argv)
     kind = None if machine or argv[0] in ("check", "audience", "unpushed") else audience()
     if kind:
         # The push state is read here rather than left to the agent to go and

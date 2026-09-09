@@ -1102,6 +1102,107 @@ class TestAgenda(Fixture):
                          "the agenda draft is not gitignored")
 
 
+class TestBoardExport(Fixture):
+    """`PLT-6yjz`. An interface reaches into the repo rather than holding state
+    of its own, so it needs the board in a shape it can parse. Parsing
+    `board.md` at the far end would be a second implementation of the model,
+    drifting the first time a tag is added."""
+
+    def a_repo(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        return top
+
+    def export(self, top):
+        out = self.tm(top, "board", "--json")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        try:
+            return json.loads(out.stdout)
+        except ValueError as exc:
+            self.fail(f"board --json did not parse ({exc}):\n{out.stdout[:300]}")
+
+    def test_json_output_carries_nothing_but_json(self):
+        """The audience banner is printed ahead of every command for a person to
+        read. Ahead of a document it makes the whole thing unparseable, which is
+        how this failed the first time it was run."""
+        top = self.a_repo()
+        self.tm(top, "add", "-n", "Migrate the config loader")
+        raw = self.tm(top, "board", "--json").stdout
+        self.assertFalse(raw.lstrip().startswith("·"), "the banner reached a machine reader")
+        self.assertTrue(raw.lstrip().startswith("{"), raw[:120])
+
+    def test_every_open_section_is_present(self):
+        top = self.a_repo()
+        ranked = self.tm(top, "add", "--id", "-n", "ranked").stdout.strip()
+        pooled = self.tm(top, "add", "--id", "pooled").stdout.strip()
+        started = self.tm(top, "add", "--id", "-n", "started").stdout.strip()
+        self.tm(top, "go", started)
+
+        platform = self.export(top)["ledgers"]["platform"]
+        for section in ("in_progress", "prioritised", "backlog", "recent"):
+            self.assertIn(section, platform)
+        self.assertEqual([t["id"] for t in platform["in_progress"]], [started])
+        self.assertEqual([t["id"] for t in platform["prioritised"]], [ranked])
+        self.assertEqual([t["id"] for t in platform["backlog"]], [pooled])
+
+    def test_a_task_carries_what_a_board_line_carries(self):
+        """Named the way the board names it, so a reader learns one vocabulary."""
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "Migrate the config loader").stdout.strip()
+        self.tm(top, "go", tid)
+        self.tm(top, "detail")
+
+        task = self.export(top)["ledgers"]["platform"]["in_progress"][0]
+        self.assertEqual(task["id"], tid)
+        self.assertEqual(task["title"], "Migrate the config loader")
+        self.assertEqual(task["ledger"], "platform")
+        self.assertIsNone(task["blocked_by"])
+        self.assertEqual(task["commits"], 0)
+        self.assertIsNotNone(task["filed"])
+
+    def test_the_detail_path_resolves_against_the_install(self):
+        """A reader should be able to fetch it without knowing the layout, so
+        the path is relative to the install root and has to actually be there."""
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "needs detail").stdout.strip()
+        self.tm(top, "go", tid)
+        self.tm(top, "detail")
+        task = self.export(top)["ledgers"]["platform"]["in_progress"][0]
+        self.assertIsNotNone(task["detail"], "a tagged task exported no detail path")
+        self.assertTrue(
+            os.path.isfile(os.path.join(self.install_root(top), task["detail"])),
+            f"exported detail path does not exist: {task['detail']}")
+
+    def test_a_task_with_no_detail_says_none(self):
+        top = self.a_repo()
+        self.tm(top, "add", "-n", "bare")
+        task = self.export(top)["ledgers"]["platform"]["prioritised"][0]
+        self.assertIsNone(task["detail"])
+
+    def test_bare_board_prints_the_open_sections(self):
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "Migrate the config loader").stdout.strip()
+        out = self.tm(top, "board").stdout
+        self.assertIn(tid, out)
+        self.assertIn("Migrate the config loader", out)
+        self.assertIn("prioritised", out)
+
+    def test_it_refuses_arguments_it_does_not_know(self):
+        top = self.a_repo()
+        self.assertNotEqual(self.tm(top, "board", "--yaml").returncode, 0)
+
+    def test_it_writes_nothing(self):
+        top = self.a_repo()
+        self.tm(top, "add", "-n", "ranked")
+        board = os.path.join(self.install_root(top), "tasks", "platform", "board.md")
+        with open(board, "rb") as fh:
+            before = fh.read()
+        self.tm(top, "board", "--json")
+        with open(board, "rb") as fh:
+            self.assertEqual(fh.read(), before, "board --json wrote to the board")
+
+
 class TestStatus(Fixture):
     """`PLT-2xj3`. A session that has just started or just been cleared holds
     nothing, so the records are the only memory there is. `go` is the natural

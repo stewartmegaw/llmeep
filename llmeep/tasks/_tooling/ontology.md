@@ -283,6 +283,7 @@ step. See [`DEC-003`](https://github.com/stewartmegaw/llmeep/blob/main/decisions
 | Skill  | Invocation           | Does                                                            |
 | ------ | -------------------- | --------------------------------------------------------------- |
 | `add`  | `tm add <title…>`    | Allocates the ID, files it in the `backlog` pool. `-n` prioritises it instead; `-f <name>` assigns. **Searches History.** |
+| `board` | `tm board [--json]` | The open sections and the completed window. `--json` is for an interface — parsing `board.md` at the far end would be a second implementation of the model, drifting the first time a tag is added (`PLT-6yjz`). Reads only. |
 | `status` | `tm status`        | Where things stand: what is in progress, what a bare `go` would take next, and the two open counts. **Writes nothing and starts nothing** — the reason it is not `go`, which starts the top of the queue when nothing is running (`PLT-2xj3`). |
 | `go`   | `tm go [id]`         | No id: shows what is in progress, or starts the top of `prioritised` if nothing is. With an id: starts that one, from either open section. **Searches History.** |
 | `prioritise` | `tm prioritise <id> [-n]` | `backlog` → `prioritised`, at the bottom (`-n` for the top). |
@@ -414,6 +415,11 @@ back as context. The vendor half is the event name and the JSON envelope; the an
 
 An agent with no such trigger loses the prompt and nothing else — which is the test an adapter
 has to pass.
+
+**`--json` output carries nothing else.** The audience banner is printed ahead of every command
+for a person to read; ahead of a document it makes the whole thing unparseable. Any invocation
+carrying `--json` is machine-facing and the banner is suppressed, the same exemption `add --id`
+already had (`PLT-6yjz`).
 
 A wrapper that surfaces these in an agent's native skill list is **ergonomics, never logic**,
 and carries a header saying so:
@@ -632,6 +638,7 @@ Information, never a gate. No prompt, no network, no cost.
 | Command | Writes               | Git                                 |
 | ------- | -------------------- | ----------------------------------- |
 | `add`   | board line           | none                                |
+| `board` | nothing              | none                                |
 | `status`| nothing              | none                                |
 | `go`    | board, reads detail  | none                                |
 | `done`  | board, history       | none                                |
