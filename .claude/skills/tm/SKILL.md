@@ -310,10 +310,10 @@ Say "nothing in the backlog" and stop if both boards are clear.
 
 ## Rules
 
-**Never write a bare id in prose.** Attach a title snippet — `PLT-9wmv (add tm standup)`, not
-`PLT-9wmv`. Ids are four random characters, chosen to be collision-proof rather than memorable,
-and this gets read on a phone away from the repo. Rendered lists are exempt: the title is already
-on the line.
+**Never write a bare id in prose** — to the user, or in a commit. `PLT-9wmv (add tm standup)`,
+not `PLT-9wmv`: four random characters, read on a phone away from the board. Rendered lists are
+exempt, the title is on the line. `commit-msg` warns and prints the text to paste, but only for
+commits — what you say to the user is enforced by nobody.
 
 - **You classify, the tool does not.** `add` always assumes the platform ledger. Decide from
   the routing rule in `llmeep/tasks/_tooling/ontology.md` and pass `-b` yourself (principle 7).

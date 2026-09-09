@@ -2673,6 +2673,69 @@ def known_ids():
     return known
 
 
+def title_of(tid):
+    """A task's title, from either board or from history. None if nothing knows
+    it — a typo, or an id from another repo."""
+    for ledger in LEDGERS:
+        try:
+            task, _ = Board(ledger).find(tid)
+        except Fail:
+            continue
+        if task:
+            return task.title
+    for row in history_rows():
+        if row["id"].lower() == tid.lower():
+            return row["title"]
+    return None
+
+
+# A task id, and whether a parenthesis follows it. `PLT-9wmv (add tm standup)`
+# is the prescribed form, so the bracket is the whole test — cheap, and it never
+# has to judge whether what follows is a good enough description.
+PROSE_ID_RE = re.compile(r"\b((?:PLT|BUS)-[A-Za-z0-9]+)(\s*\()?")
+CLOSES_LINE_RE = re.compile(r"^\s*closes\s", re.I | re.M)
+
+
+def check_bare_ids(rep, msg_path):
+    """**A task id in a commit message carries a title snippet, or it says
+    nothing.**
+
+    Ids are four random characters, collision-proof rather than memorable, and
+    a commit message is read in `git log`, in a standup and on a phone — every
+    one of them away from the board that would explain it. The rule has been in
+    the skill since it was written and is followed about half the time: measured
+    over the 16 commits to 2026-09-09, 6 mentions carried a title and 7 did not
+    (`PLT-6egb`).
+
+    Nothing mechanical had ever seen it, because the rule is about prose. A
+    commit message is the one piece of prose llmeep does hold, so it is the one
+    place the rule can be enforced rather than remembered.
+
+    **The warning carries the fix.** Looking the title up is the friction that
+    loses this rule, so the nudge prints the line to paste rather than asking
+    for one. Warns, never blocks — a message is not a record, and a gate on
+    prose is the kind that gets `--no-verify`.
+
+    `DEC-` ids are deliberately out of scope: a small stable set with
+    descriptive filenames, referenced bare throughout the tree by convention.
+    """
+    with open(msg_path) as fh:
+        msg = fh.read()
+    seen = set()
+    for line in msg.split("\n"):
+        if CLOSES_LINE_RE.match(line):
+            continue        # a machine trailer; `check_trailer` owns it
+        for m in PROSE_ID_RE.finditer(line):
+            tid = m.group(1)
+            if m.group(2) or tid in seen:
+                continue
+            seen.add(tid)
+            title = title_of(tid)
+            if title is None:
+                continue    # unknown here; not this check's business to guess
+            rep.warn(f"{tid} is bare — write `{tid} ({summarise(title, 48)})`")
+
+
 def check_trailer(rep, msg_path):
     with open(msg_path) as fh:
         msg = fh.read()
@@ -3004,6 +3067,7 @@ def cmd_check(args):
     if "--msg" in args:
         msg_path = args[args.index("--msg") + 1]
         check_trailer(rep, msg_path)
+        check_bare_ids(rep, msg_path)
         # A merge writes a message and stages a tree nobody authored here, so
         # the diff is not this author's work and the nudge would be noise.
         if not os.path.exists(_gitpath(root, "MERGE_HEAD") or ""):

@@ -105,3 +105,4 @@
 2026-08-31	PLT-b8gk	platform	park unassigns, so part-done work looks untouched; show a commit count on the board line	stewart
 2026-09-07	PLT-8evz	platform	Draft an eighth principle: the repo is the centre and the UI is how a non-technical person reaches it	stewart
 2026-09-09	PLT-yhjj	platform	Record why the repo-is-the-centre claim is an eighth principle rather than ontology guidance	stewart
+2026-09-09	PLT-6egb	platform	A task id in prose must carry a title snippet; the rule exists and is almost never followed	stewart
