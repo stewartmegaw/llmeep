@@ -230,6 +230,10 @@ agent, and the tool should take an explicit flag, argument or declaration instea
 **All knowledge, memory and planning live in the repository. Everything else is a way of
 reaching it, and holds nothing of its own.**
 
+> Appended rather than inserted, and the numbering is the order these were noticed rather than
+> a hierarchy — this one is arguably the most foundational of the eight. `DEC-048` has why.
+
+
 A terminal agent, a notification channel, a web UI, a scheduled connector: each is a means of
 access, and none of them is a place where something can be true. If a thing exists, there is a
 file. If an interface went away tomorrow, nothing would be lost but the convenience of that
