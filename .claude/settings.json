@@ -5,9 +5,9 @@
       "Skill(tm:*)",
       "Skill(nm)",
       "Skill(nm:*)",
-
       "Bash(./llmeep/tasks/_tooling/tm)",
       "Bash(./llmeep/tasks/_tooling/tm add *)",
+      "Bash(./llmeep/tasks/_tooling/tm status)",
       "Bash(./llmeep/tasks/_tooling/tm go *)",
       "Bash(./llmeep/tasks/_tooling/tm park *)",
       "Bash(./llmeep/tasks/_tooling/tm done *)",
@@ -22,7 +22,6 @@
       "Bash(./llmeep/tasks/_tooling/tm check --quiet)",
       "Bash(./llmeep/tasks/_tooling/tm check --staged *)",
       "Bash(./llmeep/tasks/_tooling/tm check --notify)",
-
       "Bash(./llmeep/notes/_tooling/nm)",
       "Bash(./llmeep/notes/_tooling/nm add *)",
       "Bash(./llmeep/notes/_tooling/nm drop *)",
@@ -32,7 +31,6 @@
       "Bash(./llmeep/notes/_tooling/nm check)",
       "Bash(./llmeep/notes/_tooling/nm check --quiet)",
       "Bash(./llmeep/notes/_tooling/nm reset)",
-
       "Bash(git status *)",
       "Bash(git log *)",
       "Bash(git diff *)",
@@ -47,6 +45,20 @@
       "Bash(./llmeep/tasks/_tooling/tm standup --send)",
       "Bash(./llmeep/notes/_tooling/nm prune --yes)",
       "Bash(./llmeep/notes/_tooling/nm reset --yes)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./llmeep/tasks/_tooling/tm status 2>/dev/null | python3 -c \"import json,sys;t=sys.stdin.read().strip();sys.stdout.write(json.dumps({'hookSpecificOutput':{'hookEventName':'SessionStart','additionalContext':t}}) if t else '')\"",
+            "timeout": 10,
+            "statusMessage": "Reading the board"
+          }
+        ]
+      }
     ]
   }
 }

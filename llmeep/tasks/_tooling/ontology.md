@@ -283,6 +283,7 @@ step. See [`DEC-003`](https://github.com/stewartmegaw/llmeep/blob/main/decisions
 | Skill  | Invocation           | Does                                                            |
 | ------ | -------------------- | --------------------------------------------------------------- |
 | `add`  | `tm add <title…>`    | Allocates the ID, files it in the `backlog` pool. `-n` prioritises it instead; `-f <name>` assigns. **Searches History.** |
+| `status` | `tm status`        | Where things stand: what is in progress, what a bare `go` would take next, and the two open counts. **Writes nothing and starts nothing** — the reason it is not `go`, which starts the top of the queue when nothing is running (`PLT-2xj3`). |
 | `go`   | `tm go [id]`         | No id: shows what is in progress, or starts the top of `prioritised` if nothing is. With an id: starts that one, from either open section. **Searches History.** |
 | `prioritise` | `tm prioritise <id> [-n]` | `backlog` → `prioritised`, at the bottom (`-n` for the top). |
 | `park` | `tm park [id] [-n]`  | Steps a task back one section: `in progress` → `prioritised` (bottom, `-n` for the top), or `prioritised` → `backlog`. Unassigns it, and folds the work done into `commits:` so the line still says it was started. A bare `park` always means the one in progress. |
@@ -403,6 +404,16 @@ agent does anything with, which is what `discuss` was for as long as nothing des
 (`PLT-gx39`).
 
 ### Vendor adapters
+
+The adapter layer also carries **triggers**, which are ergonomics of the same kind. A skill
+loads when its subject comes up, so nothing in it can fire at the start of a session — by
+definition nothing has been mentioned yet. `.claude/settings.json` therefore runs `tm status`
+on `SessionStart`, which covers a fresh start and a context clear alike, and feeds its output
+back as context. The vendor half is the event name and the JSON envelope; the answer is
+`tm status`, which any agent can run (`PLT-2xj3`, [principle 3](../../ontology/principles.md)).
+
+An agent with no such trigger loses the prompt and nothing else — which is the test an adapter
+has to pass.
 
 A wrapper that surfaces these in an agent's native skill list is **ergonomics, never logic**,
 and carries a header saying so:
@@ -621,6 +632,7 @@ Information, never a gate. No prompt, no network, no cost.
 | Command | Writes               | Git                                 |
 | ------- | -------------------- | ----------------------------------- |
 | `add`   | board line           | none                                |
+| `status`| nothing              | none                                |
 | `go`    | board, reads detail  | none                                |
 | `done`  | board, history       | none                                |
 | `find`  | nothing              | `git log --grep` to resolve commits |

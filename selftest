@@ -1102,6 +1102,122 @@ class TestAgenda(Fixture):
                          "the agenda draft is not gitignored")
 
 
+class TestStatus(Fixture):
+    """`PLT-2xj3`. A session that has just started or just been cleared holds
+    nothing, so the records are the only memory there is. `go` is the natural
+    thing to reach for and `go` starts a task — run unattended it picks work
+    nobody chose. `status` answers "where was I" without answering "what next"
+    as a side effect."""
+
+    def a_repo(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        return top
+
+    def board_bytes(self, top):
+        out = {}
+        for ledger in ("platform", "business"):
+            path = os.path.join(self.install_root(top), "tasks", ledger, "board.md")
+            with open(path, "rb") as fh:
+                out[ledger] = fh.read()
+        return out
+
+    def test_it_writes_nothing(self):
+        """The property the verb exists for. A hook runs this unattended at the
+        top of every session; anything it changed would be a change nobody
+        asked for."""
+        top = self.a_repo()
+        self.tm(top, "add", "-n", "ranked")
+        self.tm(top, "add", "pooled")
+        before = self.board_bytes(top)
+        out = self.tm(top, "status")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertEqual(self.board_bytes(top), before, "status wrote to a board")
+
+    def test_it_names_the_next_task_without_starting_it(self):
+        """The whole distinction from `go`."""
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "Migrate the config loader").stdout.strip()
+        out = self.tm(top, "status").stdout
+        self.assertIn("nothing in progress", out)
+        self.assertIn(tid, out)
+        with open(os.path.join(self.install_root(top),
+                               "tasks", "platform", "board.md")) as fh:
+            body = fh.read()
+        self.assertIn(tid, body.split("## prioritised")[1].split("##")[0],
+                      "status started the task it was only meant to name")
+
+    def test_it_reports_what_is_in_progress(self):
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "Migrate the config loader").stdout.strip()
+        self.tm(top, "go", tid)
+        out = self.tm(top, "status").stdout
+        self.assertIn("in progress", out)
+        self.assertIn(tid, out)
+        self.assertIn("Migrate the config loader", out)
+
+    def test_an_unranked_pool_says_so_rather_than_picking(self):
+        """`DEC-027`: the pool has no order, so there is no next to name. Saying
+        nothing is ranked is the honest answer; picking one would be the tool
+        choosing someone's work."""
+        top = self.a_repo()
+        self.tm(top, "add", "pooled")
+        out = self.tm(top, "status").stdout
+        self.assertIn("nothing ranked", out)
+        self.assertIn("1 in the backlog", out)
+
+    def test_it_takes_no_arguments(self):
+        top = self.a_repo()
+        self.assertNotEqual(self.tm(top, "status", "PLT-0000").returncode, 0)
+
+    def test_the_adapter_runs_it_at_session_start(self):
+        """The trigger is vendor-specific and the answer is not: a skill loads
+        when its subject comes up, so nothing in one can fire before anything
+        has been mentioned. The hook belongs in the adapter; `tm status` is what
+        any agent can run."""
+        top = self.a_repo()
+        with open(os.path.join(top, ".claude", "settings.json")) as fh:
+            cfg = json.load(fh)
+        entries = cfg.get("hooks", {}).get("SessionStart", [])
+        self.assertTrue(entries, "no SessionStart hook was installed")
+        commands = [h["command"] for e in entries for h in e["hooks"]
+                    if h.get("type") == "command"]
+        self.assertTrue(any("tm status" in c for c in commands),
+                        f"the SessionStart hook does not run tm status: {commands}")
+        self.assertTrue(any("SessionStart" in c for c in commands),
+                        "the hook does not name the event in its output envelope")
+
+    def test_the_hook_command_is_rerooted_for_a_named_folder(self):
+        """`PLT-wxr5` again, in a new place: a nested install rewrites paths in
+        `settings.json`, and a hook command is one. Left alone it would name a
+        `tm` that is not there and fail silently at every session start."""
+        top = self.a_project(name="nested")
+        self.adopt(self.working_copy(), top, "--into", "ops")
+        with open(os.path.join(top, ".claude", "settings.json")) as fh:
+            cfg = json.load(fh)
+        commands = [h["command"] for e in cfg["hooks"]["SessionStart"]
+                    for h in e["hooks"]]
+        self.assertTrue(all("ops/tasks/_tooling/tm" in c for c in commands), commands)
+        self.assertFalse(any("llmeep/tasks" in c for c in commands),
+                         "the hook still points at the default folder")
+
+    def test_the_hook_command_actually_produces_context(self):
+        """Pipe the payload the hook receives through the exact string
+        `settings.json` holds. A hook that emits nothing usable fails silently,
+        which is the failure mode worth a test."""
+        top = self.a_repo()
+        self.tm(top, "add", "-n", "Migrate the config loader")
+        with open(os.path.join(top, ".claude", "settings.json")) as fh:
+            cmd = json.load(fh)["hooks"]["SessionStart"][0]["hooks"][0]["command"]
+        out = sh("bash", "-c", cmd, cwd=top)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        payload = json.loads(out.stdout)
+        context = payload["hookSpecificOutput"]["additionalContext"]
+        self.assertEqual(payload["hookSpecificOutput"]["hookEventName"], "SessionStart")
+        self.assertIn("Migrate the config loader", context)
+
+
 class TestPark(Fixture):
     """`DEC-036`. Demoting a ranked task was the one board transition with no
     verb, so it meant editing `board.md` — which for an agent is a lesson in

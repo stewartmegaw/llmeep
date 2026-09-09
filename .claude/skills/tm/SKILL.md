@@ -14,6 +14,7 @@ Run from the repo root:
 
 ```sh
 llmeep/tasks/_tooling/tm add [-b] [-n] <title...>   # -b business ledger, -n prioritise it
+llmeep/tasks/_tooling/tm status                     # where things stand; starts nothing
 llmeep/tasks/_tooling/tm go [id]                    # show the current task, or start the next one
 llmeep/tasks/_tooling/tm prioritise <id> [-n]       # backlog → prioritised, -n for the top
 llmeep/tasks/_tooling/tm park [id] [-n]             # step it back one section, unassigned
@@ -45,7 +46,8 @@ for the next person here.
 
 | They say | You run |
 | --- | --- |
-| "what's next" / "what am I on" | `tm go` |
+| "what am I on" / "where were we" | `tm status` — reads, never starts. A `SessionStart` hook already ran it |
+| "what's next" / "start the next thing" | `tm go` — **starts** the top of the queue if nothing is running |
 | "let's start PLT-9puy" | `tm go PLT-9puy` |
 | "add a task for X" | `tm add X` — pass `-b` if the done-state is a business outcome |
 | "that's the next thing" / "move X up" | `tm prioritise <id>`, `-n` for the top |

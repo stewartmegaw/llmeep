@@ -1465,6 +1465,60 @@ def cmd_prioritise(args):
             raise Fail(f"no task {tid}")
 
 
+def cmd_status(args):
+    """**Where was I.** What is in progress, what a bare `go` would start next,
+    and how much is open. Read-only, and that is the whole reason it exists.
+
+    `go` is the natural thing to reach for at the top of a session, and `go`
+    *starts* a task — run unattended it picks work nobody chose. So the question
+    "what is the state of things" needed a verb that answers it without
+    answering "what should I do next" as a side effect (`PLT-2xj3`).
+
+    Written for a session that has just begun or just been cleared, where the
+    records are the only memory there is (`DEC-043`, [principle 8]). Short on
+    purpose: it orients, and the board is one command away when more is wanted.
+    """
+    if args:
+        raise Fail("status takes no arguments")
+    lines, ranked, pooled, boards = [], 0, 0, []
+    for ledger in LEDGERS:
+        try:
+            board = Board(ledger)
+        except Fail:
+            continue
+        boards.append(board)
+        for task in board.in_progress:
+            who = f" · @{task.assignee}" if task.assignee else ""
+            lines.append(f"  in progress  {task.id}  {task.title}")
+            lines.append(f"               {ledger}{who}")
+            if task.commits:
+                n = task.commits
+                lines.append(f"               {n} commit{'s' if n != 1 else ''} behind it already")
+            blocker = board.is_blocked(task)
+            if blocker:
+                lines.append(f"               ! blocked by {blocker}")
+            detail = detail_doc(detail_path(ledger, task.id))
+            if detail:
+                lines.append(f"               detail: {os.path.relpath(detail, REPO)}")
+        ranked += len(board.prioritised)
+        pooled += len(board.backlog)
+
+    print()
+    if lines:
+        print("\n".join(lines))
+    else:
+        print("  nothing in progress")
+        # What a bare `go` would take, named rather than taken. Saying which
+        # task is next is orientation; starting it is a decision.
+        nxt = next((t for b in boards for t in b.prioritised
+                    if not b.is_blocked(t)), None)
+        if nxt:
+            print(f"  next up      {nxt.id}  {nxt.title}")
+        elif pooled:
+            print("  nothing ranked — `tm go <id>`, or prioritise something first")
+    print(f"\n  {ranked} prioritised · {pooled} in the backlog\n")
+
+
 def cmd_park(args):
     """**Step a task back one section.** `in progress` → `prioritised` →
     `backlog`, and no further.
@@ -3094,6 +3148,7 @@ USAGE = """tm — taskman
 
   tm add [-b] [-n] [-f who]     file a task in the backlog (-b business,
          [--id]                 -n prioritises it, -f assigns; --id prints the id)
+  tm status                     where things stand; starts nothing, writes nothing
   tm go [id] [-f who]           show your current task, or start the next one
   tm prioritise <id> [-n]       backlog → prioritised (-n puts it on top)
   tm park [id] [-n]             step it back one section (-n for the top of prioritised)
@@ -3307,6 +3362,7 @@ def main():
         "add": cmd_add, "go": cmd_go, "park": cmd_park,
         "prioritise": cmd_prioritise, "prioritize": cmd_prioritise,
         "done": cmd_done, "drop": cmd_drop, "detail": cmd_detail,
+        "status": cmd_status,
         "find": cmd_find, "why": cmd_why,
         "standup": cmd_standup, "agenda": cmd_agenda, "ontology": cmd_ontology,
         "feedback": cmd_feedback, "audience": cmd_audience,
