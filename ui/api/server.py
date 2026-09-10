@@ -440,9 +440,27 @@ class Handler(BaseHTTPRequestHandler):
         sys.stderr.write("  %s\n" % (fmt % args))
 
 
+def trust_repo():
+    """Tell git this mounted repo is not a stranger.
+
+    A bind mount carries the host's ownership, and git refuses to operate on a
+    repository owned by someone other than the user running it — *dubious
+    ownership*, which is a sensible default and exactly wrong here: the mount is
+    the whole point. It does not bite on Docker Desktop, which maps everything
+    to root, so the failure waits for the Linux cluster this is meant to run in.
+
+    Global rather than per-call, because `tm` shells out to git on its own
+    account and would hit the same wall — quietly, since it treats a failed git
+    call as no answer. The config lives in the container and dies with it.
+    """
+    subprocess.run(["git", "config", "--global", "--add", "safe.directory", REPO],
+                   capture_output=True, text=True, timeout=TIMEOUT)
+
+
 def main():
     if not REPO or not os.path.isdir(REPO):
         sys.exit("set LLMEEP_REPO to the mounted repo")
+    trust_repo()
     if not AUTH_HANDLED:
         sys.stderr.write("\n" + refusal() + "\n")
     sys.stderr.write(f"  llmeep chrome on :{PORT} at {BASE} — repo {REPO}\n")
