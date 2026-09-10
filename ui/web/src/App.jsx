@@ -1,10 +1,11 @@
 import React from 'react'
 import {
-  Alert, AppBar, Box, Chip, CircularProgress, Container, IconButton,
-  List, ListItem, ListItemText, Paper, Stack, Tab, Tabs, TextField,
-  Toolbar, Typography,
+  Alert, AppBar, Box, Button, Chip, CircularProgress, Container, Dialog,
+  DialogContent, DialogTitle, Divider, IconButton, List, ListItem,
+  ListItemButton, ListItemText, Paper, Stack, Tab, Tabs, TextField, Toolbar,
+  Typography,
 } from '@mui/material'
-import Read from './Read.jsx'
+import Read, { Doc, size } from './Read.jsx'
 
 // Where this is mounted. The server injects it; a dev server has none.
 const BASE = (window.LLMEEP_BASE || '').replace(/\/$/, '')
@@ -23,6 +24,18 @@ export default function App() {
   const [loading, setLoading] = React.useState(true)
   const [canWrite, setCanWrite] = React.useState(false)
   const [tab, setTab] = React.useState('board')
+  const [docs, setDocs] = React.useState([])
+  const [detail, setDetail] = React.useState(null)
+  // How much room the composer is taking, so nothing ends up underneath it.
+  // Measured rather than guessed: it grows as the exchange does.
+  const [bottom, setBottom] = React.useState(0)
+
+  // Fetched once and shared. The board says a task *has* a detail; the
+  // catalogue is what knows how to open it.
+  React.useEffect(() => {
+    fetch(`${BASE}/api/docs`).then((r) => r.json())
+      .then((d) => setDocs(d.docs || [])).catch(() => {})
+  }, [])
 
   React.useEffect(() => {
     fetch(`${BASE}/api/config`).then((r) => r.json())
@@ -41,7 +54,7 @@ export default function App() {
   React.useEffect(load, [load])
 
   return (
-    <Box sx={{ pb: 6 }}>
+    <Box sx={{ pb: `calc(${bottom}px + 24px)` }}>
       <AppBar position="sticky" color="default" elevation={0}
               sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Toolbar sx={{ minHeight: 52 }}>
@@ -71,10 +84,15 @@ export default function App() {
         {tab === 'read'
           ? <Read base={BASE} />
           : board && Object.entries(board).map(([ledger, sections]) => (
-              <Ledger key={ledger} name={ledger} sections={sections} />
+              <Ledger key={ledger} name={ledger} sections={sections}
+                      docs={docs} onDetail={setDetail} />
             ))}
       </Container>
-      {canWrite && tab === 'board' && <Say onDone={load} />}
+      {/* On both tabs. The agent can promote a note or reword a task from
+          either, and a question it asked must not vanish because someone
+          looked something up while thinking about the answer. */}
+      {canWrite && <Say onDone={load} onHeight={setBottom} />}
+      <DetailSheet head={detail} docs={docs} onClose={() => setDetail(null)} />
     </Box>
   )
 }
@@ -87,10 +105,28 @@ export default function App() {
 // conversation this is, and losing it costs the talk and never a record.
 const SESSION = Math.random().toString(36).slice(2)
 
-function Say({ onDone }) {
+function Say({ onDone, onHeight }) {
   const [text, setText] = React.useState('')
   const [busy, setBusy] = React.useState(false)
   const [turns, setTurns] = React.useState([])
+  const box = React.useRef(null)
+  const tail = React.useRef(null)
+
+  // Fixed to the bottom, so the page has to be told how tall it is. A
+  // ResizeObserver rather than a constant, because the exchange above the input
+  // changes that height every time either side says something.
+  React.useEffect(() => {
+    if (!box.current || !onHeight) return
+    const watch = new ResizeObserver(([e]) => onHeight(e.contentRect.height))
+    watch.observe(box.current)
+    return () => watch.disconnect()
+  }, [onHeight])
+
+  // The newest turn, not the oldest. A reply you have to scroll to find is one
+  // you will assume never came.
+  React.useEffect(() => {
+    tail.current?.scrollIntoView({ block: 'end', behavior: 'smooth' })
+  }, [turns, busy])
 
   function send() {
     if (!text.trim() || busy) return
@@ -116,21 +152,35 @@ function Say({ onDone }) {
 
   return (
     <Paper
+      ref={box}
       elevation={3}
       square
       sx={{
-        position: 'sticky', bottom: 0, mt: 3, py: 1.5,
-        borderTop: 1, borderColor: 'divider',
+        // Fixed, not sticky. Sticky only pins once the page is long enough to
+        // scroll, so on a short board the box drifted up into the middle of
+        // nowhere — which is where this started.
+        position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 1200,
+        pt: 1.5, borderTop: 1, borderColor: 'divider',
         // Clear of the home indicator on a phone.
         pb: 'calc(12px + env(safe-area-inset-bottom))',
       }}
     >
       <Container maxWidth="sm" sx={{ px: 2 }}>
         {turns.length > 0 && (
-          <Box sx={{ maxHeight: '40vh', overflowY: 'auto', mb: 1.5 }}>
-            {turns.map((t, i) => (
-              <Turn key={i} turn={t} />
-            ))}
+          <Box sx={{ maxHeight: '45vh', overflowY: 'auto', mb: 1.5 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 0.5 }}>
+              <Button size="small" onClick={() => setTurns([])}
+                      sx={{ textTransform: 'none', minWidth: 0 }}>
+                Clear
+              </Button>
+            </Box>
+            {turns.map((t, i) => <Turn key={i} turn={t} />)}
+            {busy && (
+              <Box sx={{ textAlign: 'center', py: 1 }}>
+                <CircularProgress size={16} />
+              </Box>
+            )}
+            <Box ref={tail} />
           </Box>
         )}
         <Stack direction="row" spacing={1} alignItems="flex-end">
@@ -156,7 +206,7 @@ function Say({ onDone }) {
   )
 }
 
-function Ledger({ name, sections }) {
+function Ledger({ name, sections, docs, onDetail }) {
   const live = SECTIONS.filter(([key]) => sections[key]?.length)
   if (!live.length) return null
   return (
@@ -169,7 +219,8 @@ function Ledger({ name, sections }) {
           </Typography>
           <List disablePadding sx={{ border: 1, borderColor: 'divider', borderRadius: 2 }}>
             {sections[key].map((task, i) => (
-              <Task key={task.id} task={task} divider={i < sections[key].length - 1} />
+              <Task key={task.id} task={task} docs={docs} onDetail={onDetail}
+                    divider={i < sections[key].length - 1} />
             ))}
           </List>
         </Box>
@@ -181,28 +232,65 @@ function Ledger({ name, sections }) {
 // The title is the handle, not the id. `PLT-6yjz` is four random characters
 // nobody can hold in their head, and this screen is for people who should never
 // have to (`PLT-6egb`).
-function Task({ task, divider }) {
+// A paperclip, inline rather than pulled from an icon package. One shape does
+// not justify a dependency, and drawn here it takes the chip's own colour.
+function Clip(props) {
+  return (
+    <Box component="svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+         sx={{ width: 15, height: 15 }} {...props}>
+      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1
+               5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+    </Box>
+  )
+}
+
+function Task({ task, docs, onDetail, divider }) {
+  // The board's `detail` is a path; the catalogue's id is what opens it.
+  const head = task.detail && docs.find((d) => d.path === task.detail)
+  // Everything openable for this task: the detail itself, plus whatever else
+  // is in its folder. Never zero — the chip only exists when there is one.
+  const items = head ? 1 + docs.filter((d) => d.parent === head.id).length : null
   return (
     <ListItem divider={divider} alignItems="flex-start" sx={{ py: 1.25 }}>
       <ListItemText
         primary={task.title}
         primaryTypographyProps={{ sx: { lineHeight: 1.35 } }}
         secondary={
-          <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 0.75 }}>
-            {task.assignee
-              ? <Chip size="small" label={`@${task.assignee}`} />
-              : <Chip size="small" variant="outlined" label="unassigned" />}
-            {task.commits > 0 && (
-              <Chip size="small" color="success" variant="outlined"
-                    label={`${task.commits} commit${task.commits === 1 ? '' : 's'} in`} />
+          <Box sx={{ mt: 0.75 }}>
+            {task.detail && (
+              // On its own line above the rest, and a button rather than a
+              // chip. Everything else on this card is a label describing the
+              // task; this is the one thing that does something, and it should
+              // not have to be told apart from four things that do not.
+              //
+              // It opens where you are — sending someone to another tab to read
+              // what they just tapped asks them to hold a place in their head
+              // and come back to it.
+              <Button
+                size="small" variant="outlined" startIcon={<Clip />}
+                disabled={!head}
+                onClick={head ? () => onDetail(head) : undefined}
+                sx={{ mb: 1, textTransform: 'none', py: 0.25 }}
+              >
+                {items ? `Attachments ${items}` : 'Attachments'}
+              </Button>
             )}
-            {task.blocked_by && (
-              <Chip size="small" color="warning" variant="outlined" label="blocked" />
-            )}
-            {task.detail && <Chip size="small" variant="outlined" label="has detail" />}
-            <Chip size="small" variant="outlined" label={task.id}
-                  sx={{ opacity: 0.5, fontFamily: 'ui-monospace, monospace' }} />
-          </Stack>
+            <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+              {task.assignee
+                ? <Chip size="small" label={`@${task.assignee}`} />
+                : <Chip size="small" variant="outlined" label="unassigned" />}
+              {task.commits > 0 && (
+                <Chip size="small" color="success" variant="outlined"
+                      label={`${task.commits} commit${task.commits === 1 ? '' : 's'} in`} />
+              )}
+              {task.blocked_by && (
+                <Chip size="small" color="warning" variant="outlined" label="blocked" />
+              )}
+              <Chip size="small" variant="outlined" label={task.id}
+                    sx={{ opacity: 0.5, fontFamily: 'ui-monospace, monospace' }} />
+            </Stack>
+          </Box>
         }
         secondaryTypographyProps={{ component: 'div' }}
       />
@@ -232,5 +320,72 @@ function Turn({ turn }) {
         </Stack>
       )}
     </Alert>
+  )
+}
+
+// A detail, opened over the board rather than instead of it. Its attachments
+// are listed underneath and open in the same sheet, so a folder detail is one
+// thing to read and one thing to close.
+function DetailSheet({ head, docs, onClose }) {
+  const [shown, setShown] = React.useState(null)
+  const [text, setText] = React.useState(null)
+
+  const open = shown || head
+  const attachments = head ? docs.filter((d) => d.parent === head.id) : []
+
+  React.useEffect(() => {
+    setShown(null)
+  }, [head])
+
+  React.useEffect(() => {
+    setText(null)
+    if (!open || (open.kind !== 'text' && open.kind !== 'table')) return
+    let live = true
+    fetch(`${BASE}/api/doc?id=${encodeURIComponent(open.id)}`)
+      .then((r) => r.json())
+      .then((d) => live && setText(d))
+      .catch(() => {})
+    return () => { live = false }
+  }, [open])
+
+  if (!head) return null
+  const doc = text && text.id === open.id ? text : open
+  return (
+    <Dialog open fullScreen onClose={onClose}>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, pr: 1 }}>
+        {shown && (
+          <IconButton size="small" onClick={() => setShown(null)} aria-label="Back to the detail">
+            <span aria-hidden>←</span>
+          </IconButton>
+        )}
+        <Box sx={{ flexGrow: 1, fontSize: '1rem', overflowWrap: 'anywhere' }}>
+          {open.title}
+        </Box>
+        <IconButton onClick={onClose} aria-label="Close">
+          <span aria-hidden>✕</span>
+        </IconButton>
+      </DialogTitle>
+      <DialogContent dividers>
+        <Doc doc={doc} base={BASE} />
+        {!shown && attachments.length > 0 && (
+          <Box sx={{ mt: 3 }}>
+            <Divider sx={{ mb: 1 }} />
+            <Typography variant="overline" color="text.secondary">
+              Also here ({attachments.length})
+            </Typography>
+            <List disablePadding
+                  sx={{ border: 1, borderColor: 'divider', borderRadius: 2, mt: 0.5 }}>
+              {attachments.map((a, i) => (
+                <ListItemButton key={a.id} divider={i < attachments.length - 1}
+                                onClick={() => setShown(a)}>
+                  <ListItemText primary={a.title}
+                                secondary={`${a.kind} · ${size(a.bytes)}`} />
+                </ListItemButton>
+              ))}
+            </List>
+          </Box>
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }

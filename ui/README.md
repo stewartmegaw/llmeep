@@ -42,7 +42,7 @@ missing this one is your private records on a public URL.
 | `LLMEEP_AUTH_HANDLED` | yes | Any non-empty value. Your assertion that something in front of this handles access. |
 | `LLMEEP_BASE_PATH` | no | Where it is mounted, e.g. `/llmeep`. Default `/`. |
 | `LLMEEP_PORT` | no | Default `8080`. |
-| `CHROME_KEY` `CHROME_MODEL` `CHROME_BASE` | for writing | The model that reads what someone typed. Unset means the text box is not offered and the app is read-only. |
+| `CHROME_KEY` `CHROME_MODEL` `CHROME_BASE` | for writing | The model that reads what someone typed. **Put these in the repo's `.env`**, beside `REVIEW_*` — the container reads it, and it is already gitignored. Unset means the text box is not offered and the app is read-only. |
 | `LLMEEP_GIT_NAME` `LLMEEP_GIT_EMAIL` | no | Who its commits are from. Defaults to *llmeep chrome*, not to you. |
 
 ## The model is an endpoint, not a vendor
@@ -52,7 +52,15 @@ reaches OpenAI, Anthropic's compatible endpoint, Groq, OpenRouter or something o
 machine. Your key, your budget, your choice of model — and no vendor is privileged in anything
 llmeep installs.
 
-    -e CHROME_BASE=https://api.openai.com/v1 -e CHROME_KEY=sk-... -e CHROME_MODEL=gpt-4.1
+In `llmeep/.env`, next to the reviewers you have already configured:
+
+    CHROME_BASE=https://api.openai.com/v1
+    CHROME_KEY=sk-...
+    CHROME_MODEL=gpt-4.1
+
+Read on each request, so a line added there takes effect on the next page load rather than at
+the next restart. Container environment variables of the same names still win, for a deployment
+that would rather inject secrets than mount them.
 
 ## Reading is wider than writing
 
@@ -65,9 +73,24 @@ Markdown is rendered rather than shown raw, because the records are written mach
 ([principle 1](../llmeep/ontology/principles.md)) and that is only affordable if a person reads
 them somewhere else. This is that somewhere else.
 
-**It opens a catalogue, never a path.** The list of readable documents is built server-side and
-a request names an id from it, so there is no path to traverse and nothing outside the records
-can be reached — `?id=../../../etc/passwd` opens nothing, and there is a test that says so.
+**A detail opens where you are.** Tapping *has detail* on a board card opens it over the board,
+with everything else in that folder listed underneath and opening in the same sheet — sending
+someone to another tab to read the thing they just tapped is asking them to hold a place in
+their head and come back to it.
+
+The same details are listed under *Other* too, with everything a folder detail holds beside its
+`README.md` indented under it — `DEC-011` lets a task carry a spec *and* a rubric *and* sample data, and the
+board could say `has detail` while offering no way to open any of it.
+
+**Everything is served.** Markdown renders, `csv` and `tsv` render as rows, images and PDFs
+render in place, and anything else downloads. A CSV is the case worth naming: showing it raw is
+a column of commas on a phone and hiding it behind a download is refusing to show someone their
+own attachment. As a table it is neither.
+
+**It opens a catalogue, never a path.** The list is built server-side and a request names an id
+from it, so there is no path to traverse and nothing outside the records can be reached —
+`?id=../../../etc/passwd` opens nothing, for documents and for bytes alike, and there are tests
+that say so.
 
 ## It is a wrapper, not a second implementation
 

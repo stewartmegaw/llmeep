@@ -33,14 +33,55 @@ GIT_EMAIL = os.environ.get("LLMEEP_GIT_EMAIL", "chrome@llmeep.invalid")
 
 TIMEOUT = 20
 
-# The model configuration, in the shape `tm review` already ships (`DEC-039`):
-# an endpoint rather than a vendor, the adopter's own key, and a model that is
-# required rather than defaulted — a wrong default bills someone for a call that
-# was never going to work. Empty means the text box is simply not offered.
-LLM_KEY = os.environ.get("CHROME_KEY", "").strip()
-LLM_BASE = os.environ.get("CHROME_BASE", "").strip().rstrip("/")
-LLM_MODEL = os.environ.get("CHROME_MODEL", "").strip()
 LLM_TIMEOUT = 60
+
+
+def setting(name):
+    """A setting, from the container's environment or from the repo's `.env`.
+
+    **The repo's `.env` is the point.** It is where `tm` already looks, it is
+    already gitignored, and it is already how `REVIEW_*` is configured — asking
+    someone to put the same kind of secret in a second place, in a `docker run`
+    line, is inventing a configuration mechanism next to the one that exists.
+
+    Read on each call rather than at import, so adding a line to `.env` takes
+    effect on the next page load instead of a container restart.
+    """
+    live = os.environ.get(name, "").strip()
+    if live:
+        return live
+    try:
+        with open(os.path.join(records_root(), ".env")) as fh:
+            for line in fh:
+                line = line.strip()
+                if line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                if key.strip() == name:
+                    return value.strip().strip("'\"")
+    except OSError:
+        pass
+    return ""
+
+
+# The model, in the shape `tm review` already ships (`DEC-039`): an endpoint
+# rather than a vendor, the adopter's own key, and a model that is required
+# rather than defaulted — a wrong default bills someone for a call that was
+# never going to work. Unset means the text box is simply not offered.
+def llm_key():
+    return setting("CHROME_KEY")
+
+
+def llm_base():
+    return setting("CHROME_BASE").rstrip("/")
+
+
+def llm_model():
+    return setting("CHROME_MODEL")
+
+
+def can_write():
+    return bool(llm_key() and llm_base() and llm_model())
 
 # **The whole surface, and the whole constraint.** This app is a small wrapper
 # around the same agent a terminal gives you, and the wrapping is this table: a
@@ -55,6 +96,11 @@ LLM_TIMEOUT = 60
 TOOLS = {
     # Reading. Free, and the reason the agent can answer rather than guess.
     "board":      lambda a: ("tm", ["board"], None),
+    # The tm skill's first line is "run `tm audience` first and write the way
+    # it says". Without this the agent is handed an instruction it cannot
+    # follow, and `USER_TYPE` — which `DEC-040` added for exactly this — never
+    # reaches the person it describes.
+    "audience":   lambda a: ("tm", ["audience"], None),
     "notes":      lambda a: ("nm", ["find", a.get("term", "")], None),
     "find":       lambda a: ("tm", ["find", a["term"]], None),
     "why":        lambda a: ("tm", ["why", a["term"]], None),
@@ -83,7 +129,7 @@ TOOLS = {
 }
 
 # Tools that change nothing, so a turn using only these commits nothing.
-READ_ONLY = {"board", "notes", "find", "why"}
+READ_ONLY = {"board", "audience", "notes", "find", "why"}
 
 # A turn is bounded. An agent that cannot finish in this many steps is looping,
 # and the person is holding a phone.
@@ -130,7 +176,8 @@ They may not be a developer, and they are reading this on a phone.
 # Argument shapes. The verbs are the skills'; these say what this app needs in
 # order to call them.
 TOOL_ARGS = {
-    "board": "{}", "notes": '{"term": "..."}  (empty term lists everything)',
+    "board": "{}", "audience": "{}",
+    "notes": '{"term": "..."}  (empty term lists everything)',
     "find": '{"term": "..."}', "why": '{"term": "..."}',
     "add": '{"title": "...", "ledger": "platform|business", "prioritise": bool}',
     "retitle": '{"id": "...", "title": "..."}',
@@ -246,6 +293,10 @@ READABLE = [
                       "notes/_tooling/ontology.md"]),
 ]
 
+# What renders in place, and what is offered as a download. Everything is
+# served; the only question is whether a browser can show it (`PLT-6yjz`).
+INLINE_KINDS = ("text", "table", "image", "pdf")
+
 # A blank form is not a document. `_template.md` and `domain-template.md` are
 # there to be copied, and listing them offers a reader "<EntityName>" as though
 # it were something to read — which is what the first run of this did.
@@ -277,23 +328,82 @@ def catalogue():
             if not os.path.isfile(full) or name.startswith(NOT_A_DOCUMENT) \
                     or "template" in name:
                 continue
-            out.append({
-                "id": hashlib.sha256(full.encode()).hexdigest()[:16],
-                "group": group,
-                "title": doc_title(full),
-                "path": os.path.relpath(full, root),
-            })
+            out.append(entry(full, root, group))
+    out.extend(details(root))
     # The adopter's own domain ontology, wherever they keep it (`DEC-031`). Not
     # a guess: `tm ontology` recorded the path and `.llmeep` carries it.
     where = manifest_ontology()
     if where:
         full = os.path.join(REPO, where)
         if os.path.isfile(full):
-            import hashlib as _h
-            out.append({"id": _h.sha256(full.encode()).hexdigest()[:16],
-                        "group": "How it works", "title": doc_title(full),
-                        "path": where})
+            row = entry(full, REPO, "How it works")
+            row["path"] = where
+            out.append(row)
     return out
+
+
+def details(root):
+    """Task details, and everything a folder detail holds beside its README.
+
+    `DEC-011` lets a detail be a folder when a task needs a spec *and* a rubric
+    *and* sample data, and until now the board could say `has detail` while
+    offering no way to open it. A file that a browser cannot render is still
+    served — named, sized and downloadable — because deciding on someone's
+    behalf which of their own attachments they may see is not this app's call.
+    """
+    import glob
+    import hashlib
+    out = []
+    for path in sorted(glob.glob(os.path.join(root, "tasks", "*", "tasks", "*"))):
+        name = os.path.basename(path)
+        if name.startswith(NOT_A_DOCUMENT):
+            continue
+        if os.path.isfile(path) and name.endswith(".md"):
+            out.append(entry(path, root, "Task details"))
+        elif os.path.isdir(path):
+            readme = os.path.join(path, "README.md")
+            parent = None
+            if os.path.isfile(readme):
+                head = entry(readme, root, "Task details")
+                parent = head["id"]
+                out.append(head)
+            for extra in sorted(os.listdir(path)):
+                if extra == "README.md" or extra.startswith(NOT_A_DOCUMENT):
+                    continue
+                full = os.path.join(path, extra)
+                if os.path.isfile(full):
+                    item = entry(full, root, "Task details")
+                    item["title"] = extra
+                    item["parent"] = parent
+                    out.append(item)
+    return out
+
+
+def entry(full, root, group):
+    """One catalogue row. `kind` is what the browser should do with it, decided
+    here so the front end never has to guess from a file extension."""
+    import hashlib
+    ctype = mimetypes.guess_type(full)[0] or "application/octet-stream"
+    # What renders in place, and what downloads.
+    #
+    # A table rather than a download was the right answer for `csv`, and the
+    # first pass got it wrong twice — inline as raw text, which is a column of
+    # commas on a phone, then a download, which is refusing to show someone
+    # their own attachment. Rendered as rows it is neither.
+    if full.endswith(".md"):
+        kind, ctype = "text", "text/markdown"
+    elif full.endswith((".csv", ".tsv")):
+        kind = "table"
+    elif ctype.startswith("image/"):
+        kind = "image"
+    elif ctype == "application/pdf":
+        kind = "pdf"
+    else:
+        kind = "file"
+    return {"id": hashlib.sha256(full.encode()).hexdigest()[:16],
+            "group": group, "title": doc_title(full) if kind == "text" else os.path.basename(full),
+            "path": os.path.relpath(full, root), "kind": kind, "type": ctype,
+            "bytes": os.path.getsize(full)}
 
 
 def manifest_ontology():
@@ -320,18 +430,28 @@ def doc_title(full):
     return os.path.basename(full)
 
 
-def read_doc(doc_id):
-    """Open one catalogued document. The catalogue is rebuilt and the id looked
-    up in it, so an id that is not on the list opens nothing."""
+def locate(doc_id):
+    """The catalogued file behind an id, or nothing.
+
+    Rebuilt and looked up on every request, so an id this app never issued
+    resolves to nothing at all and there is no path for a caller to bend."""
     entry = next((d for d in catalogue() if d["id"] == doc_id), None)
     if not entry:
         raise RuntimeError("no such document")
     full = os.path.join(records_root(), entry["path"])
     if not os.path.isfile(full):
         full = os.path.join(REPO, entry["path"])
-    with open(full) as fh:
-        return {"title": entry["title"], "group": entry["group"],
-                "path": entry["path"], "text": without_frontmatter(fh.read())}
+    if not os.path.isfile(full):
+        raise RuntimeError("that file has gone")
+    return entry, full
+
+
+def read_doc(doc_id):
+    """Open one catalogued document. The catalogue is rebuilt and the id looked
+    up in it, so an id that is not on the list opens nothing."""
+    entry, full = locate(doc_id)
+    with open(full, errors="replace") as fh:
+        return {**entry, "text": without_frontmatter(fh.read())}
 
 
 FRONTMATTER = re.compile(r"\A---\n.*?\n---\n", re.S)
@@ -493,15 +613,16 @@ def ask_model(log):
     OpenRouter or something on the adopter's own machine. No vendor is
     privileged here and none should be (principle 3)."""
     import urllib.request
-    if not (LLM_KEY and LLM_MODEL and LLM_BASE):
-        raise RuntimeError("no model configured — set CHROME_KEY, CHROME_MODEL and CHROME_BASE")
+    if not can_write():
+        raise RuntimeError("no model configured — put CHROME_KEY, CHROME_MODEL and "
+                           "CHROME_BASE in the repo's .env, beside REVIEW_*")
     body = json.dumps({
-        "model": LLM_MODEL,
+        "model": llm_model(),
         "messages": [{"role": "system", "content": agent_prompt()}, *log],
     }).encode()
     req = urllib.request.Request(
-        f"{LLM_BASE}/chat/completions", data=body,
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {LLM_KEY}"})
+        f"{llm_base()}/chat/completions", data=body,
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {llm_key()}"})
     with urllib.request.urlopen(req, timeout=LLM_TIMEOUT) as resp:
         answer = json.loads(resp.read())["choices"][0]["message"]["content"]
     return json.loads(strip_fence(answer))
@@ -607,15 +728,13 @@ class Handler(BaseHTTPRequestHandler):
         if not AUTH_HANDLED:
             return self.send_text(503, refusal())
         if path == "/api/config":
-            return self.send_json(200, {"can_write": bool(LLM_KEY and LLM_MODEL and LLM_BASE)})
+            return self.send_json(200, {"can_write": can_write()})
         if path == "/api/docs":
             return self.send_json_from(lambda: {"docs": catalogue()})
         if path == "/api/doc":
-            wanted = ""
-            if "?" in self.path:
-                from urllib.parse import parse_qs
-                wanted = parse_qs(self.path.split("?", 1)[1]).get("id", [""])[0]
-            return self.send_json_from(lambda: read_doc(wanted))
+            return self.send_json_from(lambda: read_doc(self.query("id")))
+        if path == "/api/file":
+            return self.send_file(self.query("id"))
         if path == "/api/board":
             return self.send_json_from(lambda: json.loads(tm("board", "--json")))
         if path == "/api/status":
@@ -643,6 +762,35 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(200, act(text, session))
         except Exception as exc:                       # noqa: BLE001 — reported, not raised
             self.send_json(500, {"error": str(exc)})
+
+    def query(self, key):
+        if "?" not in self.path:
+            return ""
+        from urllib.parse import parse_qs
+        return parse_qs(self.path.split("?", 1)[1]).get(key, [""])[0]
+
+    def send_file(self, doc_id):
+        """Bytes, with the type the catalogue worked out.
+
+        Inline for anything a browser renders and an attachment for the rest —
+        everything is served either way. `Content-Disposition` is the only
+        difference, so a spreadsheet attached to a task downloads instead of
+        filling the screen with mojibake."""
+        try:
+            entry, full = locate(doc_id)
+        except Exception as exc:                       # noqa: BLE001
+            return self.send_json(404, {"error": str(exc)})
+        with open(full, "rb") as fh:
+            raw = fh.read()
+        inline = entry["kind"] in INLINE_KINDS
+        name = os.path.basename(entry["path"]).replace('"', "")
+        self.send_response(200)
+        self.send_header("Content-Type", entry["type"])
+        self.send_header("Content-Length", str(len(raw)))
+        self.send_header("Content-Disposition",
+                         f'{"inline" if inline else "attachment"}; filename="{name}"')
+        self.end_headers()
+        self.wfile.write(raw)
 
     def send_json_from(self, produce):
         try:

@@ -27,6 +27,7 @@ Deliberately not wired into the pre-commit hook: it is the first slow thing
 here, and a slow hook gets bypassed, taking `check` with it.
 """
 
+import base64
 import json
 import os
 import re
@@ -1114,6 +1115,17 @@ import server
 what = sys.argv[2]
 if what == "catalogue":
     print(json.dumps(server.catalogue()))
+elif what == "tools":
+    print(json.dumps(sorted(server.TOOLS)))
+elif what.startswith("bytes:"):
+    import hashlib
+    try:
+        entry, full = server.locate(what[6:])
+        raw = open(full, "rb").read()
+        print(json.dumps({"ok": {"sha": hashlib.sha256(raw).hexdigest()[:16],
+                                 "type": entry["type"], "kind": entry["kind"]}}))
+    except Exception as exc:
+        print(json.dumps({"error": str(exc)}))
 else:
     try:
         print(json.dumps({"ok": server.read_doc(what)}))
@@ -1210,6 +1222,84 @@ else:
         entry = next((d for d in catalogue if d["path"] == "docs/domain.md"), None)
         self.assertIsNotNone(entry, [d["path"] for d in catalogue])
         self.assertIn("Invoice", self.run_driver(top, entry["id"])["ok"]["text"])
+
+
+    def a_folder_detail(self, top):
+        """A task whose detail is a folder with one of each kind in it."""
+        tid = self.tm(top, "add", "--id", "-n", "Redesign the invoice email").stdout.strip()
+        self.tm(top, "go", tid)
+        self.tm(top, "detail", "--folder")
+        folder = os.path.join(self.install_root(top), "tasks", "platform", "tasks",
+                              f"{tid}-redesign-the-invoice-email")
+        with open(os.path.join(folder, "mockup.png"), "wb") as fh:
+            fh.write(base64.b64decode(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8"
+                "BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="))
+        with open(os.path.join(folder, "brief.pdf"), "wb") as fh:
+            fh.write(b"%PDF-1.4\n")
+        with open(os.path.join(folder, "sample.csv"), "w") as fh:
+            fh.write("id,total\n1,10.00\n")
+        return tid
+
+    def test_a_detail_and_everything_beside_it_is_offered(self):
+        """`DEC-011` lets a detail be a folder holding a spec *and* a rubric
+        *and* sample data. Until now the board could say `has detail` and offer
+        no way to open any of it."""
+        top = self.adopted("attachments")
+        self.a_folder_detail(top)
+        rows = [d for d in self.run_driver(top, "catalogue") if d["group"] == "Task details"]
+        titles = {d["title"] for d in rows}
+        self.assertIn("Redesign the invoice email", titles, "the detail itself was not offered")
+        self.assertTrue({"mockup.png", "brief.pdf", "sample.csv"} <= titles, titles)
+
+    def test_each_kind_says_what_to_do_with_it(self):
+        """Markdown, tables, images and PDFs render in place; everything else
+        is a download. The front end should never have to guess from an
+        extension."""
+        top = self.adopted("kinds")
+        self.a_folder_detail(top)
+        kinds = {d["title"]: d["kind"] for d in self.run_driver(top, "catalogue")
+                 if d["group"] == "Task details"}
+        self.assertEqual(kinds["mockup.png"], "image")
+        self.assertEqual(kinds["brief.pdf"], "pdf")
+        self.assertEqual(kinds["Redesign the invoice email"], "text")
+        self.assertEqual(kinds["sample.csv"], "table",
+                         "a CSV is rows, not a download and not a column of commas")
+
+    def test_an_attachment_knows_which_detail_it_belongs_to(self):
+        """So a folder reads as one thing rather than a flat pile of files."""
+        top = self.adopted("nesting")
+        self.a_folder_detail(top)
+        rows = {d["title"]: d for d in self.run_driver(top, "catalogue")
+                if d["group"] == "Task details"}
+        head = rows["Redesign the invoice email"]
+        self.assertEqual(rows["mockup.png"].get("parent"), head["id"])
+        self.assertIsNone(head.get("parent"))
+
+    def test_bytes_come_back_intact(self):
+        top = self.adopted("bytes")
+        self.a_folder_detail(top)
+        row = next(d for d in self.run_driver(top, "catalogue") if d["title"] == "mockup.png")
+        served = self.run_driver(top, "bytes:" + row["id"])
+        self.assertEqual(served["ok"]["sha"], self.sha16(
+            os.path.join(self.install_root(top), row["path"])))
+
+    def test_a_file_is_only_reachable_through_the_catalogue(self):
+        """The same boundary the documents have. Serving bytes widens what can
+        be asked for, so the answer has to stay an id lookup."""
+        top = self.adopted("file-boundary")
+        self.a_folder_detail(top)
+        for attempt in ("../../../etc/passwd", "", "deadbeefdeadbeef"):
+            result = self.run_driver(top, "bytes:" + attempt)
+            self.assertIn("error", result, f"{attempt!r} was served")
+
+    def test_the_agent_can_ask_who_it_is_writing_for(self):
+        """The tm skill's first line is "run `tm audience` first and write the
+        way it says", and it is in the prompt verbatim. Without the tool that
+        is an instruction the agent cannot follow, and `USER_TYPE` — which
+        `DEC-040` added for exactly this — never reaches the person."""
+        top = self.adopted("audience")
+        self.assertIn("audience", self.run_driver(top, "tools"))
 
 
 class TestChromeGuard(Fixture):
