@@ -54,12 +54,41 @@ llmeep installs.
 
     -e CHROME_BASE=https://api.openai.com/v1 -e CHROME_KEY=sk-... -e CHROME_MODEL=gpt-4.1
 
+## Reading is wider than writing
+
+Two tabs. **Board** is what is live; **Read** is what is written down — the notes, every
+decision, and how llmeep itself works, plus your own domain ontology if `tm ontology` recorded
+where it is. Decisions are listed by what they decided rather than by `DEC-044`, which is not a
+name anyone can hold in their head.
+
+Markdown is rendered rather than shown raw, because the records are written machine-first
+([principle 1](../llmeep/ontology/principles.md)) and that is only affordable if a person reads
+them somewhere else. This is that somewhere else.
+
+**It opens a catalogue, never a path.** The list of readable documents is built server-side and
+a request names an id from it, so there is no path to traverse and nothing outside the records
+can be reached — `?id=../../../etc/passwd` opens nothing, and there is a test that says so.
+
+## It is a wrapper, not a second implementation
+
+One text box takes anything — a thought, a call transcript, a question, a correction — and the
+agent handles it the way it would at a terminal, because **its instructions are the shipped
+skills**. `.claude/skills/tm/SKILL.md` and `nm/SKILL.md` are read out of your repo and handed
+to the model whole; this app adds only two things of its own: that there is no shell, and the
+shape of the reply.
+
+Nothing about how to work is written twice. An earlier version of this file paraphrased the
+skills into a prompt — thinner than the original and certain to drift the first time a skill
+changed, which is the failure `DEC-003` exists to prevent.
+
+It runs until it is done, which includes asking you something and waiting. Reading is free, so
+it looks before it acts.
+
 ## It can only ever change `llmeep/`
 
-One text box takes a new task, a change to one, or a question, and the model decides which.
-It does not decide *how*: it returns an action name and data, which are checked against a fixed
-table of `tm` verbs. There is no shell anywhere in the path, and nothing outside that table can
-be reached whatever comes back.
+The agent never runs a command. It names a tool, and the name is checked against a fixed table
+that maps to `tm` and `nm` verbs — no shell anywhere in the path, and nothing outside the table
+can be reached whatever comes back.
 
 **Committing is where that is enforced rather than assumed.** The app stages the install folder
 by name — never `git add -A` — and refuses if anything outside it ended up staged. If you have

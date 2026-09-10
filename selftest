@@ -1102,6 +1102,116 @@ class TestAgenda(Fixture):
                          "the agenda draft is not gitignored")
 
 
+class TestChromeDocs(Fixture):
+    """`PLT-6yjz`. The records are the point of the repo, so someone who cannot
+    read a decision has to take the board on faith. Reading is therefore wider
+    than writing — and its boundary is a catalogue rather than a path, so a
+    reader can only ever open what the catalogue chose."""
+
+    DRIVER = """import json, os, sys
+sys.path.insert(0, os.path.join(sys.argv[1], "ui", "api"))
+import server
+what = sys.argv[2]
+if what == "catalogue":
+    print(json.dumps(server.catalogue()))
+else:
+    try:
+        print(json.dumps({"ok": server.read_doc(what)}))
+    except Exception as exc:
+        print(json.dumps({"error": str(exc)}))
+"""
+    def adopted(self, name, *args):
+        top = self.a_project(name=name)
+        self.adopt(self.working_copy(), top, *args)
+        self.quieten(top)
+        return top
+
+    def run_driver(self, top, arg):
+        script = self.path("drive_docs.py")
+        with open(script, "w") as fh:
+            fh.write(self.DRIVER)
+        env = dict(os.environ, LLMEEP_REPO=top, LLMEEP_AUTH_HANDLED="yes")
+        out = sh(sys.executable, script, self.working_copy(), arg, cwd=top, env=env)
+        self.assertTrue(out.stdout.strip(), out.stderr)
+        return json.loads(out.stdout.strip().split("\n")[-1])
+
+    def a_decision(self, top, name, title):
+        root = self.install_root(top)
+        os.makedirs(os.path.join(root, "decisions"), exist_ok=True)
+        with open(os.path.join(root, "decisions", name), "w") as fh:
+            fh.write(f"---\nid: DEC-001\ntitle: {title}\nstatus: accepted\n---\n\n"
+                     f"# DEC-001 — {title}\n\nBody text.\n")
+
+    def test_it_lists_notes_decisions_and_the_model(self):
+        top = self.adopted("browse")
+        self.a_decision(top, "DEC-001-a-thing.md", "We chose the boring option")
+        groups = {d["group"] for d in self.run_driver(top, "catalogue")}
+        self.assertEqual(groups, {"Notes", "Decisions", "How it works"})
+
+    def test_a_decision_is_listed_by_what_it_decided(self):
+        """`DEC-001` is not a name anyone can hold in their head, so the title
+        comes out of the frontmatter — the same reason board lines lead with
+        the title (`PLT-6egb`)."""
+        top = self.adopted("titles")
+        self.a_decision(top, "DEC-001-a-thing.md", "We chose the boring option")
+        titles = [d["title"] for d in self.run_driver(top, "catalogue")
+                  if d["group"] == "Decisions"]
+        self.assertIn("We chose the boring option", titles)
+        self.assertFalse([t for t in titles if t.endswith(".md")],
+                         f"a filename was offered as a title: {titles}")
+
+    def test_a_blank_form_is_not_a_document(self):
+        """The templates are there to be copied. Listing them offers a reader
+        `<EntityName>` as though it were something to read, which is what the
+        first run of this did."""
+        top = self.adopted("templates")
+        paths = [d["path"] for d in self.run_driver(top, "catalogue")]
+        self.assertFalse([p for p in paths if "template" in p],
+                         f"a template was listed: {paths}")
+
+    def test_an_id_it_did_not_issue_opens_nothing(self):
+        """The catalogue is the boundary. A reader taking a path would have to
+        defend against `../` forever; one taking an id can only open what was
+        put on the list."""
+        top = self.adopted("traversal")
+        for attempt in ("../../../etc/passwd", "../.env", "", "deadbeefdeadbeef"):
+            result = self.run_driver(top, attempt)
+            self.assertIn("error", result, f"{attempt!r} was opened")
+            self.assertIn("no such document", result["error"])
+
+    def test_the_frontmatter_is_not_the_document(self):
+        """Metadata for a machine — ids, status, the supersession graph. A
+        renderer with no opinion about it flattens the block into one bold
+        paragraph at the top of the page."""
+        top = self.adopted("frontmatter")
+        self.a_decision(top, "DEC-001-a-thing.md", "We chose the boring option")
+        entry = next(d for d in self.run_driver(top, "catalogue")
+                     if d["group"] == "Decisions")
+        text = self.run_driver(top, entry["id"])["ok"]["text"]
+        self.assertNotIn("status: accepted", text)
+        self.assertIn("Body text.", text)
+        self.assertTrue(text.lstrip().startswith("#"), text[:60])
+
+    def test_it_works_for_a_named_folder_install(self):
+        top = self.adopted("nested-docs", "--into", "ops")
+        paths = [d["path"] for d in self.run_driver(top, "catalogue")]
+        self.assertTrue(paths, "nothing was catalogued in an --into ops install")
+        self.assertIn("notes/notes.md", paths)
+
+    def test_the_adopters_own_ontology_is_offered(self):
+        """`DEC-031`: theirs lives wherever they keep it, and `tm ontology`
+        recorded where. Reading it back from `.llmeep` beats guessing."""
+        top = self.adopted("their-ontology")
+        os.makedirs(os.path.join(top, "docs"), exist_ok=True)
+        with open(os.path.join(top, "docs", "domain.md"), "w") as fh:
+            fh.write("# Our domain\n\n- **Invoice** — a demand for payment.\n")
+        self.tm(top, "ontology", "docs/domain.md")
+        catalogue = self.run_driver(top, "catalogue")
+        entry = next((d for d in catalogue if d["path"] == "docs/domain.md"), None)
+        self.assertIsNotNone(entry, [d["path"] for d in catalogue])
+        self.assertIn("Invoice", self.run_driver(top, entry["id"])["ok"]["text"])
+
+
 class TestChromeGuard(Fixture):
     """`PLT-6yjz`. The web app may change the records and nothing else. That is
     the one property in it worth a test in CI rather than a promise in a README:
@@ -1111,11 +1221,22 @@ class TestChromeGuard(Fixture):
     DRIVER = """import json, os, sys
 sys.path.insert(0, os.path.join(sys.argv[1], "ui", "api"))
 import server
-server.ask_model = lambda text, board: json.loads(sys.argv[2])
+script = json.loads(sys.argv[2])
+seen = []
+def fake(log):
+    seen.append(len(log))
+    return script.pop(0)
+server.ask_model = fake
 try:
-    print(json.dumps({"ok": server.act("go on then")}))
+    out = {"ok": server.act(sys.argv[3] if len(sys.argv) > 3 else "go on then")}
 except Exception as exc:
-    print(json.dumps({"error": str(exc)}))
+    out = {"error": str(exc)}
+out["shown"] = seen
+# What the loop handed back to the model, so a refusal can be asserted on
+# rather than inferred from the absence of a commit.
+out["told"] = [m["content"] for m in server.SESSIONS.get("default", [])
+               if m["role"] == "user"]
+print(json.dumps(out))
 """
     def adopted(self, name, *args):
         top = self.a_project(name=name)
@@ -1133,10 +1254,13 @@ except Exception as exc:
         with open(script, "w") as fh:
             fh.write(self.DRIVER)
         env = dict(os.environ, LLMEEP_REPO=top, LLMEEP_AUTH_HANDLED="yes")
-        out = sh(sys.executable, script, self.working_copy(), json.dumps(intent),
+        steps = intent if isinstance(intent, list) else [intent, self.SAID]
+        out = sh(sys.executable, script, self.working_copy(), json.dumps(steps),
                  cwd=top, env=env)
         self.assertTrue(out.stdout.strip(), out.stderr)
         return json.loads(out.stdout.strip().split("\n")[-1])
+
+    SAID = {"say": "Done.", "done": True}
 
     def theirs_dirty(self, top):
         with open(os.path.join(top, "src", "app.py"), "a") as fh:
@@ -1148,8 +1272,8 @@ except Exception as exc:
         return [p for p in sh("git", "show", "--pretty=", "--name-only", "HEAD",
                               cwd=top).stdout.split("\n") if p.strip()]
 
-    FILE_ONE = {"action": "add", "title": "Filed by the app",
-                "ledger": "platform", "answer": "done"}
+    FILE_ONE = {"tool": "add", "args": {"title": "Filed by the app",
+                                        "ledger": "platform"}}
 
     def test_a_nested_install_commits_only_records(self):
         top = self.adopted("nested")
@@ -1204,22 +1328,129 @@ except Exception as exc:
         """The model returns a name and data, never a command. Anything outside
         the table is a refusal rather than a passthrough."""
         top = self.adopted("unknown-action")
-        result = self.drive(top, {"action": "push", "answer": "..."})
-        self.assertIn("error", result, result)
-        self.assertIn("not an action", result["error"])
+        head = sh("git", "rev-list", "--count", "HEAD", cwd=top).stdout.strip()
+        result = self.drive(top, {"tool": "push", "args": {}})
+        self.assertIn("not a tool", " ".join(result["told"]),
+                      "the model was not told its tool does not exist")
+        self.assertEqual(result["ok"]["used"], [], "an unknown tool ran")
+        self.assertIsNone(result["ok"]["commit"])
+        self.assertEqual(sh("git", "rev-list", "--count", "HEAD", cwd=top).stdout.strip(),
+                         head, "it committed after refusing")
 
     def test_a_malformed_id_never_reaches_the_tool(self):
         top = self.adopted("bad-id")
-        result = self.drive(top, {"action": "drop", "id": "PLT-x; rm -rf /", "answer": "..."})
-        self.assertIn("error", result, result)
-        self.assertIn("task id", result["error"])
+        head = sh("git", "rev-list", "--count", "HEAD", cwd=top).stdout.strip()
+        result = self.drive(top, {"tool": "drop", "args": {"id": "PLT-x; rm -rf /"}})
+        self.assertIn("record id", " ".join(result["told"]))
+        self.assertEqual(result["ok"]["used"], [], "a malformed id reached the tool")
+        self.assertEqual(sh("git", "rev-list", "--count", "HEAD", cwd=top).stdout.strip(),
+                         head)
 
     def test_a_question_writes_nothing_and_commits_nothing(self):
         top = self.adopted("question")
         head = sh("git", "rev-parse", "HEAD", cwd=top).stdout.strip()
-        result = self.drive(top, {"action": "none", "answer": "Nothing is running."})
-        self.assertEqual(result["ok"]["action"], "none")
+        result = self.drive(top, [{"say": "Nothing is running.", "done": True}])
+        self.assertFalse(result["ok"]["changed"])
         self.assertEqual(sh("git", "rev-parse", "HEAD", cwd=top).stdout.strip(), head)
+
+
+    def test_the_prompt_is_the_shipped_skills(self):
+        """`DEC-003`. What to do with a transcript, which ledger a task belongs
+        on, that a title is a handle — all of it is already written. An earlier
+        version of this app paraphrased the skills into a prompt: thinner than
+        the original, and certain to drift the first time a skill changed."""
+        top = self.adopted("prompt")
+        script = self.path("prompt_check.py")
+        with open(script, "w") as fh:
+            fh.write("import os, sys\n"
+                     "sys.path.insert(0, os.path.join(sys.argv[1], 'ui', 'api'))\n"
+                     "import server\n"
+                     "print(server.agent_prompt())\n")
+        env = dict(os.environ, LLMEEP_REPO=top, LLMEEP_AUTH_HANDLED="yes")
+        prompt = sh(sys.executable, script, self.working_copy(), cwd=top, env=env).stdout
+
+        for skill in ("tm", "nm"):
+            with open(os.path.join(top, ".claude", "skills", skill, "SKILL.md")) as fh:
+                body = fh.read()
+            marker = next(l for l in body.split("\n")
+                          if l.startswith("**") and len(l) > 40)
+            self.assertIn(marker, prompt,
+                          f"the {skill} skill did not reach the model")
+        for tool in ("capture", "promote", "retitle", "detail"):
+            self.assertIn(tool, prompt, f"{tool} was not offered")
+
+    def test_it_carries_the_conversation_between_turns(self):
+        """An agent that can ask a question is no use if the answer arrives
+        with no memory of the question."""
+        top = self.adopted("continuity")
+        script = self.path("drive_two.py")
+        with open(script, "w") as fh:
+            fh.write(self.DRIVER.replace(
+                'out = {"ok": server.act(sys.argv[3] if len(sys.argv) > 3 else "go on then")}',
+                'out = {"first": server.act("a transcript", "s1"),\n'
+                '       "second": server.act("yes, business", "s1")}'))
+        steps = [{"say": "Which ledger?", "done": True},
+                 {"say": "Filed it.", "done": True}]
+        env = dict(os.environ, LLMEEP_REPO=top, LLMEEP_AUTH_HANDLED="yes")
+        out = sh(sys.executable, script, self.working_copy(), json.dumps(steps),
+                 cwd=top, env=env)
+        result = json.loads(out.stdout.strip().split("\n")[-1])
+        self.assertEqual(result["shown"], [1, 3],
+                         "the second turn did not see the first exchange")
+
+    def test_separate_conversations_do_not_bleed(self):
+        top = self.adopted("sessions")
+        script = self.path("drive_two_sessions.py")
+        with open(script, "w") as fh:
+            fh.write(self.DRIVER.replace(
+                'out = {"ok": server.act(sys.argv[3] if len(sys.argv) > 3 else "go on then")}',
+                'out = {"a": server.act("mine", "one"),\n'
+                '       "b": server.act("theirs", "two")}'))
+        steps = [{"say": "ok", "done": True}, {"say": "ok", "done": True}]
+        env = dict(os.environ, LLMEEP_REPO=top, LLMEEP_AUTH_HANDLED="yes")
+        out = sh(sys.executable, script, self.working_copy(), json.dumps(steps),
+                 cwd=top, env=env)
+        result = json.loads(out.stdout.strip().split("\n")[-1])
+        self.assertEqual(result["shown"], [1, 1],
+                         "one conversation leaked into another")
+
+    def test_a_transcript_becomes_notes_and_commits(self):
+        """The case this shape exists for. `nm add` reads lines on stdin, so
+        the agent distils and pipes — exactly what it does at a terminal, and
+        the transcript itself never reaches disk."""
+        top = self.adopted("transcript")
+        result = self.drive(top, {"tool": "capture", "args": {
+            "source": "acme-call",
+            "lines": ["Acme want SSO before they will renew",
+                      "Finance need invoices as PDF"]}})
+        self.assertTrue(result["ok"]["changed"])
+        with open(os.path.join(self.install_root(top), "notes", "notes.md")) as fh:
+            notes = fh.read()
+        self.assertIn("Acme want SSO before they will renew", notes)
+        self.assertIn("src:acme-call", notes)
+        self.assertIn("llmeep/notes/notes.md", self.committed_files(top))
+
+    def test_a_turn_that_only_reads_commits_nothing(self):
+        """Reading is free, which is what makes looking before acting the
+        cheap option."""
+        top = self.adopted("readonly")
+        head = sh("git", "rev-list", "--count", "HEAD", cwd=top).stdout.strip()
+        result = self.drive(top, [{"tool": "board", "args": {}},
+                                  {"say": "Nothing is running.", "done": True}])
+        self.assertEqual(result["ok"]["used"], ["board"])
+        self.assertFalse(result["ok"]["changed"])
+        self.assertIsNone(result["ok"]["commit"])
+        self.assertEqual(sh("git", "rev-list", "--count", "HEAD", cwd=top).stdout.strip(),
+                         head)
+
+    def test_a_loop_is_bounded(self):
+        """An agent that cannot finish is looping, and the person is holding a
+        phone."""
+        top = self.adopted("bounded")
+        steps = [{"tool": "board", "args": {}} for _ in range(40)]
+        result = self.drive(top, steps)
+        self.assertIn("circles", result["ok"]["answer"])
+        self.assertLessEqual(len(result["ok"]["used"]), 12)
 
 
 class TestRetitle(Fixture):

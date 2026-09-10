@@ -42,64 +42,168 @@ LLM_BASE = os.environ.get("CHROME_BASE", "").strip().rstrip("/")
 LLM_MODEL = os.environ.get("CHROME_MODEL", "").strip()
 LLM_TIMEOUT = 60
 
-# **The whole write surface.** A model never supplies a command; it supplies an
-# action name and data, and this table turns that into argv. Anything not here
-# cannot be reached, whatever the model returns or the sender types.
+# **The whole surface, and the whole constraint.** This app is a small wrapper
+# around the same agent a terminal gives you, and the wrapping is this table: a
+# model never supplies a command, it names a tool and supplies data, and nothing
+# absent from here can be reached whatever comes back or whatever is typed.
 #
-# Every verb writes inside the install folder and nowhere else, which is the
-# first of two guards — the second is that only that folder is ever staged.
-ACTIONS = {
-    "add":        lambda a: ["add"] + (["-b"] if a.get("ledger") == "business" else [])
-                            + (["-n"] if a.get("prioritise") else []) + [a["title"]],
-    "retitle":    lambda a: ["retitle", a["id"], a["title"]],
-    "prioritise": lambda a: ["prioritise", a["id"]] + (["-n"] if a.get("top") else []),
-    "park":       lambda a: ["park", a["id"]],
-    "start":      lambda a: ["go", a["id"]],
-    "done":       lambda a: ["done", a["id"]],
-    "drop":       lambda a: ["drop", a["id"]],
-    "detail":     lambda a: ["detail", a["id"]],
+# Every entry is a `tm` or `nm` verb, so every write lands in the records and
+# nowhere else. That is the first of two guards; the second is that only those
+# trees are ever staged.
+#
+# `(tool, args) -> (executable, argv, stdin or None)`.
+TOOLS = {
+    # Reading. Free, and the reason the agent can answer rather than guess.
+    "board":      lambda a: ("tm", ["board"], None),
+    "notes":      lambda a: ("nm", ["find", a.get("term", "")], None),
+    "find":       lambda a: ("tm", ["find", a["term"]], None),
+    "why":        lambda a: ("tm", ["why", a["term"]], None),
+
+    # Tasks.
+    "add":        lambda a: ("tm", ["add"] + (["-b"] if a.get("ledger") == "business" else [])
+                             + (["-n"] if a.get("prioritise") else []) + [a["title"]], None),
+    "retitle":    lambda a: ("tm", ["retitle", a["id"], a["title"]], None),
+    "prioritise": lambda a: ("tm", ["prioritise", a["id"]]
+                             + (["-n"] if a.get("top") else []), None),
+    "park":       lambda a: ("tm", ["park", a["id"]], None),
+    "start":      lambda a: ("tm", ["go", a["id"]], None),
+    "done":       lambda a: ("tm", ["done", a["id"]], None),
+    "drop":       lambda a: ("tm", ["drop", a["id"]], None),
+    "detail":     lambda a: ("tm", ["detail", a["id"]], None),
+
+    # Notes. A pasted transcript arrives here — distilled into lines by the
+    # agent and piped in, which is what `nm add` reading stdin is for and what
+    # the same agent does at a terminal.
+    "capture":    lambda a: ("nm", ["add"] + (["--from", a["source"]] if a.get("source") else []),
+                             "\n".join(a["lines"])),
+    "promote":    lambda a: ("nm", ["promote", a["id"]]
+                             + (["-b"] if a.get("ledger") == "business" else [])
+                             + (["-n"] if a.get("prioritise") else []), None),
+    "unnote":     lambda a: ("nm", ["drop", a["id"]], None),
 }
 
-ID_RE = re.compile(r"^(PLT|BUS)-[A-Za-z0-9]{1,12}$")
+# Tools that change nothing, so a turn using only these commits nothing.
+READ_ONLY = {"board", "notes", "find", "why"}
 
-INTENT_PROMPT = """You turn one message from a person into one action on their task board.
+# A turn is bounded. An agent that cannot finish in this many steps is looping,
+# and the person is holding a phone.
+MAX_STEPS = 12
 
-Reply with JSON only, no prose around it:
+ID_RE = re.compile(r"^(PLT|BUS|NTE)-[A-Za-z0-9]{1,12}$")
 
-  {"action": "<name>", "id": "<task id>", "title": "<text>",
-   "ledger": "platform|business", "prioritise": true, "top": true,
-   "answer": "<one or two sentences for the person>"}
+# **The wrapper, and only the wrapper.**
+#
+# What to do with a transcript, which ledger a task belongs on, that a title is
+# a handle — all of that is already written, in the skills `adopt` installs. It
+# is not repeated here. An earlier version of this file did repeat it, badly:
+# paraphrased, already thinner than the original, and guaranteed to drift the
+# first time a skill changed. That is the failure `DEC-003` exists to prevent —
+# behaviour belongs in one place and adapters are thin.
+#
+# So this app passes through. The skills are the instructions; this text adds
+# the two things that are genuinely its own — that there is no shell, and what
+# the reply must look like.
+WRAPPER = """You are working through a small web app on someone's phone, not a terminal.
 
-Actions: add, retitle, prioritise, park, start, done, drop, detail, none.
+Everything below the line is your standing instructions. Follow them as written,
+with one difference: **you cannot run commands.** Where they tell you to run
+`tm add` or `nm promote`, you name the matching tool instead and this app runs
+it for you, in the same repo, with the same effect.
 
-- "none" is a real answer. A question, or a discussion that changed nobody's
-  mind, leaves no record — say what you think in "answer" and change nothing.
-- "add" needs "title" and "ledger". Code, infra, tooling, tests and tech debt
-  are platform. Pricing, contracts, hiring and customer work are business, even
-  when delivering them needs code. The test is the done-state, not the activity.
-- Everything else needs "id", exactly as it appears on the board.
-- A title is a handle: at most 120 characters, two sentences. Put the rest in
-  "answer" and suggest they add a detail.
-- "answer" is always required, and is written for someone who may not be a
-  developer. Never make them read an id back to you."""
+The tools you have, and nothing else exists:
+
+%s
+
+Reply with one JSON object per turn and nothing else:
+
+  {"tool": "<name>", "args": {...}}      to use a tool
+  {"say": "<text>", "done": true}        to answer them, or to ask something
+
+Asking is a real answer — say something with "done": true and wait for a reply.
+So is changing nothing. Read first when you need an id; reading is free.
+
+They may not be a developer, and they are reading this on a phone.
+
+----------------------------------------------------------------------------
+%s"""
+
+# Argument shapes. The verbs are the skills'; these say what this app needs in
+# order to call them.
+TOOL_ARGS = {
+    "board": "{}", "notes": '{"term": "..."}  (empty term lists everything)',
+    "find": '{"term": "..."}', "why": '{"term": "..."}',
+    "add": '{"title": "...", "ledger": "platform|business", "prioritise": bool}',
+    "retitle": '{"id": "...", "title": "..."}',
+    "prioritise": '{"id": "...", "top": bool}',
+    "park": '{"id": "..."}', "start": '{"id": "..."}', "done": '{"id": "..."}',
+    "drop": '{"id": "..."}', "detail": '{"id": "..."}',
+    "capture": '{"lines": ["...", "..."], "source": "..."}',
+    "promote": '{"id": "NTE-...", "ledger": "...", "prioritise": bool}',
+    "unnote": '{"id": "NTE-..."}',
+}
+
+
+def skills_text():
+    """The shipped skills, read out of the repo this app is pointed at.
+
+    Read rather than embedded, so an adopter who edits their copy — or updates
+    to a release that changed one — gets what their repo says and not what this
+    image was built with."""
+    out = []
+    for name in ("tm", "nm"):
+        path = os.path.join(REPO, ".claude", "skills", name, "SKILL.md")
+        if os.path.isfile(path):
+            with open(path) as fh:
+                out.append(fh.read())
+    if not out:
+        raise RuntimeError("no skills found in this repo — is it an llmeep install?")
+    return "\n\n".join(out)
+
+
+def agent_prompt():
+    tools = "\n".join(f"  {name:<11}{TOOL_ARGS.get(name, '{}')}" for name in TOOLS)
+    return WRAPPER % (tools, skills_text())
+
+
+def records_folder():
+    """Where the records live inside the repo, as a repo-relative folder name.
+
+    `.llmeep` names it for an adopted repo, which is the case that matters.
+    `llmeep/` is tried next so llmeep's own checkout — which has no manifest,
+    being the source rather than an install — works when pointed at, and last
+    the repo root for a flat install. One resolver, because two that disagreed
+    is how the catalogue came back empty the first time it was run.
+    """
+    for folder in (install_folder(), "llmeep", ""):
+        probe = os.path.join(REPO, folder, "tasks", "_tooling", "tm")
+        if os.path.isfile(probe):
+            return folder
+    raise RuntimeError(f"no llmeep install under {REPO}")
+
+
+def records_root():
+    folder = records_folder()
+    return os.path.join(REPO, folder) if folder else REPO
+
+
+TOOL_PATHS = {"tm": ("tasks", "_tooling", "tm"), "nm": ("notes", "_tooling", "nm")}
+
+
+def run_record_tool(tool, argv, stdin=None):
+    """Run `tm` or `nm` in the mounted repo, optionally piping text in.
+
+    A list, never a string, and no shell anywhere. Whatever a model returns is
+    an argument and can never become a command."""
+    path = os.path.join(records_root(), *TOOL_PATHS[tool])
+    out = subprocess.run([sys.executable, path, *argv], cwd=REPO, input=stdin,
+                         capture_output=True, text=True, timeout=TIMEOUT)
+    if out.returncode != 0:
+        raise RuntimeError(explain(argv, out))
+    return out.stdout
 
 
 def tm(*args):
-    """Run `tm` in the mounted repo. The executable is found under the install
-    folder the manifest names, so a repo adopted with `--into ops` works without
-    being told."""
-    for folder in (install_folder(), "llmeep", ""):
-        path = os.path.join(REPO, folder, "tasks", "_tooling", "tm") if folder \
-            else os.path.join(REPO, "tasks", "_tooling", "tm")
-        if os.path.isfile(path):
-            break
-    else:
-        raise RuntimeError(f"no llmeep install under {REPO}")
-    out = subprocess.run([sys.executable, path, *args], cwd=REPO,
-                         capture_output=True, text=True, timeout=TIMEOUT)
-    if out.returncode != 0:
-        raise RuntimeError(explain(args, out))
-    return out.stdout
+    return run_record_tool("tm", list(args))
 
 
 def explain(args, out):
@@ -130,6 +234,117 @@ def install_folder():
     with open(path) as fh:
         m = re.search(r"#\s*\"into\":\s*\"([^\"]*)\"", fh.read())
     return m.group(1) if m else ""
+
+
+# Everything readable, and the order it is offered in. Reading is wider than
+# writing on purpose: the records are the point of the repo, and someone who
+# cannot read a decision has to take the board on faith.
+READABLE = [
+    ("Notes", ["notes/notes.md"]),
+    ("Decisions", ["decisions/DEC-*.md"]),
+    ("How it works", ["ontology/*.md", "tasks/_tooling/ontology.md",
+                      "notes/_tooling/ontology.md"]),
+]
+
+# A blank form is not a document. `_template.md` and `domain-template.md` are
+# there to be copied, and listing them offers a reader "<EntityName>" as though
+# it were something to read — which is what the first run of this did.
+NOT_A_DOCUMENT = ("_", ".")
+
+FRONT_TITLE = re.compile(r"^title:\s*(.+)$", re.M)
+HEADING = re.compile(r"^#\s+(.+)$", re.M)
+
+
+def catalogue():
+    """Every document this app will open, as `{id, group, title}`.
+
+    **The catalogue is the security boundary.** A reader that took a path would
+    need to defend against `../` forever; one that takes an id and looks it up
+    in a list built here can only ever open what this function chose. The id is
+    derived from the path rather than being it, so nothing a caller sends is
+    ever joined onto a directory.
+    """
+    import glob
+    import hashlib
+    root = records_root()
+    out = []
+    for group, patterns in READABLE:
+        found = []
+        for pattern in patterns:
+            found.extend(sorted(glob.glob(os.path.join(root, *pattern.split("/")))))
+        for full in found:
+            name = os.path.basename(full)
+            if not os.path.isfile(full) or name.startswith(NOT_A_DOCUMENT) \
+                    or "template" in name:
+                continue
+            out.append({
+                "id": hashlib.sha256(full.encode()).hexdigest()[:16],
+                "group": group,
+                "title": doc_title(full),
+                "path": os.path.relpath(full, root),
+            })
+    # The adopter's own domain ontology, wherever they keep it (`DEC-031`). Not
+    # a guess: `tm ontology` recorded the path and `.llmeep` carries it.
+    where = manifest_ontology()
+    if where:
+        full = os.path.join(REPO, where)
+        if os.path.isfile(full):
+            import hashlib as _h
+            out.append({"id": _h.sha256(full.encode()).hexdigest()[:16],
+                        "group": "How it works", "title": doc_title(full),
+                        "path": where})
+    return out
+
+
+def manifest_ontology():
+    path = os.path.join(REPO, ".llmeep")
+    if not os.path.isfile(path):
+        return None
+    with open(path) as fh:
+        m = re.search(r'#\s*"ontology":\s*"([^"]*)"', fh.read())
+    return m.group(1) if m and m.group(1) else None
+
+
+def doc_title(full):
+    """A name a person can scan. `DEC-044` is not one — the same reason board
+    lines lead with the title and not the id (`PLT-6egb`)."""
+    try:
+        with open(full) as fh:
+            head = fh.read(2000)
+    except OSError:
+        return os.path.basename(full)
+    for pattern in (FRONT_TITLE, HEADING):
+        m = pattern.search(head)
+        if m:
+            return m.group(1).strip().strip('"').replace("`", "")
+    return os.path.basename(full)
+
+
+def read_doc(doc_id):
+    """Open one catalogued document. The catalogue is rebuilt and the id looked
+    up in it, so an id that is not on the list opens nothing."""
+    entry = next((d for d in catalogue() if d["id"] == doc_id), None)
+    if not entry:
+        raise RuntimeError("no such document")
+    full = os.path.join(records_root(), entry["path"])
+    if not os.path.isfile(full):
+        full = os.path.join(REPO, entry["path"])
+    with open(full) as fh:
+        return {"title": entry["title"], "group": entry["group"],
+                "path": entry["path"], "text": without_frontmatter(fh.read())}
+
+
+FRONTMATTER = re.compile(r"\A---\n.*?\n---\n", re.S)
+
+
+def without_frontmatter(text):
+    """Drop the YAML header before rendering.
+
+    It is metadata for a machine — ids, status, the supersession graph — and a
+    renderer with no opinion about it flattens the block into one bold
+    paragraph at the top of the page. The title is already lifted out of it, so
+    nothing a reader wanted is lost."""
+    return FRONTMATTER.sub("", text, count=1)
 
 
 def refusal():
@@ -172,42 +387,107 @@ def with_base(raw):
     return raw[:i] + tag + raw[end + 3:]
 
 
-def act(text):
-    """One message in, one action out.
+# One conversation per browser, held in memory and lost with the container.
+#
+# **That is the same deal a terminal offers**, and principle 8 permits exactly
+# it: what dies here is the conversation, never a record. Everything decided
+# was written by a verb the moment it was decided, so a dropped session costs
+# what `/clear` costs — the talk, not the work.
+SESSIONS = {}
+SESSION_TURNS = 40
 
-    The judgement — is this a new task, a change to one, or a question — is the
-    model's, and the mechanism is `tm`'s. Nothing in between improvises: the
-    model returns an action name and data, `argv_for` validates it against a
-    fixed table, and the result is a subprocess call with no shell.
 
-    A commit is only written when something actually changed, so a question
-    costs nothing and leaves nothing.
+def history_for(session):
+    log = SESSIONS.setdefault(session, [])
+    # Old turns fall off the front. A phone conversation that has run for an
+    # hour is not carrying anything the records do not.
+    del log[:-SESSION_TURNS]
+    return log
+
+
+def act(text, session="default"):
+    """One message in, and however many steps it takes.
+
+    This is a wrapper around the agent a terminal already gives you, and the
+    wrapping is `TOOLS`: it can read the records freely and change them only
+    through verbs, so the worst a confused turn can do is file something wrong
+    — which is recoverable, and visible in a commit.
+
+    It runs until the model says it is done, which includes asking a question
+    and waiting. `MAX_STEPS` bounds a loop rather than a task.
     """
-    intent = ask_model(text, tm("board"))
-    argv = argv_for(intent)
-    if argv is not None:
-        # Before anything is written, not after. A refusal that leaves the tree
-        # exactly as it found it is one nobody has to clean up.
-        theirs = already_staged_elsewhere()
-        if theirs:
-            raise RuntimeError(
-                "you have changes staged outside the records — "
-                f"{', '.join(theirs[:3])}. Commit or unstage them first; this app "
-                "will not put them in a commit about a task.")
-    answer = str(intent.get("answer", "")).strip()
-    if argv is None:
-        return {"action": "none", "answer": answer or "Nothing to change."}
+    log = history_for(session)
+    log.append({"role": "user", "content": text})
+    used, changed = [], False
 
-    output = tm(*argv)
-    action = intent["action"]
-    subject = intent.get("id") or intent.get("title", "")
-    sha = commit(f"{action}: {subject}".strip()[:72],
-                 closes=intent.get("id") if action == "done" else None)
-    return {"action": action, "answer": answer or output.strip(),
-            "output": output.strip(), "commit": sha}
+    for _ in range(MAX_STEPS):
+        step = ask_model(log)
+        if step.get("say") or step.get("done"):
+            answer = str(step.get("say", "")).strip() or "Done."
+            log.append({"role": "assistant", "content": json.dumps(step)})
+            sha = commit_used(used) if changed else None
+            return {"answer": answer, "used": used, "commit": sha, "changed": changed}
+
+        name = str(step.get("tool", "")).strip()
+        args = step.get("args") or {}
+        log.append({"role": "assistant", "content": json.dumps(step)})
+        if name not in READ_ONLY and not changed:
+            # Checked once, before the first thing that writes — so a turn that
+            # only reads is never blocked, and one that would write stops with
+            # the tree exactly as it found it.
+            theirs = already_staged_elsewhere()
+            if theirs:
+                raise RuntimeError(
+                    "you have changes staged outside the records — "
+                    f"{', '.join(theirs[:3])}. Commit or unstage them first; this app "
+                    "will not put them in a commit about your records.")
+        try:
+            result = run_tool(name, args)
+        except Exception as exc:                       # noqa: BLE001
+            # Handed back rather than raised. A model that asked for something
+            # impossible should get told and try again, the same as a person
+            # mistyping a command.
+            log.append({"role": "user", "content": f"That failed: {exc}"})
+            continue
+        used.append(name)
+        changed = changed or name not in READ_ONLY
+        log.append({"role": "user", "content": f"{name} said:\n{result[:4000]}"})
+
+    return {"answer": "I got stuck going round in circles — try asking for one "
+                      "thing at a time.", "used": used,
+            "commit": commit_used(used) if changed else None, "changed": changed}
 
 
-def ask_model(text, board):
+def run_tool(name, args):
+    """Validate, then run. Nothing here trusts what came back from the model:
+    the tool must be in the table, and any id must look like an id before it
+    reaches a subprocess that never sees a shell."""
+    if name not in TOOLS:
+        raise RuntimeError(f"not a tool this app has: {name}")
+    if "id" in args:
+        tid = str(args["id"]).strip()
+        if not ID_RE.match(tid):
+            raise RuntimeError(f"{name} needs a record id and got {tid!r}")
+        args["id"] = tid
+    for key in ("title", "term", "source"):
+        if key in args:
+            args[key] = str(args[key]).strip()
+    if name == "capture":
+        lines = [str(l).strip() for l in (args.get("lines") or []) if str(l).strip()]
+        if not lines:
+            raise RuntimeError("capture needs lines")
+        args["lines"] = lines
+    tool, argv, stdin = TOOLS[name](args)
+    return run_record_tool(tool, argv, stdin)
+
+
+def commit_used(used):
+    doing = ", ".join(dict.fromkeys(n for n in used if n not in READ_ONLY))
+    return commit(f"{doing or 'records'}, from the app"[:72])
+
+
+
+def ask_model(log):
     """One call, in the OpenAI chat shape — the same shape `tm review` uses, so
     `CHROME_BASE` reaches OpenAI, Anthropic's compatible endpoint, Groq,
     OpenRouter or something on the adopter's own machine. No vendor is
@@ -217,10 +497,7 @@ def ask_model(text, board):
         raise RuntimeError("no model configured — set CHROME_KEY, CHROME_MODEL and CHROME_BASE")
     body = json.dumps({
         "model": LLM_MODEL,
-        "messages": [
-            {"role": "system", "content": INTENT_PROMPT},
-            {"role": "user", "content": f"The board:\n{board}\n\nThe message:\n{text}"},
-        ],
+        "messages": [{"role": "system", "content": agent_prompt()}, *log],
     }).encode()
     req = urllib.request.Request(
         f"{LLM_BASE}/chat/completions", data=body,
@@ -240,40 +517,6 @@ def strip_fence(text):
     return text.strip()
 
 
-def argv_for(intent):
-    """Validate the model's data and build argv from the table. Returns None for
-    an action that writes nothing.
-
-    Every field is checked here rather than trusted, because everything in
-    `intent` came from a model reading text a person typed — which is to say
-    from outside. The id shape is checked before it reaches a shell-free
-    subprocess call, and an unknown action is a refusal rather than a
-    passthrough."""
-    action = str(intent.get("action", "none")).strip()
-    if action in ("none", ""):
-        return None
-    if action not in ACTIONS:
-        raise RuntimeError(f"not an action this app can take: {action}")
-    if action != "add":
-        tid = str(intent.get("id", "")).strip()
-        if not ID_RE.match(tid):
-            raise RuntimeError(f"{action} needs a task id and got {tid!r}")
-        intent["id"] = tid
-    else:
-        title = str(intent.get("title", "")).strip()
-        if not title:
-            raise RuntimeError("nothing to file — no title came back")
-        intent["title"] = title
-        if intent.get("ledger") not in ("platform", "business"):
-            intent["ledger"] = "platform"
-    if action == "retitle":
-        title = str(intent.get("title", "")).strip()
-        if not title:
-            raise RuntimeError("retitle needs the new words")
-        intent["title"] = title
-    return ACTIONS[action](intent)
-
-
 # The only trees this app may write, relative to the install. Not the whole
 # install: `decisions/` is written by an agent that reasoned about a change, and
 # `.claude/` is the adapter. A text box on a phone has business in neither.
@@ -289,7 +532,7 @@ def writable_paths():
     of one as "everything" is how a guard becomes a `git add -A` in disguise, so
     the trees are named instead and both layouts are the same code path.
     """
-    folder = install_folder()
+    folder = records_folder()
     return [f"{folder}/{t}" if folder else t for t in WRITABLE]
 
 
@@ -365,6 +608,14 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_text(503, refusal())
         if path == "/api/config":
             return self.send_json(200, {"can_write": bool(LLM_KEY and LLM_MODEL and LLM_BASE)})
+        if path == "/api/docs":
+            return self.send_json_from(lambda: {"docs": catalogue()})
+        if path == "/api/doc":
+            wanted = ""
+            if "?" in self.path:
+                from urllib.parse import parse_qs
+                wanted = parse_qs(self.path.split("?", 1)[1]).get("id", [""])[0]
+            return self.send_json_from(lambda: read_doc(wanted))
         if path == "/api/board":
             return self.send_json_from(lambda: json.loads(tm("board", "--json")))
         if path == "/api/status":
@@ -381,13 +632,15 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(404, {"error": "nothing here"})
         try:
             length = int(self.headers.get("Content-Length") or 0)
-            text = json.loads(self.rfile.read(length) or b"{}").get("text", "").strip()
+            sent = json.loads(self.rfile.read(length) or b"{}")
+            text = str(sent.get("text", "")).strip()
+            session = str(sent.get("session", "default"))[:64] or "default"
         except Exception:                              # noqa: BLE001
             return self.send_json(400, {"error": "send {\"text\": \"...\"}"})
         if not text:
             return self.send_json(400, {"error": "nothing to act on"})
         try:
-            self.send_json(200, act(text))
+            self.send_json(200, act(text, session))
         except Exception as exc:                       # noqa: BLE001 — reported, not raised
             self.send_json(500, {"error": str(exc)})
 
