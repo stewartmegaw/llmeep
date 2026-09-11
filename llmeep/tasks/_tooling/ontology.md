@@ -238,6 +238,37 @@ exists. You opt into the gate by writing it.
 ontology. It carries no guidance, because guidance you delete on every use is friction. `tm
 detail` writes from it, so the shape it shows and the shape the verb produces cannot drift.
 
+## Rendering a board
+
+The skill carries the rules; this is why each exists, so the skill does not have to pay for the
+reasoning every time its subject comes up (`DEC-037`).
+
+| Rule | Because |
+| --- | --- |
+| Read the board file every time | Ids are four random characters chosen to be collision-proof, so a remembered wrong one reads exactly like a right one |
+| Markdown, never a code block | A code block scrolls sideways on a phone, and this is read on a phone. Scrolling down is the cheaper cost |
+| A blank line after every `---` | Without one the terminal renderer swallows the rule into the line below and prints a literal `---PLT-9puy` — tested 2026-08-02. The blank line *before* it is optional |
+| Never link an id | A relative markdown link to a repo file renders as "unsupported link" over Remote Control — tested 2026-08-01 |
+| Never reorder `prioritised` | Position is the priority, so rearranging it overwrites someone's decision |
+| `backlog` newest-filed first | Matches the standup. A view changes what you print, never what is in the file (`DEC-027`). Sorted by date is not ranked by importance, which is why it must never be called a top |
+| Never print the date | It is the sort key and nothing else. Beside a title it reads as a deadline, which is exactly what a pool line does not carry (`DEC-030`) |
+| `commits:N` always shows | A parked task is unassigned, so this is the only thing on the line saying anyone ever started it — and part-done work is the cheaper of two candidates to pick up (`DEC-047`) |
+| No numbered lines | A number falsely suggests a handle you can pass to a command |
+| No `@name` is a state | Unassigned and available is the normal state for anything nobody has started, not missing data |
+| The hint line | The verbs already work in conversation, and someone who did not design them has no way to know that |
+
+Render the live state and nothing else. Commentary on what is outstanding, suggestions about
+what to file, a summary of recent work — all of it is analysis nobody asked for, and asking is
+free.
+
+**A standup shares these rules and adds three.** Both ledgers share one list, so `PLT` and `BUS`
+are the only thing saying which is which — an agent that drops them, or adds one the tool did
+not, has changed what the report says. The bracketed counts are the full sections rather than
+what is shown, so recounting from the visible lines reports a smaller backlog than exists;
+`Priority (0)` appears only when nothing is ranked and the pool is not empty, which is the state
+a standup most needs to say out loud. And a standup carries no hint line: it is a report, not a
+menu.
+
 ## Window
 
 The `recent` section of a Board: the last 15 completed Tasks, newest first.

@@ -10,31 +10,34 @@ wanting to add rules to this file, they belong in the executable or in
 `llmeep/tasks/_tooling/ontology.md`, so that people using other agents get the same system
 (`DEC-003`, principle 3).
 
-Run from the repo root:
+Run from the repo root. **`tm` below is `llmeep/tasks/_tooling/tm`** — the path is written once
+here and nowhere else in this file.
 
 ```sh
-llmeep/tasks/_tooling/tm add [-b] [-n] <title...>   # -b business ledger, -n prioritise it
-llmeep/tasks/_tooling/tm status                     # where things stand; starts nothing
-llmeep/tasks/_tooling/tm go [id]                    # show the current task, or start the next one
-llmeep/tasks/_tooling/tm prioritise <id> [-n]       # backlog → prioritised, -n for the top
-llmeep/tasks/_tooling/tm park [id] [-n]             # step it back one section, unassigned
-llmeep/tasks/_tooling/tm done [id] [--force]        # complete it
-llmeep/tasks/_tooling/tm drop <id>                  # remove one that should not have been filed
-llmeep/tasks/_tooling/tm detail [id] [--folder]     # attach a detail and tag the board line
-llmeep/tasks/_tooling/tm find <term>                # search every task ever completed
-llmeep/tasks/_tooling/tm review [--reply <text>]    # LLM review of HEAD before pushing
-llmeep/tasks/_tooling/tm why <term|DEC-000>         # search decisions, or explain one
-llmeep/tasks/_tooling/tm why --stale [--yes]        # records nothing references; --yes prunes
-llmeep/tasks/_tooling/tm standup [--send]           # the period's work; --send posts it
-llmeep/tasks/_tooling/tm standup --cron             # the crontab line, if scheduling it
-llmeep/tasks/_tooling/tm agenda [--send]            # what a meeting must get through
-llmeep/tasks/_tooling/tm ontology [<path>|--none]   # where this repo's domain ontology lives
-llmeep/tasks/_tooling/tm feedback [<text>|-]        # note what llmeep got wrong; opt-in, never sent
-llmeep/tasks/_tooling/tm audience                   # how this user wants to be talked to
+tm add [-b] [-n] <title...>   # -b business ledger, -n prioritise it
+tm status                     # where things stand; starts nothing, writes nothing
+tm go [id]                    # show the current task, or start the next one
+tm prioritise <id> [-n]       # backlog → prioritised, -n for the top
+tm park [id] [-n]             # step it back one section, unassigned
+tm done [id] [--force]        # complete it
+tm retitle <id> <title...>    # reword one, keeping its id and its place
+tm drop <id>                  # remove one that should not have been filed
+tm detail [id] [--folder]     # attach a detail and tag the board line
+tm find <term>                # search every task ever completed
+tm review [--reply <text>]    # LLM review of HEAD before pushing
+tm why <term|DEC-000>         # search decisions, or explain one
+tm why --stale [--yes]        # records nothing references; --yes prunes
+tm standup [--send]           # the period's work; --send posts it
+tm standup --cron             # the crontab line, if scheduling it
+tm agenda [--send]            # what a meeting must get through
+tm ontology [<path>|--none]   # where this repo's domain ontology lives
+tm feedback [<text>|-]        # note what llmeep got wrong; opt-in, never sent
+tm audience                   # how this user wants to be talked to
+tm handover                   # what this session holds that the records do not
 
-llmeep/tasks/_tooling/tm check                      # validate records (hooks and CI call this)
-llmeep/tasks/_tooling/tm check --context            # what an agent carries, measured
-llmeep/tasks/_tooling/tm check --notify [--send]    # verify the notification channel
+tm check                      # validate records (hooks and CI call this)
+tm check --context            # what an agent carries, measured
+tm check --notify [--send]    # verify the notification channel
 ```
 
 ## Who you are talking to
@@ -200,10 +203,9 @@ remembered rather than done, that is `nm` — see its skill. A note becomes a ta
 
 ## Rendering a standup
 
-`tm standup` prints for a terminal. You are rendering for a phone, so give the headings weight
-the plain text cannot — **bold each heading**, leave the body as it is, and keep the tool's own
-wording and order. Do not re-summarise it; the point is that what you show and what Telegram
-receives are the same report.
+`tm standup` prints for a terminal and you are rendering for a phone. **Bold each heading, leave
+everything else exactly as the tool wrote it** — same wording, same order, same counts. Do not
+re-summarise: what you show and what Telegram receives are the same report.
 
     **2026-08-02 → 2026-08-03**
 
@@ -219,46 +221,27 @@ receives are the same report.
 
     **Backlog (11)**
     PLT  Replace the fixture loader
-    BUS  Draft the pricing page
     …and 9 more
 
     **Captured, not yet work**
     · Acme want SSO before they will renew
 
-**`PLT` and `BUS` are the tool's, not yours.** Both ledgers share one list, so the tag is the
-only thing saying which is which — keep it, keep the two-space gap, and never add one to a line
-the tool did not tag. Captured notes have no ledger and keep their `·`.
+- **`PLT` / `BUS` are the tool's.** Keep them and the two-space gap; never tag a line it did
+  not tag. Captured notes keep their `·` and have no ledger.
+- **The counts are the full sections.** Reproduce them and `…and N more` verbatim; never
+  recount from what you can see.
+- **Never re-sort**, and never read `Backlog` as priority.
+- **Never a code block.** No hint line — a standup is a report, not a menu.
 
-**The bracketed counts are the full sections, not what is shown.** Reproduce the count and the
-`…and N more` line exactly; never recount from the lines you see. `Priority (0)` appears only
-when nothing is ranked and the pool is not empty — the state a standup most needs to say out loud.
-
-**Keep the tool's order.** Do not re-sort, do not read `Backlog` as priority, do not suggest
-reordering the board to match.
-
-Same constraints as the board: **never a code block** — it scrolls sideways on a phone — and a
-blank line after any `---`. No hint line; a standup is a report, not a menu.
+Why: **Rendering a board** in `tasks/_tooling/ontology.md`, which the standup shares.
 
 ## When asked for tasks, lift the tasks
 
 **Read `llmeep/tasks/*/board.md` first, every time** — never from memory, never from the example
-below. Ids are four random characters, so a plausible wrong one reads like a right one.
+below. A plausible wrong id reads exactly like a right one.
 
-Render the live state. **Nothing else** — no commentary on what is outstanding, no suggestions
-about what to file, no summary of recent work. If they wanted analysis they will ask for it.
-
-**Render as markdown, never a code block.** A code block scrolls sideways on a phone, and this
-is read on a phone. Scrolling down is the cheaper cost.
-
-`###` heading, then `---` under it, above the list. Bold the id. Blank line between tasks.
-Tags become prose after an em dash.
-
-**Leave a blank line after every `---`.** Without one the terminal renderer swallows the rule
-into the line below and prints a literal `---PLT-9puy` — tested 2026-08-02. The blank line
-before it is optional; the one after is not.
-
-**Never link the ids.** A relative markdown link to a repo file renders as "unsupported link"
-over Remote Control — tested 2026-08-01. Plain bold ids only.
+Render the live state and **nothing else**: no commentary on what is outstanding, no suggestions
+about what to file, no summary of recent work. Markdown, **never a code block**.
 
     ### in progress
     ---
@@ -277,39 +260,22 @@ over Remote Control — tested 2026-08-01. Plain bold ids only.
 
     **PLT-7t1p**  Drop legacy endpoint — *unassigned*
 
-    **PLT-021**  Audit the retry timeouts — *unassigned*
-
     ---
 
     *start · prioritise · done · park · detail · drop · discuss*
 
-Omit empty sections. Omit `recent` unless asked.
+- **A blank line after every `---`.** Without one the renderer prints `---PLT-9puy`.
+- **Never link an id.** Plain bold only.
+- **Never reorder `prioritised`.** Its position *is* the priority.
+- **Sort `backlog` newest-filed first**, undated last. A view, never a write (`DEC-027`), and
+  not a ranking — never say "top of the backlog".
+- **Never print the date** (`DEC-030`).
+- **Print `commits:N` as "N commits in".** `since:` never renders.
+- **No numbered lines.** No `@name` means unassigned and available, not missing data.
+- Omit empty sections, and `recent` unless asked. End with the hint line; if both boards are
+  clear say "nothing in the backlog" and stop.
 
-**Never reorder `prioritised`.** Its position *is* the priority; rearranging it overwrites
-someone's decision.
-
-**Sort `backlog` newest-filed first**, matching the standup. It is a view — it changes what you
-print, never what is in `board.md` (`DEC-027`). Undated lines sort last. Never call anything
-"top of the backlog": sorted by date is not ranked by importance.
-
-**Never print the date** (`DEC-030`). It is the sort key and nothing else. Beside a title it
-reads as a deadline, which is exactly what a pool line does not carry.
-
-**Always print `commits:N` as "N commits in".** A parked task is unassigned, so this is the only
-thing on the line saying anyone ever started it — and part-done work is the cheaper of two
-candidates to pick up. Dropping it hides the one fact that answers "what next". `since:` is
-plumbing and never renders.
-
-**End with the hint line** whenever the board is not empty — one italic line, no prompt, no
-blocking. The verbs already work in conversation; someone who did not design them has no way
-to know that.
-
-**Do not number the lines.** A number falsely suggests a handle you can pass to a command.
-
-A line with no `@name` is **unassigned and available** — the normal state for anything nobody
-has started, not missing data.
-
-Say "nothing in the backlog" and stop if both boards are clear.
+Why each of those, and what broke without it: **Rendering a board** in `tasks/_tooling/ontology.md`.
 
 ## Rules
 

@@ -2,10 +2,11 @@
 
 ## in progress
 
-PLT-6yjz A mobile-first web UI for llmeep: add by prompt, edit and delete tasks, read details, drop notes  @stewart  detail  since:052a697  filed:2026-09-07
+PLT-2cyh The tm skill is back over its 4,000-token budget; three verbs have been added since PLT-rsn4  @stewart  detail  since:25eb089  filed:2026-08-31
 
 ## prioritised
 
+PLT-6yjz A mobile-first web UI for llmeep: add by prompt, edit and delete tasks, read details, drop notes  detail  commits:8  filed:2026-09-07
 
 ## backlog
 
@@ -14,7 +15,6 @@ PLT-fqcz An update that fails partway leaves a half-installed repo  filed:2026-0
 PLT-6pvp Present the repo for community contributions — README and GitHub setup  filed:2026-08-05
 PLT-fupy Lead the README with what it looks like: tasks, standup --send, notes, agenda  detail  filed:2026-08-18
 PLT-6vgh Test tm review end to end: a real commit through both reviewer APIs  filed:2026-08-19
-PLT-2cyh The tm skill is back over its 4,000-token budget; three verbs have been added since PLT-rsn4  detail  filed:2026-08-31
 PLT-2gdj Periodically check connectors — Gmail, Google Docs — and turn what they find into captures  detail  filed:2026-09-07
 
 ## recent
