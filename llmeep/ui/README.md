@@ -3,10 +3,10 @@
 A mobile-first view of an llmeep repo, for people who will not open a terminal.
 
 **It holds nothing.** Every screen is a view of a file in the repo and every write goes through
-`tm` or `nm` ([principle 8](../llmeep/ontology/principles.md)). Stop the container and nothing
+`tm` or `nm` ([principle 8](../ontology/principles.md)). Stop the container and nothing
 is lost but the door.
 
-    ui/
+    llmeep/ui/
       api/       the back end — Python standard library, no dependencies
       web/       the front end — React + MUI, built by Vite
       Dockerfile one image serving both
@@ -16,13 +16,17 @@ is lost but the door.
 The image serves the front end and the API from one port, under a base path, so a k8s service
 routing `/llmeep` at it needs no rewriting.
 
-    docker build -t llmeep-chrome ui/
+    docker build -t llmeep-chrome llmeep/ui/
     docker run --rm -p 8080:8080 \
-      -v /path/to/your/repo:/repo \
+      -v "$PWD:/repo" \
       -e LLMEEP_REPO=/repo \
       -e LLMEEP_BASE_PATH=/llmeep \
       -e LLMEEP_AUTH_HANDLED=yes-my-ingress-handles-it \
       llmeep-chrome
+
+**You build it.** Nothing is published: the image is this Dockerfile and your repo, built where
+you are going to run it. One less thing to trust, and one less registry to keep in step with a
+release.
 
 ## It has no authentication, and refuses to start until you say so
 
@@ -75,7 +79,7 @@ can hold in their head.
 that task — a list whose every title is a task title is the board again, told worse.
 
 Markdown is rendered rather than shown raw, because the records are written machine-first
-([principle 1](../llmeep/ontology/principles.md)) and that is only affordable if a person reads
+([principle 1](../ontology/principles.md)) and that is only affordable if a person reads
 them somewhere else. This is that somewhere else.
 
 **A detail opens where you are.** Tapping *has detail* on a board card opens it over the board,

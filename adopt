@@ -42,7 +42,7 @@ DEFAULT_URL = "https://github.com/stewartmegaw/llmeep.git"
 
 # The record trees. `platform/` is deliberately absent: an adopting repo already
 # has its code, and it stays where it is.
-TREES = ["tasks", "notes", "decisions", "ontology"]
+TREES = ["tasks", "notes", "decisions", "ontology", "ui"]
 
 # Of those, the ones that live under the install folder — which since `DEC-032`
 # is all of them. `ontology/` used to sit at the repo root on the grounds that
@@ -50,7 +50,11 @@ TREES = ["tasks", "notes", "decisions", "ontology"]
 # principles, the core model and the domain guidance are all llmeep's, managed,
 # and overwritten by `--update`. Claiming a repo-root `ontology/` to hold them
 # put 464 lines of our documentation under a name that reads as the project's.
-NESTED = ["tasks", "notes", "decisions", "ontology"]
+NESTED = ["tasks", "notes", "decisions", "ontology", "ui"]
+
+# Never copied: an adopter regenerates both, and the second is derived from the
+# first. See `managed`.
+BUILD_OUTPUT = {"node_modules", "dist", "__pycache__"}
 
 # Everything llmeep owns goes in one folder, by default this one. A repo gets a
 # single directory it can rename, rather than four it has to recognise.
@@ -234,9 +238,14 @@ def managed(src):
     repo root even for a nested install.
     """
     out = []
-    for base in ("tasks/_tooling", "notes/_tooling"):
+    for base in ("tasks/_tooling", "notes/_tooling", "ui"):
         root = src_of(base, src)
-        for dirpath, _, names in os.walk(root):
+        for dirpath, dirs, names in os.walk(root):
+            # Build output, not source. `node_modules` is ten thousand files an
+            # adopter's `npm ci` puts back, and `dist` is what their `docker
+            # build` produces — copying either would make an install enormous
+            # and immediately stale.
+            dirs[:] = [d for d in dirs if d not in BUILD_OUTPUT]
             for n in sorted(names):
                 if n == "history.tsv":
                     continue
@@ -429,13 +438,18 @@ def reroot(top, into, report):
       stop being prompted for.
     - both `SKILL.md` files tell an agent to run `tasks/_tooling/tm`, which is
       not there — the agent follows the instructions and the command fails.
+    - `ui/README.md` says `docker build llmeep/ui/`, which under another name
+      builds nothing.
 
     Reported by a repo that adopted with `--into ops` and had to fix all three
     by hand (`PLT-wxr5`).
     """
     files = [os.path.join(top, ".claude", "settings.json"),
              os.path.join(top, ".claude", "skills", "tm", "SKILL.md"),
-             os.path.join(top, ".claude", "skills", "nm", "SKILL.md")]
+             os.path.join(top, ".claude", "skills", "nm", "SKILL.md"),
+             # The web app's README carries a `docker build llmeep/ui/`, which
+             # names a directory that is not there under another name.
+             os.path.join(top, into or "", "ui", "README.md")]
     for path in files:
         if not os.path.exists(path):
             continue

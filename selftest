@@ -447,6 +447,62 @@ class TestFreshInstall(Fixture):
         with open(app) as fh:
             self.assertEqual(fh.read(), "print('theirs')\n")
 
+    def test_a_fresh_install_carries_the_web_app(self):
+        """Nothing is published — an adopter builds the image from what `adopt`
+        put in their repo, so the source has to actually arrive (`PLT-6yjz`)."""
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        root = self.install_root(top)
+        for rel in ("ui/Dockerfile", "ui/README.md", "ui/api/server.py",
+                    "ui/web/package.json", "ui/web/package-lock.json",
+                    "ui/web/src/App.jsx"):
+            self.assertTrue(os.path.isfile(os.path.join(root, *rel.split("/"))),
+                            f"{rel} did not ship")
+
+    def test_build_output_is_not_copied(self):
+        """`node_modules` is ten thousand files their own `npm ci` puts back and
+        `dist` is what their `docker build` produces. Copying either makes an
+        install enormous and immediately stale."""
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        ui = os.path.join(self.install_root(top), "ui")
+        for junk in ("web/node_modules", "web/dist"):
+            self.assertFalse(os.path.exists(os.path.join(ui, *junk.split("/"))),
+                             f"{junk} was copied into an install")
+
+    def test_the_build_command_names_the_folder_it_is_in(self):
+        """`PLT-wxr5` once more: a renamed install that tells you to build
+        `llmeep/ui/` names a directory that is not there."""
+        top = self.a_project(name="renamed")
+        self.adopt(self.working_copy(), top, "--into", "ops")
+        with open(os.path.join(top, "ops", "ui", "README.md")) as fh:
+            body = fh.read()
+        self.assertIn("docker build -t llmeep-chrome ops/ui/", body)
+        self.assertNotIn("llmeep/ui/", body)
+
+    def test_the_shipped_server_runs_against_the_install_it_shipped_into(self):
+        """The end an adopter cares about: their copy, their repo, their board.
+        Imported rather than built into an image, because a docker daemon is not
+        a thing a test suite should need."""
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        tid = self.tm(top, "add", "--id", "-n", "Something to look at").stdout.strip()
+
+        script = self.path("run_shipped.py")
+        with open(script, "w") as fh:
+            fh.write("import json, os, sys\n"
+                     "sys.path.insert(0, os.path.join(os.environ['LLMEEP_REPO'],\n"
+                     "                                'llmeep', 'ui', 'api'))\n"
+                     "import server\n"
+                     "print(json.dumps(json.loads(server.tm('board', '--json'))))\n")
+        env = dict(os.environ, LLMEEP_REPO=top, LLMEEP_AUTH_HANDLED="yes")
+        out = sh(sys.executable, script, cwd=top, env=env)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        board = json.loads(out.stdout.strip().split("\n")[-1])
+        self.assertEqual([t["id"] for t in board["ledgers"]["platform"]["prioritised"]],
+                         [tid])
+
 
 class TestFeedback(Fixture):
     """`DEC-033`. Every assertion here is about what an adopter who never asked
@@ -1110,7 +1166,7 @@ class TestChromeDocs(Fixture):
     reader can only ever open what the catalogue chose."""
 
     DRIVER = """import json, os, sys
-sys.path.insert(0, os.path.join(sys.argv[1], "ui", "api"))
+sys.path.insert(0, os.path.join(sys.argv[1], "llmeep", "ui", "api"))
 import server
 what = sys.argv[2]
 if what == "catalogue":
@@ -1309,7 +1365,7 @@ class TestChromeGuard(Fixture):
     repo, and acts on text a model read."""
 
     DRIVER = """import json, os, sys
-sys.path.insert(0, os.path.join(sys.argv[1], "ui", "api"))
+sys.path.insert(0, os.path.join(sys.argv[1], "llmeep", "ui", "api"))
 import server
 script = json.loads(sys.argv[2])
 seen = []
@@ -1453,7 +1509,7 @@ print(json.dumps(out))
         script = self.path("prompt_check.py")
         with open(script, "w") as fh:
             fh.write("import os, sys\n"
-                     "sys.path.insert(0, os.path.join(sys.argv[1], 'ui', 'api'))\n"
+                     "sys.path.insert(0, os.path.join(sys.argv[1], 'llmeep', 'ui', 'api'))\n"
                      "import server\n"
                      "print(server.agent_prompt())\n")
         env = dict(os.environ, LLMEEP_REPO=top, LLMEEP_AUTH_HANDLED="yes")

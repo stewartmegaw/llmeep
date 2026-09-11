@@ -533,6 +533,22 @@ nothing for a clean tree to be cleaner than.
 carries llmeep's own boards, history and decisions — and that is now simply what a clone of a
 project looks like, because nobody installs by cloning.
 
+### The web app
+
+`llmeep/ui/` is a mobile-first view of the records, and `adopt` installs it like everything else
+in that folder. **Nothing is published** — the image is that Dockerfile plus your repo, built
+where you are going to run it:
+
+```sh
+docker build -t llmeep-chrome llmeep/ui/
+docker run --rm -p 8080:8080 -v "$PWD:/repo" \
+  -e LLMEEP_REPO=/repo -e LLMEEP_AUTH_HANDLED=behind-my-ingress llmeep-chrome
+```
+
+One less thing to trust and one less registry to keep in step with a release. `llmeep/ui/README.md`
+has the rest: it has no authentication of its own and refuses to serve until you say something
+else handles it, and it can change `tasks/` and `notes/` and nothing else.
+
 ### Before cutting: `selftest`
 
 ```sh

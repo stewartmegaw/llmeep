@@ -38,5 +38,5 @@ llmeep/feedback.md
 *.key
 
 # The UI is built into an image; neither of these belongs in the repo.
-ui/web/node_modules/
-ui/web/dist/
+llmeep/ui/web/node_modules/
+llmeep/ui/web/dist/
