@@ -6,19 +6,35 @@ import {
 } from '@mui/material'
 import Markdown from './Markdown.jsx'
 
-// The records, grouped as the catalogue groups them. Listed by title and never
-// by filename or id: `DEC-044` is not something anyone can hold in their head,
-// and the whole point of this screen is that nobody has to (`PLT-6egb`).
-export default function Read({ base }) {
-  const [docs, setDocs] = React.useState(null)
+// One group of records, listed by title and never by filename or id: `DEC-044`
+// is not something anyone can hold in their head, and the whole point of this
+// screen is that nobody has to (`PLT-6egb`).
+//
+// `only` names the group to show. A screen that is one group needs no group
+// heading, and a screen that is one *document* — Notes — should open it rather
+// than offer a list of one.
+export default function Read({ base, only, docs: given }) {
+  const [docs, setDocs] = React.useState(given || null)
   const [open, setOpen] = React.useState(null)
   const [error, setError] = React.useState(null)
 
   React.useEffect(() => {
+    if (given) return setDocs(given)
     fetch(`${base}/api/docs`).then((r) => r.json())
       .then((d) => (d.error ? setError(d.error) : setDocs(d.docs)))
       .catch((e) => setError(e.message))
-  }, [base])
+  }, [base, given])
+
+  const mine = React.useMemo(
+    () => (docs || []).filter((d) => !only || d.group === only),
+    [docs, only],
+  )
+
+  // A single document is the screen, not a list with one row on it.
+  React.useEffect(() => {
+    if (mine.length === 1 && mine[0].kind === 'text' && !open) openDoc(mine[0])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mine.length])
 
   function openDoc(entry) {
     // Markdown and tables are fetched as text. An image or a PDF is a URL the
@@ -33,10 +49,21 @@ export default function Read({ base }) {
   }
 
   if (error) return <Typography color="error" sx={{ mt: 3 }}>{error}</Typography>
-  if (open) return <Doc doc={open} base={base} onBack={() => setOpen(null)} />
+  if (open) {
+    // Nothing to go back to when the list was one document.
+    const alone = mine.length === 1
+    return <Doc doc={open} base={base} onBack={alone ? null : () => setOpen(null)} />
+  }
   if (!docs) return <Box sx={{ mt: 4, textAlign: 'center' }}><CircularProgress size={22} /></Box>
+  if (!mine.length) {
+    return (
+      <Typography color="text.secondary" sx={{ mt: 4, textAlign: 'center' }}>
+        Nothing here yet.
+      </Typography>
+    )
+  }
 
-  const groups = docs.reduce((acc, d) => {
+  const groups = mine.reduce((acc, d) => {
     (acc[d.group] = acc[d.group] || []).push(d)
     return acc
   }, {})
@@ -45,9 +72,11 @@ export default function Read({ base }) {
     <Box sx={{ mt: 2 }}>
       {Object.entries(groups).map(([group, items]) => (
         <Box key={group} sx={{ mb: 3 }}>
-          <Typography variant="overline" color="text.secondary">
-            {group} ({items.length})
-          </Typography>
+          {!only && (
+            <Typography variant="overline" color="text.secondary">
+              {group} ({items.length})
+            </Typography>
+          )}
           <List disablePadding
                 sx={{ border: 1, borderColor: 'divider', borderRadius: 2, mt: 0.5 }}>
             {items.map((d, i) => (

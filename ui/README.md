@@ -64,10 +64,15 @@ that would rather inject secrets than mount them.
 
 ## Reading is wider than writing
 
-Two tabs. **Board** is what is live; **Read** is what is written down — the notes, every
-decision, and how llmeep itself works, plus your own domain ontology if `tm ontology` recorded
-where it is. Decisions are listed by what they decided rather than by `DEC-044`, which is not a
-name anyone can hold in their head.
+Three tabs. **Board** is what is live. **Notes** opens the notes straight away — a list with one
+row on it is not a list. **Other** holds **Decisions** and **Ontology**, the second including
+your own domain ontology if `tm ontology` recorded where it is.
+
+Decisions are listed by what they decided rather than by `DEC-044`, which is not a name anyone
+can hold in their head.
+
+**Task details are not in that list.** A detail belongs to a task and is reached by tapping
+that task — a list whose every title is a task title is the board again, told worse.
 
 Markdown is rendered rather than shown raw, because the records are written machine-first
 ([principle 1](../llmeep/ontology/principles.md)) and that is only affordable if a person reads
@@ -78,8 +83,7 @@ with everything else in that folder listed underneath and opening in the same sh
 someone to another tab to read the thing they just tapped is asking them to hold a place in
 their head and come back to it.
 
-The same details are listed under *Other* too, with everything a folder detail holds beside its
-`README.md` indented under it — `DEC-011` lets a task carry a spec *and* a rubric *and* sample data, and the
+The sheet holds everything a folder detail carries beside its `README.md` — `DEC-011` lets a task carry a spec *and* a rubric *and* sample data, and the
 board could say `has detail` while offering no way to open any of it.
 
 **Everything is served.** Markdown renders, `csv` and `tsv` render as rows, images and PDFs

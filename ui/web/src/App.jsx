@@ -24,6 +24,7 @@ export default function App() {
   const [loading, setLoading] = React.useState(true)
   const [canWrite, setCanWrite] = React.useState(false)
   const [tab, setTab] = React.useState('board')
+  const [sub, setSub] = React.useState('decisions')
   const [docs, setDocs] = React.useState([])
   const [detail, setDetail] = React.useState(null)
   // How much room the composer is taking, so nothing ends up underneath it.
@@ -32,10 +33,20 @@ export default function App() {
 
   // Fetched once and shared. The board says a task *has* a detail; the
   // catalogue is what knows how to open it.
+  const [unbrowsed, setUnbrowsed] = React.useState('Task details')
   React.useEffect(() => {
     fetch(`${BASE}/api/docs`).then((r) => r.json())
-      .then((d) => setDocs(d.docs || [])).catch(() => {})
+      .then((d) => {
+        setDocs(d.docs || [])
+        if (d.unbrowsed) setUnbrowsed(d.unbrowsed)
+      }).catch(() => {})
   }, [])
+
+  // A detail belongs to its task, so it is reached by tapping that task and
+  // never by scrolling a list whose every title is a task title.
+  const browsable = React.useMemo(
+    () => docs.filter((d) => d.group !== unbrowsed), [docs, unbrowsed],
+  )
 
   React.useEffect(() => {
     fetch(`${BASE}/api/config`).then((r) => r.json())
@@ -70,23 +81,36 @@ export default function App() {
             aim at is worse than a list it can scroll. */}
         <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="fullWidth">
           <Tab value="board" label="Board" />
+          <Tab value="notes" label="Notes" />
           {/* "Other", not "Read": the text box can promote a note or reword a
-              task from this screen too, so naming the tab for reading would be
-              naming it for half of what it does. */}
-          <Tab value="read" label="Other" />
+              task from these screens too, so naming them for reading would be
+              naming them for half of what they do. */}
+          <Tab value="other" label="Other" />
         </Tabs>
+        {tab === 'other' && (
+          <Tabs value={sub} onChange={(_, v) => setSub(v)} variant="fullWidth"
+                textColor="inherit"
+                sx={{ minHeight: 38, '& .MuiTab-root': { minHeight: 38, fontSize: 13 } }}>
+            <Tab value="decisions" label="Decisions" />
+            <Tab value="ontology" label="Ontology" />
+          </Tabs>
+        )}
       </AppBar>
 
       <Container maxWidth="sm" sx={{ px: 2 }}>
         {error && (
           <Typography color="error" sx={{ mt: 3, whiteSpace: 'pre-wrap' }}>{error}</Typography>
         )}
-        {tab === 'read'
-          ? <Read base={BASE} />
-          : board && Object.entries(board).map(([ledger, sections]) => (
-              <Ledger key={ledger} name={ledger} sections={sections}
-                      docs={docs} onDetail={setDetail} />
-            ))}
+        {tab === 'notes' && <Read base={BASE} docs={browsable} only="Notes" />}
+        {tab === 'other' && (
+          <Read base={BASE} docs={browsable}
+                only={sub === 'decisions' ? 'Decisions' : 'Ontology'}
+                key={sub} />
+        )}
+        {tab === 'board' && board && Object.entries(board).map(([ledger, sections]) => (
+          <Ledger key={ledger} name={ledger} sections={sections}
+                  docs={docs} onDetail={setDetail} />
+        ))}
       </Container>
       {/* On both tabs. The agent can promote a note or reword a task from
           either, and a question it asked must not vanish because someone

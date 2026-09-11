@@ -286,12 +286,21 @@ def install_folder():
 # Everything readable, and the order it is offered in. Reading is wider than
 # writing on purpose: the records are the point of the repo, and someone who
 # cannot read a decision has to take the board on faith.
+# Groups are what the app navigates by, so they are named for what a reader is
+# looking for rather than for where the files sit.
+#
+# `Task details` is catalogued but never browsed: a detail belongs to a task and
+# is reached by tapping that task, not by scrolling a list of documents whose
+# titles are all task titles (`PLT-6yjz`).
 READABLE = [
     ("Notes", ["notes/notes.md"]),
     ("Decisions", ["decisions/DEC-*.md"]),
-    ("How it works", ["ontology/*.md", "tasks/_tooling/ontology.md",
-                      "notes/_tooling/ontology.md"]),
+    ("Ontology", ["ontology/*.md", "tasks/_tooling/ontology.md",
+                  "notes/_tooling/ontology.md"]),
 ]
+
+# Catalogued so a detail can be opened, absent from every browse list.
+UNBROWSED = "Task details"
 
 # What renders in place, and what is offered as a download. Everything is
 # served; the only question is whether a browser can show it (`PLT-6yjz`).
@@ -336,7 +345,7 @@ def catalogue():
     if where:
         full = os.path.join(REPO, where)
         if os.path.isfile(full):
-            row = entry(full, REPO, "How it works")
+            row = entry(full, REPO, "Ontology")
             row["path"] = where
             out.append(row)
     return out
@@ -730,7 +739,8 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/config":
             return self.send_json(200, {"can_write": can_write()})
         if path == "/api/docs":
-            return self.send_json_from(lambda: {"docs": catalogue()})
+            return self.send_json_from(
+                lambda: {"docs": catalogue(), "unbrowsed": UNBROWSED})
         if path == "/api/doc":
             return self.send_json_from(lambda: read_doc(self.query("id")))
         if path == "/api/file":
