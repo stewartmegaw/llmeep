@@ -407,7 +407,7 @@ class TestFreshInstall(Fixture):
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
         self.assertNotIn("over the", out.stdout + out.stderr,
                          "a freshly installed session is already over budget")
-        for expected in ("a task session", "a notes session"):
+        for expected in ("a task session", "a notes session", "a decisions session"):
             self.assertIn(expected, out.stdout, f"{expected} is not measured")
 
     def test_the_manifest_records_the_working_agreement_not_their_readme(self):
@@ -571,6 +571,81 @@ class TestFeedback(Fixture):
                          f"committing broke with feedback on:\n{out.stdout}\n{out.stderr}")
         self.assertNotIn("feedback", (out.stdout + out.stderr).lower(),
                          "the commit path grew feedback output")
+
+
+class TestDecisionQuestion(Fixture):
+    """`PLT-buj6`, `DEC-051`. `check` enforces the shape of a decision and refuses
+    a rewrite of one; nothing ever prompted anyone to write one. The prompt was in
+    the `tm` skill, which reached an agent that had loaded that skill for some
+    other reason, on one vendor — for the record type the project values most."""
+
+    def install(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        return top
+
+    def closed(self, top):
+        tid = self.tm(top, "add", "--id", "-n", "Migrate the config loader").stdout.strip()
+        self.tm(top, "go", tid)
+        out = self.tm(top, "done", "--force")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        return " ".join(out.stdout.split())
+
+    def test_done_asks_the_question(self):
+        flat = self.closed(self.install())
+        self.assertIn("propose the opposite next month", flat, flat)
+        self.assertIn("tm why", flat, "the prompt never names the search")
+
+    def test_it_asks_rather_than_instructs(self):
+        """Most closes owe nothing, and a decision per change is how the folder
+        becomes noise — so the line has to say that, or it manufactures records."""
+        flat = self.closed(self.install())
+        self.assertIn("Most closes owe nothing", flat, flat)
+
+    def test_both_paths_it_names_are_there(self):
+        """A prompt naming a file nobody can open teaches people to ignore
+        prompts. Asserted as paths from the repo root, which is where the
+        guidance says to run `tm` — and the assertion that caught the
+        `/var` versus `/private/var` walk in `PLT-asy6`."""
+        top = self.install()
+        flat = self.closed(top)
+        named = re.findall(r"(\S+/(?:_template\.md|core\.md))", flat)
+        self.assertEqual(len(named), 2, f"expected a template and a model path: {flat}")
+        for path in named:
+            self.assertTrue(os.path.isfile(os.path.join(top, path.rstrip(".,"))),
+                            f"the prompt names {path}, which is not there")
+
+    def test_a_nested_install_names_its_own_paths(self):
+        """`--into ops` moves the records, so a path written for the default
+        layout would name nothing — the failure mode every rerooting test exists
+        for."""
+        top = self.a_project(name="nested-decision")
+        self.adopt(self.working_copy(), top, "--into", "ops")
+        self.quieten(top)
+        flat = self.closed(top)
+        self.assertIn("ops/decisions/_template.md", flat, flat)
+        self.assertNotIn("llmeep/decisions", flat)
+
+    def test_the_tm_skill_no_longer_carries_the_guidance(self):
+        top = self.install()
+        with open(os.path.join(top, ".claude", "skills", "tm", "SKILL.md")) as fh:
+            skill = fh.read()
+        self.assertNotIn("propose the opposite", skill, "the question is still in two places")
+        self.assertNotIn("_template.md", skill)
+        self.assertIn("decisions", skill, "the tm skill does not route to the decisions skill")
+        with open(os.path.join(top, ".claude", "skills", "decisions", "SKILL.md")) as fh:
+            decisions = fh.read()
+        self.assertIn("propose the opposite next month", decisions)
+        self.assertIn("--stale", decisions, "tidying left with nowhere to go")
+
+    def test_the_question_stays_off_every_other_command(self):
+        top = self.install()
+        self.tm(top, "add", "-n", "another thing")
+        for args in (("status",), ("go",), ("board", "--chat"), ("park",), ("find", "config")):
+            out = self.tm(top, *args)
+            self.assertNotIn("propose the opposite", out.stdout,
+                             f"tm {' '.join(args)} printed the decision question")
 
 
 class TestFeedbackPrompt(Fixture):
@@ -1001,7 +1076,7 @@ class TestPushState(Fixture):
         exist, and one naming a `tm` that is not there is worse than absent."""
         top = self.a_project(name="split-skills")
         self.adopt(self.working_copy(), top, "--into", "ops")
-        for name in ("agenda", "standup"):
+        for name in ("agenda", "standup", "decisions"):
             path = os.path.join(top, ".claude", "skills", name, "SKILL.md")
             self.assertTrue(os.path.isfile(path), f"the {name} skill did not ship")
             with open(path) as fh:
@@ -1020,6 +1095,7 @@ class TestPushState(Fixture):
             head = fh.read().split("---")[1]
         self.assertIn("standup skill", head)
         self.assertIn("agenda skill", head)
+        self.assertIn("decisions skill", head)
 
     def test_every_shipped_skill_is_measured(self):
         """`DEC-037` budgets the session. Moving a workflow into its own skill

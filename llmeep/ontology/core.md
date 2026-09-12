@@ -63,8 +63,9 @@ behind, written deliberately. It sits at the top level rather than inside a subs
 
 ### When to write one
 
-Nothing prompts you. `check` enforces the *shape* of a decision and the graph between them, but
-no tool can tell that a choice was worth recording — that is judgement, and it stays with the
+`tm done` asks the question on every close, and that is the whole of the prompting (`DEC-051`).
+`check` enforces the *shape* of a decision and the graph between them, but no tool can tell that
+a choice was worth recording — that is judgement, and it stays with the
 person or agent doing the work ([principle 7](principles.md)).
 
 Three triggers, most mechanical first:

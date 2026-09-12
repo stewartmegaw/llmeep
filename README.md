@@ -128,21 +128,27 @@ is what it chooses to read, so the standing cost is two lines:
 | Loaded                    | When                              | Roughly         |
 | ------------------------- | --------------------------------- | --------------- |
 | Skill descriptions        | always, in every prompt           | **~200 tokens** |
-| `tm` skill                | when you mention tasks            | ~3,300          |
+| `tm` skill                | when you mention tasks            | ~2,850          |
 | `nm` skill                | when you mention notes            | ~1,900          |
 | `standup` / `agenda` skill | when a report or a meeting is     | ~500 each       |
-| A board                   | when it lists or starts work      | ~700            |
+| `decisions` skill         | when behaviour changes, or someone asks why | ~800   |
+| A board                   | when it lists or starts work      | ~750            |
 
-A working session on tasks costs about **4,000 tokens** of context — the skill plus the board —
+A working session on tasks costs about **3,600 tokens** of context — the skill plus the board —
 and the board stays that size on purpose: `recent` is capped at 15 and everything older is
 searched with `find` rather than carried. That cap is the whole reason the cost is flat instead
 of growing with the project.
 
-Two things got it there rather than rewording. A report and a meeting are occasional, so each is
-its own skill with its own trigger and a task session pays for neither. And **the formats live in
-the tool**: `tm board --chat` and `tm standup --chat` render what an agent passes on, so no
-session carries a rendering contract, and an agent that never reads a skill still renders the
-same board ([`DEC-050`](llmeep/decisions/DEC-050-the-tool-renders-for-the-target.md)).
+Three things got it there rather than rewording. A report, a meeting and a decision are each
+occasional, so each is its own skill with its own trigger and a task session pays for none of
+them. **The formats live in the tool**: `tm board --chat`, `tm standup --chat` and `nm notes
+--chat` render what an agent passes on, so no session carries a rendering contract, and an agent
+that never reads a skill still renders the same board
+([`DEC-050`](llmeep/decisions/DEC-050-the-tool-renders-for-the-target.md)). **So do the prompts
+nobody asks for**: `tm done` asks whether a decision is owed, and whether llmeep itself got in
+the way, because a rule that fires on nothing anyone says cannot live in a file that loads when
+someone says something
+([`DEC-051`](llmeep/decisions/DEC-051-a-prompt-with-no-utterance-belongs-to-the-tool.md)).
 
 **Measure it rather than trusting this table**, which was wrong by a third before anyone
 checked — the skill grew a section at a time, each one justified, and nothing added them up:

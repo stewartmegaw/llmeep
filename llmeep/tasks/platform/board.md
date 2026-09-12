@@ -16,9 +16,11 @@ PLT-fupy Lead the README with what it looks like: tasks, standup --send, notes, 
 PLT-6vgh Test tm review end to end: a real commit through both reviewer APIs  filed:2026-08-19
 PLT-2gdj Periodically check connectors — Gmail, Google Docs — and turn what they find into captures  detail  filed:2026-09-07
 PLT-hrpu An agenda holds nothing the repo keeps — decide whether it should exist at all  detail  filed:2026-09-12
+PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; use typeable() so they stay typeable  filed:2026-09-12
 
 ## recent
 
+2026-09-12  PLT-buj6 Split the decisions guidance into its own skill; tm done asks the question that has no utterance behind it  @stewart
 2026-09-12  PLT-asy6 Move the feedback pass out of the tm skill and into post-commit, so every adopter gets the prompt  @stewart
 2026-09-12  PLT-8fmt Move the notes render into nm, the way DEC-050 moved the board and standup renders  @stewart
 2026-09-12  PLT-jzhh The tool renders for the target: move both render contracts into tm, and cut the phrase table duplication  @stewart
@@ -33,4 +35,3 @@ PLT-hrpu An agenda holds nothing the repo keeps — decide whether it should exi
 2026-08-30  PLT-hwx5 Give sidecars a verb: attaching one needs a hand edit to board.md that the guidance forbids  @stewart
 2026-08-30  PLT-tabe New-file check asks about the ontology for every new file, including ones with no domain concept  @stewart
 2026-08-30  PLT-pmqf Rename sidecar to detail, the word the board tag already uses; sidecar means nothing to a non-coder  @stewart
-2026-08-28  PLT-e5hw Hook warns of unfiled work on every correctly-ordered commit; a closes trailer should satisfy it  @stewart

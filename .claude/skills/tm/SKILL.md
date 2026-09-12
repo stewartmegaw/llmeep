@@ -1,6 +1,6 @@
 ---
 name: tm
-description: Tasks — create, start, reword, prioritise, park, complete and search tasks, attach detail to one, and search past decisions. Use when the user refers to tasks, priorities, what to work on next, completing work, whether it is safe to clear, or why something was decided ("what's next", "start PLT-9puy", "commit task", "why is it like this", "have we tried this before"). A standup is the standup skill; a meeting agenda is the agenda skill.
+description: Tasks — create, start, reword, prioritise, park, complete and search tasks, attach detail to one, and search what has already been done. Use when the user refers to tasks, priorities, what to work on next, completing work, or whether it is safe to clear ("what's next", "start PLT-9puy", "commit task", "park that", "have we done this before", "can I clear"). A standup is the standup skill, a meeting agenda is the agenda skill, and why something was decided is the decisions skill.
 ---
 
 # tm
@@ -26,8 +26,6 @@ tm detail [id] [--folder]     # attach a detail and tag the board line
 tm find <term>                # search every task ever completed
 tm board --chat [--recent]    # the board, rendered to pass on as it is
 tm review [--reply <text>]    # LLM review of HEAD before pushing
-tm why <term|DEC-000>         # search decisions, or explain one
-tm why --stale [--yes]        # records nothing references; --yes prunes
 tm ontology [<path>|--none]   # where this repo's domain ontology lives
 tm feedback [<text>|-]        # note what llmeep got wrong; opt-in, never sent
 tm audience                   # how this user wants to be talked to
@@ -56,8 +54,6 @@ Speech that maps to a verb you would not guess from the list above. Everything e
 | "give this to sam" | `tm add -f sam <title>`, or `tm go <id> -f sam` |
 | "commit task" / "that's done" | `tm done`, then commit with `closes <id>` |
 | "review this" / a push refused as unreviewed | `tm review` — then fix, or `--reply` to argue a point back |
-| "why is it like this" / "what did we decide about X" | `tm why <term>`, then `tm why DEC-000` |
-| "can we tidy the decisions" | `tm why --stale` — **without** `--yes`. Unreferenced is not finished with; the subject test is the user's |
 | "is the Telegram bot set up" / "post to the group instead" | `tm check --notify` — it lists every chat the bot can see; add `--send` only if they want a test message |
 | "our domain model is in docs/" / a commit says no ontology is recorded | `tm ontology <path>`, or `--none` |
 | "llmeep should really do X" / friction with the tooling itself | `tm feedback "<what happened>"` — it refuses if the switch is off, and says so |
@@ -125,25 +121,6 @@ verbs that exist — `retitle` for sharper words, `detail`, `prioritise`, `park`
 is a legitimate outcome too. There is no `tm discuss` — a command that only starts a conversation does
 nothing.
 
-## A rejected alternative is a decision, and nobody will prompt you
-
-`check` enforces the *shape* of a decision and refuses a rewrite. Nothing prompts you to write
-one, so **this is on you.**
-
-**Before work that changes established behaviour, run `tm why <term>`.** If a decision already
-covers it you are superseding, not editing, and finding that out now is cheaper than at commit
-time when `check` refuses the rewrite.
-
-**Afterwards, ask one question: would a reasonable person propose the opposite next month?**
-If yes, write the decision — the rejected option and the reason are the record. Copy
-`decisions/_template.md`, fill the frontmatter, and say what you considered and why not.
-
-Not for bug fixes, renames, or anything whose opposite is obviously wrong. A decision per change
-is how the folder becomes noise.
-
-**Do not write one silently.** Say you have, and why — it is a claim the project stands behind,
-not a side effect of the task.
-
 ## Titles are handles
 
 **A title is a shell argument, so quote it or use stdin.** A `;`, `&`, `|`, `(` or `)` in what
@@ -161,9 +138,11 @@ just prints the path, so it is safe to say when unsure. It lands under the task'
 remembered rather than done, that is `nm` — see its skill. A note becomes a task with
 `nm promote`, not `tm add`, so the link back to the conversation survives.
 
-## A standup and an agenda are other skills
+## Three workflows are other skills
 
-Invoke `standup` when someone asks what shipped, `agenda` when they are preparing for a meeting.
+Invoke `standup` when someone asks what shipped, `agenda` when they are preparing for a meeting,
+and `decisions` for why something is the way it is — or when work is about to change, or has just
+changed, behaviour the project already had. `done` asks about that one on every close.
 
 ## When asked for tasks, run `tm board --chat`
 

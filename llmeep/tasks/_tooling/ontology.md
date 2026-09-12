@@ -460,10 +460,17 @@ back as context. The vendor half is the event name and the JSON envelope; the an
 An agent with no such trigger loses the prompt and nothing else — which is the test an adapter
 has to pass.
 
-**`--json` output carries nothing else.** The audience banner is printed ahead of every command
-for a person to read; ahead of a document it makes the whole thing unparseable. Any invocation
-carrying `--json` is machine-facing and the banner is suppressed, the same exemption `add --id`
-already had (`PLT-6yjz`).
+**`--json` and `--chat` output carry nothing else.** The audience banner is printed ahead of
+every command for a person to read; ahead of a document it makes the whole thing unparseable. Any
+invocation carrying either flag is handing over something to be passed on verbatim, so the banner
+is suppressed and every status line goes to stderr — the same exemption `add --id` already had
+(`PLT-6yjz`, `DEC-050`).
+
+**What an adapter may not hold: a prompt that fires on nothing anyone says.** A skill loads when
+its subject comes up, so a rule triggered by *having just done something* — a decision may be
+owed, a feedback pass is due — reaches only an agent that had loaded the file for another reason,
+on one vendor. Those print from the command whose flow they belong to, which is `tm done`
+(`DEC-051`).
 
 A wrapper that surfaces these in an agent's native skill list is **ergonomics, never logic**,
 and carries a header saying so:
@@ -472,12 +479,18 @@ and carries a header saying so:
 .claude/skills/tm/SKILL.md   ->  runs ./tasks/_tooling/tm
 ```
 
+Five of them now: `tm` and `nm` for the two subsystems, and `standup`, `agenda` and `decisions`
+for workflows that are occasional enough that a task session should not carry them (`PLT-2cyh`,
+`PLT-umh3`, `PLT-buj6`). Each is measured by `tm check --context` as its own session — a cost
+moved out of one file and into another is still a cost, and one that stops being measured is one
+nobody notices growing back.
+
 If an adapter contains behaviour, someone using a different agent gets a different system —
 the exact failure [principle 3](../../ontology/principles.md) exists to prevent.
 
 ### Discovery
 
-An agent only uses a skill it knows exists, so the five commands are listed in the
+An agent only uses a skill it knows exists, so the commands are listed in the
 [root README](../../../README.md) — the contract every agent reads. Discovery must not depend on an
 adapter, because not every agent has one.
 

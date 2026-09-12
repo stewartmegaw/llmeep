@@ -63,13 +63,13 @@ DEFAULT_INTO = "llmeep"
 # Agent adapters and the permission allowlist (DEC-003). These stay at the repo
 # root even for a nested install, because that is the only place an agent looks.
 AGENT = [".claude/skills/tm", ".claude/skills/nm", ".claude/skills/agenda",
-         ".claude/skills/standup", ".claude/settings.json"]
+         ".claude/skills/standup", ".claude/skills/decisions", ".claude/settings.json"]
 
 # The same adapters as files, for the manifest and for update — a directory has
 # no checksum, and each of these carries paths that a nested install rewrites.
 AGENT_FILES = [".claude/skills/tm/SKILL.md", ".claude/skills/nm/SKILL.md",
                ".claude/skills/agenda/SKILL.md", ".claude/skills/standup/SKILL.md",
-               ".claude/settings.json"]
+               ".claude/skills/decisions/SKILL.md", ".claude/settings.json"]
 
 # These follow the install instead. `tm` reads `.env` from its own REPO, which
 # for `--into ops` is `ops/` — a root `.env.example` would document a file the
@@ -451,6 +451,7 @@ def reroot(top, into, report):
              os.path.join(top, ".claude", "skills", "nm", "SKILL.md"),
              os.path.join(top, ".claude", "skills", "agenda", "SKILL.md"),
              os.path.join(top, ".claude", "skills", "standup", "SKILL.md"),
+             os.path.join(top, ".claude", "skills", "decisions", "SKILL.md"),
              # The web app's README carries a `docker build llmeep/ui/`, which
              # names a directory that is not there under another name.
              os.path.join(top, into or "", "ui", "README.md")]

@@ -1845,9 +1845,41 @@ def cmd_done(args):
                   + "; ".join(what for what, _ in rest))
         else:
             print("\n  nothing carries over after that — a good moment to clear.")
+        print_decision_question()
         print_feedback_pass()
         return
     raise Fail(f"no task {tid}" if tid else "nothing in progress")
+
+
+def print_decision_question():
+    """**The one question that decides whether a decision is owed**, asked where
+    the flow is guaranteed to pass through.
+
+    `check` enforces the *shape* of a decision and refuses a rewrite of one, and
+    that is the whole of the mechanism: nothing has ever prompted anyone to write
+    one. The prompt was in the `tm` skill, which means it reached an agent that
+    had loaded that skill for some other reason, on one vendor (`DEC-051`,
+    `PLT-buj6`).
+
+    One line, on every close, and deliberately a question rather than an
+    instruction — most closes owe nothing, and a decision per change is how the
+    folder becomes noise. Nothing here judges whether this one qualifies; that is
+    the agent's or the person's, against **Decision** in the ontology
+    (principle 7).
+    """
+    top = os.path.realpath((git("rev-parse", "--show-toplevel") or REPO).strip())
+
+    def named(*parts):
+        """From the repo root, which is where the guidance says to run `tm`."""
+        path = os.path.realpath(os.path.join(REPO, *parts))
+        rel = os.path.relpath(path, top)
+        return typeable(path) if rel.startswith("..") else rel
+
+    print("\n  did this change how something already worked? if a reasonable person could"
+          "\n  propose the opposite next month, the rejected option is the record —"
+          f"\n  `tm why <term>` first, then copy {named('decisions', '_template.md')}."
+          f"\n  When to and when not to: {named('ontology', 'core.md')}, Decision. Most"
+          "\n  closes owe nothing.")
 
 
 def print_feedback_pass():
@@ -3375,6 +3407,9 @@ SESSIONS = (
     # is one nobody notices growing back (`PLT-2cyh`).
     ("an agenda session", "agenda skill", None),
     ("a standup session", "standup skill", "platform board"),
+    # Read *with* a decision open, not with a board: the question it answers is
+    # about the record, not about the queue (`PLT-buj6`).
+    ("a decisions session", "decisions skill", None),
 )
 
 
@@ -3391,6 +3426,8 @@ def context_cost():
          "a meeting is mentioned"),
         ("standup skill", os.path.join(top, ".claude/skills/standup/SKILL.md"),
          "a report is asked for"),
+        ("decisions skill", os.path.join(top, ".claude/skills/decisions/SKILL.md"),
+         "behaviour changes, or someone asks why"),
         ("platform board", os.path.join(ROOT, "platform/board.md"), "it lists or starts work"),
         ("business board", os.path.join(ROOT, "business/board.md"), "it lists or starts work"),
         ("notes archive", os.path.join(REPO, "notes", "notes.md"), "notes are read"),
@@ -3405,14 +3442,14 @@ def check_context(rep):
     size = {l: t for l, t, _ in rows}
     print("\n  what an agent carries\n")
     for label, tokens, when in rows:
-        print(f"    {label:<18} ~{tokens:>5} tokens   when {when}")
+        print(f"    {label:<19} ~{tokens:>5} tokens   when {when}")
     print()
     for name, skill, record in SESSIONS:
         if skill not in size:
             continue
         total = size[skill] + (size.get(record, 0) if record else 0)
         made_of = f"{skill} plus {record}" if record else f"{skill} alone"
-        print(f"    {name:<18} ~{total:>5} tokens   {made_of}")
+        print(f"    {name:<19} ~{total:>5} tokens   {made_of}")
         if total > SESSION_BUDGET:
             rep.warn(f"{name} is ~{total} tokens, over the {SESSION_BUDGET} budget — "
                      f"{skill} loads whole every time its subject comes up")

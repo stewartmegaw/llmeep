@@ -113,3 +113,4 @@
 2026-09-12	PLT-jzhh	platform	The tool renders for the target: move both render contracts into tm, and cut the phrase table duplication	stewart
 2026-09-12	PLT-8fmt	platform	Move the notes render into nm, the way DEC-050 moved the board and standup renders	stewart
 2026-09-12	PLT-asy6	platform	Move the feedback pass out of the tm skill and into post-commit, so every adopter gets the prompt	stewart
+2026-09-12	PLT-buj6	platform	Split the decisions guidance into its own skill; tm done asks the question that has no utterance behind it	stewart
