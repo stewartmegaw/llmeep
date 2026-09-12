@@ -19,6 +19,7 @@ PLT-hrpu An agenda holds nothing the repo keeps — decide whether it should exi
 
 ## recent
 
+2026-09-12  PLT-jzhh The tool renders for the target: move both render contracts into tm, and cut the phrase table duplication  @stewart
 2026-09-12  PLT-umh3 Split the standup into its own skill; a report is as occasional as a meeting  @stewart
 2026-09-12  PLT-um7k check never notices a DEC- citation naming a decision that does not exist  @stewart
 2026-09-12  PLT-2cyh The tm skill is back over its 4,000-token budget; three verbs have been added since PLT-rsn4  @stewart
@@ -33,4 +34,3 @@ PLT-hrpu An agenda holds nothing the repo keeps — decide whether it should exi
 2026-08-28  PLT-e5hw Hook warns of unfiled work on every correctly-ordered commit; a closes trailer should satisfy it  @stewart
 2026-08-28  PLT-z3hf adopt checksums the working agreement against the repo-root README, not the installed copy  @stewart
 2026-08-22  PLT-t774 Say when it is safe to clear context: report what the session holds that the records do not  @stewart
-2026-08-21  PLT-g9gv A non-coder's agent pushes on its own, except where the commit could reach a deploy  @stewart

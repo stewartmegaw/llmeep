@@ -967,6 +967,26 @@ def render_telegram(sections):
     return "\n".join(out)
 
 
+def render_markdown(sections):
+    """**The conversation the agent is in**, which is a phone as often as a
+    terminal. Markdown, never a code block: a code block scrolls sideways and
+    scrolling down is the cheaper cost.
+
+    This existed as prose in the standup skill until `PLT-jzhh` — a fourth
+    renderer, written in instructions, for a tool that already had three. The
+    heading is bolded and **nothing else is touched**, so what the agent shows
+    and what the channel receives are now the same report. The prose version
+    title-cased headings this writes in capitals, so they never were.
+    """
+    out = []
+    for heading, body in sections:
+        if out:
+            out.append("")
+        out.append(f"**{heading}**")
+        out += list(body)
+    return "\n".join(out)
+
+
 def render_slack(sections):
     out = []
     for heading, body in sections:
@@ -1106,24 +1126,34 @@ def cmd_standup(args):
     period = standup_period(override)
     if "--cron" in args:
         return cmd_standup_cron(period)
+    chat = "--chat" in args
     sections = standup_sections(period)
     if sections is None:
         print(f"  nothing to report this {period} period")
         return
-    print()
-    for line in render_plain(sections).split("\n"):
-        print(f"  {line}".rstrip())
-    print()
+    if chat:
+        # The artifact alone on stdout, so it can be passed on verbatim, and
+        # anything *about* it on stderr. Same rule as `--json`: a status line
+        # ahead of a document makes the document wrong (`PLT-6yjz`).
+        print(render_markdown(sections))
+    else:
+        print()
+        for line in render_plain(sections).split("\n"):
+            print(f"  {line}".rstrip())
+        print()
+    # Everything from here is *about* the report rather than part of it, so under
+    # `--chat` it leaves by the other door.
+    say = sys.stderr if chat else sys.stdout
     if "--send" not in args:
-        print("  not sent — add --send to post it to the team")
+        print("  not sent — add --send to post it to the team", file=say)
         return
     channel = notify_text(sections)
     if channel:
-        print(f"  sent via {channel}")
+        print(f"  sent via {channel}", file=say)
     elif channel is None:
-        print("  ! not sent — no channel configured, see .env.example")
+        print("  ! not sent — no channel configured, see .env.example", file=say)
     else:
-        print("  ! not sent — the channel rejected it; the reason is above")
+        print("  ! not sent — the channel rejected it; the reason is above", file=say)
 
 
 # ------------------------------------------------------------------- agenda
@@ -1470,6 +1500,105 @@ def cmd_prioritise(args):
             raise Fail(f"no task {tid}")
 
 
+# The last line of a rendered board. The verbs already work in conversation and
+# someone who did not design them has no way to know that (`PLT-gx39`). A
+# standup carries no equivalent: it is a report, not a menu.
+BOARD_HINT = "*start · prioritise · done · park · detail · drop · discuss*"
+
+
+def board_sections(recent=False):
+    """The live board as `(heading, [line, …])` — the same shape the standup
+    already renders from, so both go through one set of renderers (`PLT-jzhh`).
+
+    **Both ledgers share one set of sections.** The id carries the ledger, so
+    `PLT-` and `BUS-` say which is which; two headings per section would either
+    duplicate every heading or split one priority order into two, and the order
+    across them is still a judgement someone made. Same reasoning as the
+    standup's single list, one level down.
+    """
+    live = {"in progress": [], "prioritised": [], "backlog": []}
+    done = []
+    for ledger in LEDGERS:
+        try:
+            board = Board(ledger)
+        except Fail:
+            continue
+        live["in progress"] += [(board, t) for t in board.in_progress]
+        # Never reordered: position is the priority, so rearranging it
+        # overwrites someone's decision.
+        live["prioritised"] += [(board, t) for t in board.prioritised]
+        live["backlog"] += [(board, t) for t in board.backlog]
+        done += [(board, t) for t in board.recent]
+    # Newest filed first, matching the standup. A view changes what is printed
+    # and never what is in the file (`DEC-027`), and this is not a ranking —
+    # there is no top of the backlog. Undated lines predate `filed:` and sort
+    # last, which is where the oldest belong under DESC anyway.
+    live["backlog"].sort(key=lambda pair: pair[1].filed or "", reverse=True)
+    sections = [(name, [board_line(b, t) for b, t in live[name]])
+                for name in ("in progress", "prioritised", "backlog") if live[name]]
+    if recent:
+        done.sort(key=lambda pair: pair[1].done_on or "", reverse=True)
+        if done:
+            sections.append(("recent", [board_line(b, t) for b, t in done]))
+    return sections
+
+
+def board_line(board, task):
+    """`**id**  title`, then what the line says about itself.
+
+    **Never a link.** A relative markdown link to a repo file renders as
+    "unsupported link" over Remote Control — tested 2026-08-01.
+
+    **No number.** A numbered line suggests a handle that can be passed to a
+    command, and the id is the handle.
+
+    `commits:N` always shows: a parked task is unassigned, so it is the only
+    thing on the line saying anyone ever started it, and part-done work is the
+    cheaper of two candidates to pick up (`DEC-047`). `filed:` never shows — it
+    is the sort key and nothing else, and beside a title it reads as a deadline
+    (`DEC-030`). `since:` never shows either; it is a git ref.
+
+    No assignee is a **state**, not missing data: unassigned and available is
+    normal for anything nobody has started, so the line says so.
+    """
+    notes = []
+    if task.commits:
+        notes.append(f"{task.commits} commit{'s' if task.commits > 1 else ''} in")
+    blocker = board.is_blocked(task)
+    if blocker:
+        notes.append(f"blocked by {blocker}")
+    if task.done_on is None:
+        notes.append(f"@{task.assignee}" if task.assignee else "*unassigned*")
+    elif task.assignee:
+        notes.append(f"@{task.assignee}")
+    line = f"**{task.id}**  {task.title}"
+    # `·` and not an em-dash, which is what the prose version used. Titles here
+    # contain em-dashes — "An agenda holds nothing the repo keeps — decide
+    # whether it should exist" — and a line with two of them reads as though the
+    # title never ended. A model rendering by hand smoothed that over; a renderer
+    # cannot, which is the kind of thing mechanising one finds.
+    return "  ·  ".join([line] + notes)
+
+
+def render_board(sections):
+    """The board for the conversation the agent is in. Markdown, never a code
+    block, for the reason `render_markdown` gives.
+
+    **A blank line after every `---`.** Without one the terminal renderer
+    swallows the rule into the line below and prints a literal `---PLT-9puy` —
+    tested 2026-08-02. The blank line *before* it is optional, and this leaves
+    one in anyway because a task line already ends with one.
+    """
+    if not sections:
+        return "nothing in the backlog"
+    out = []
+    for heading, body in sections:
+        out += [f"### {heading}", "---", ""]
+        for line in body:
+            out += [line, ""]
+    return "\n".join(out + ["---", "", BOARD_HINT])
+
+
 def cmd_board(args):
     """**The records, for something that is not a person.** `--json` emits every
     open section and the completed window; bare it prints them.
@@ -1484,9 +1613,21 @@ def cmd_board(args):
     outward: unambiguous to parse, no opinion about who parses it. Nothing here
     is vendor-shaped; it is the records, named as they are named on the board.
     """
-    as_json = "--json" in args
-    if [a for a in args if a != "--json"]:
-        raise Fail("usage: tm board [--json]")
+    as_json, chat = "--json" in args, "--chat" in args
+    recent = "--recent" in args
+    if [a for a in args if a not in ("--json", "--chat", "--recent")] or (as_json and chat):
+        raise Fail("usage: tm board [--json | --chat [--recent]]")
+    if recent and not chat:
+        raise Fail("--recent renders the window; it needs --chat")
+    if chat:
+        # **The records, for the person on the other end of the conversation.**
+        # `--json` is for an interface and this is for a reader: the same export,
+        # rendered rather than parsed. It lived in the tm skill as ten rules and
+        # a worked example until `PLT-jzhh`, which every task session paid for
+        # whether or not anyone asked to see the board — and which no agent
+        # without that skill ever had.
+        print(render_board(board_sections(recent=recent)))
+        return
     out = {}
     for ledger in LEDGERS:
         try:
@@ -3328,6 +3469,7 @@ USAGE = """tm — taskman
          [--id]                 -n prioritises it, -f assigns; --id prints the id)
   tm status                     where things stand; starts nothing, writes nothing
   tm board [--json]             the open sections and the window, for an interface
+  tm board --chat [--recent]    the board rendered to pass on as it is
   tm go [id] [-f who]           show your current task, or start the next one
   tm prioritise <id> [-n]       backlog → prioritised (-n puts it on top)
   tm park [id] [-n]             step it back one section (-n for the top of prioritised)
@@ -3338,7 +3480,8 @@ USAGE = """tm — taskman
   tm find <term>                search every task ever completed
   tm why <term|DEC-000>         search decisions, or explain one and its chain
   tm why --stale [--yes]        records nothing references; --yes prunes to a stub
-  tm standup [--send]           report the period's work (--send posts it)
+  tm standup [--send] [--chat]  report the period's work (--send posts it, --chat
+                                renders it to pass on as it is)
   tm standup --cron             the crontab line, if you schedule it
   tm agenda [--send]            what a meeting must get through (--send posts it)
   tm ontology [<path>|--none]   where your domain ontology lives, or that there is none
@@ -3564,7 +3707,7 @@ def main():
     # corrupted value. `--json` is the same failure with a wider blast radius:
     # a banner ahead of the document makes the whole thing unparseable, which
     # is how `board --json` failed the first time it was run (`PLT-6yjz`).
-    machine = ("--json" in argv) or (argv[0] == "add" and "--id" in argv)
+    machine = ("--json" in argv) or ("--chat" in argv) or (argv[0] == "add" and "--id" in argv)
     kind = None if machine or argv[0] in ("check", "audience", "unpushed") else audience()
     if kind:
         # The push state is read here rather than left to the agent to go and

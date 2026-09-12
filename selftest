@@ -1861,6 +1861,241 @@ class TestBoardExport(Fixture):
             self.assertEqual(fh.read(), before, "board --json wrote to the board")
 
 
+class TestChatRender(Fixture):
+    """`PLT-jzhh`, `DEC-050`. Both renders were prose in a skill: ten rules and a
+    worked example for the board, four more and a second example for the
+    standup. Prose reaches one agent and cannot be asserted — `selftest` could
+    only check the rules were *present*. These check the output.
+
+    The drift that proved the point: the standup skill promised that what the
+    agent shows and what Telegram receives are the same report, while its own
+    example title-cased headings the tool writes in capitals."""
+
+    def a_repo(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "commit", "-qm", "adopt", cwd=top)
+        return top
+
+    def chat(self, top, *args):
+        out = self.tm(top, "board", "--chat", *args)
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        return out
+
+    def board_file(self, top):
+        return os.path.join(self.install_root(top), "tasks", "platform", "board.md")
+
+    def test_the_banner_never_precedes_the_render(self):
+        """Same failure as `board --json` (`PLT-6yjz`), one audience along: the
+        agent is told to pass this on as it is, so a line addressed to it is
+        content it cannot tell apart from the board."""
+        top = self.a_repo()
+        self.tm(top, "add", "-n", "Migrate the config loader")
+        raw = self.chat(top).stdout
+        self.assertTrue(raw.lstrip().startswith("###"), raw[:120])
+        self.assertNotIn("·  ·", raw)
+        self.assertNotIn("coder", raw, "the audience banner reached the render")
+
+    def test_a_blank_line_follows_every_rule(self):
+        """Without one the terminal renderer swallows the rule into the line
+        below and prints a literal `---PLT-9puy` — tested 2026-08-02, and the
+        reason this rule existed in prose for six weeks without a test."""
+        top = self.a_repo()
+        self.tm(top, "add", "-n", "Migrate the config loader")
+        lines = self.chat(top).stdout.split("\n")
+        for i, line in enumerate(lines):
+            if line.startswith("---"):
+                self.assertEqual(line, "---", f"text ran into a rule: {line!r}")
+                self.assertEqual(lines[i + 1], "",
+                                 f"no blank line after the rule on line {i}")
+
+    def test_no_id_is_linked(self):
+        """A relative markdown link to a repo file renders as "unsupported link"
+        over Remote Control — tested 2026-08-01."""
+        top = self.a_repo()
+        self.tm(top, "add", "-n", "Migrate the config loader")
+        raw = self.chat(top).stdout
+        self.assertNotIn("](", raw, "an id or title was rendered as a link")
+
+    def test_never_a_code_block(self):
+        top = self.a_repo()
+        self.tm(top, "add", "-n", "Migrate the config loader")
+        self.assertNotIn("```", self.chat(top).stdout)
+
+    def test_the_filing_date_never_renders(self):
+        """`DEC-030`. It is the sort key and nothing else; beside a title it
+        reads as a deadline, which is exactly what a pool line does not carry."""
+        top = self.a_repo()
+        self.tm(top, "add", "pooled")
+        with open(self.board_file(top)) as fh:
+            line = next(l for l in fh if "filed:" in l)
+        filed = next(t for t in line.split() if t.startswith("filed:")).split(":", 1)[1]
+        raw = self.chat(top).stdout
+        self.assertIn("pooled", raw)
+        self.assertNotIn(filed, raw, "the filing date reached the render")
+        self.assertNotIn("filed:", raw)
+
+    def test_the_pool_is_newest_filed_first_and_undated_last(self):
+        """A view changes what is printed and never what is in the file
+        (`DEC-027`), and an undated line predates `filed:` — where the oldest
+        belong under DESC anyway. Dates are set by hand: three tasks filed in
+        the same second are otherwise indistinguishable, and the date is what is
+        under test."""
+        top = self.a_repo()
+        for title in ("oldest", "newest", "undated"):
+            self.tm(top, "add", title)
+        with open(self.board_file(top)) as fh:
+            body = fh.read()
+        body = re.sub(r"^(\S+ oldest)\s+filed:\S+$", r"\1  filed:2026-01-01",
+                      body, flags=re.M)
+        body = re.sub(r"^(\S+ newest)\s+filed:\S+$", r"\1  filed:2026-06-01",
+                      body, flags=re.M)
+        body = re.sub(r"^(\S+ undated)\s+filed:\S+$", r"\1", body, flags=re.M)
+        with open(self.board_file(top), "w") as fh:
+            fh.write(body)
+        raw = self.chat(top).stdout
+        self.assertLess(raw.index("newest"), raw.index("oldest"), raw)
+        self.assertLess(raw.index("oldest"), raw.index("undated"), raw)
+
+    def test_work_behind_a_parked_task_shows_and_the_ref_does_not(self):
+        """`DEC-047`. A parked task is unassigned, so the commit count is the
+        only thing on the line saying anyone ever started it. `since:` is a git
+        ref and belongs to nobody reading a board."""
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "Migrate the config loader").stdout.strip()
+        self.tm(top, "go", tid)
+        for i in range(2):
+            with open(os.path.join(top, "src", "app.py"), "a") as fh:
+                fh.write(f"line {i}\n")
+            sh("git", "add", "-A", cwd=top)
+            sh("git", "commit", "-qm", f"work {i}", cwd=top)
+        self.tm(top, "park")
+        raw = self.chat(top).stdout
+        self.assertIn("2 commits in", raw)
+        self.assertIn("*unassigned*", raw, "no @name is a state, not missing data")
+        self.assertNotIn("since:", raw)
+        self.assertNotIn("commits:", raw, "the tag was printed instead of the words")
+
+    def test_one_commit_is_not_plural(self):
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "Migrate the config loader").stdout.strip()
+        self.tm(top, "go", tid)
+        with open(os.path.join(top, "src", "app.py"), "a") as fh:
+            fh.write("one\n")
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "commit", "-qm", "work", cwd=top)
+        self.tm(top, "park")
+        self.assertIn("1 commit in", self.chat(top).stdout)
+
+    def test_a_title_with_an_em_dash_still_ends(self):
+        """The prose render separated a title from its notes with an em-dash, and
+        titles here are full of them — "An agenda holds nothing the repo keeps —
+        decide whether it should exist" — so the line read as though the title
+        never ended. A model smoothed that over; a renderer cannot."""
+        top = self.a_repo()
+        self.tm(top, "add", "An agenda holds nothing the repo keeps — decide whether it exists")
+        line = next(l for l in self.chat(top).stdout.split("\n") if "agenda holds" in l)
+        self.assertIn("  ·  *unassigned*", line)
+        self.assertEqual(line.count(" — "), 1, f"two dashes on one line: {line}")
+
+    def test_an_empty_section_gets_no_heading(self):
+        top = self.a_repo()
+        self.tm(top, "add", "pooled")
+        raw = self.chat(top).stdout
+        self.assertIn("### backlog", raw)
+        self.assertNotIn("### in progress", raw)
+        self.assertNotIn("### prioritised", raw)
+
+    def test_the_window_is_omitted_until_asked_for(self):
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "Migrate the config loader").stdout.strip()
+        self.tm(top, "go", tid)
+        self.tm(top, "done", "--force")
+        self.assertNotIn("### recent", self.chat(top).stdout)
+        self.assertIn("### recent", self.chat(top, "--recent").stdout)
+        self.assertNotEqual(self.tm(top, "board", "--recent").returncode, 0,
+                            "--recent rendered nothing without --chat")
+
+    def test_an_empty_board_says_so_and_stops(self):
+        top = self.a_repo()
+        raw = self.chat(top).stdout.strip()
+        self.assertEqual(raw, "nothing in the backlog")
+
+    def test_the_hint_line_ends_it(self):
+        """`PLT-gx39`. The verbs work in conversation and someone who did not
+        design them has no way to know that."""
+        top = self.a_repo()
+        self.tm(top, "add", "pooled")
+        raw = self.chat(top).stdout.rstrip().split("\n")
+        self.assertTrue(raw[-1].startswith("*start · prioritise"), raw[-1])
+        for verb in ("done", "park", "detail", "drop", "discuss"):
+            self.assertIn(verb, raw[-1])
+
+    def test_it_writes_nothing(self):
+        top = self.a_repo()
+        self.tm(top, "add", "-n", "ranked")
+        with open(self.board_file(top), "rb") as fh:
+            before = fh.read()
+        self.chat(top)
+        with open(self.board_file(top), "rb") as fh:
+            self.assertEqual(fh.read(), before, "board --chat wrote to the board")
+
+    def test_the_standup_shows_what_the_channel_receives(self):
+        """The one thing the prose render provably got wrong: the skill promised
+        the two were the same report while its example title-cased headings the
+        tool writes in capitals. The headings are the tool's now, so they cannot
+        disagree."""
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "Migrate the config loader").stdout.strip()
+        self.tm(top, "go", tid)
+        raw = self.tm(top, "standup", "--chat").stdout
+        self.assertIn("**IN PROGRESS**", raw, raw)
+        for title_cased in ("In progress", "Priority (", "Backlog (", "Captured, not"):
+            self.assertNotIn(title_cased, raw,
+                             f"{title_cased!r} was cased away from what is sent")
+        self.assertNotIn("```", raw)
+        for line in raw.split("\n"):
+            self.assertFalse(line.startswith("  "),
+                             f"terminal indentation reached the render: {line!r}")
+
+    def test_the_standup_bolds_every_heading_and_nothing_else(self):
+        top = self.a_repo()
+        self.tm(top, "add", "-n", "Migrate the config loader")
+        raw = self.tm(top, "standup", "--chat").stdout
+        headings = [l for l in raw.split("\n") if l.startswith("**")]
+        self.assertTrue(headings, raw)
+        for line in headings:
+            self.assertTrue(line.endswith("**"), f"unclosed bold: {line!r}")
+        self.assertIn("**PRIORITY (1)**", raw, raw)
+
+    def test_a_line_about_the_report_is_not_in_the_report(self):
+        """stdout is the artifact and a line *about* the artifact is not part of
+        it — the rule `--json` already set."""
+        top = self.a_repo()
+        self.tm(top, "add", "-n", "Migrate the config loader")
+        out = self.tm(top, "standup", "--chat")
+        self.assertNotIn("not sent", out.stdout)
+        self.assertIn("not sent", out.stderr)
+
+    def test_neither_skill_carries_a_render_any_more(self):
+        """`DEC-050`. A skill that still holds the format is a second
+        implementation of it, and the one an agent would follow."""
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        skills = os.path.join(top, ".claude", "skills")
+        with open(os.path.join(skills, "tm", "SKILL.md")) as fh:
+            tm_skill = fh.read()
+        with open(os.path.join(skills, "standup", "SKILL.md")) as fh:
+            standup = fh.read()
+        self.assertIn("board --chat", tm_skill, "the tm skill never says how to render a board")
+        self.assertNotIn("### prioritised", tm_skill, "the board render is still in the skill")
+        self.assertNotIn("commits:N", tm_skill)
+        self.assertIn("standup --chat", standup)
+        self.assertNotIn("PLT  ", standup, "the standup render is still in the skill")
+
+
 class TestStatus(Fixture):
     """`PLT-2xj3`. A session that has just started or just been cleared holds
     nothing, so the records are the only memory there is. `go` is the natural

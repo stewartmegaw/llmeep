@@ -123,17 +123,24 @@ Full model: [`llmeep/notes/_tooling/ontology.md`](llmeep/notes/_tooling/ontology
 Nothing here is auto-loaded — no `CLAUDE.md`, no always-on context file. What an agent carries
 is what it chooses to read, so the standing cost is two lines:
 
-| Loaded             | When                         | Roughly         |
-| ------------------ | ---------------------------- | --------------- |
-| Skill descriptions | always, in every prompt      | **~150 tokens** |
-| `tm` skill         | when you mention tasks       | ~4,100          |
-| `nm` skill         | when you mention notes       | ~1,900          |
-| A board            | when it lists or starts work | ~400            |
+| Loaded                    | When                              | Roughly         |
+| ------------------------- | --------------------------------- | --------------- |
+| Skill descriptions        | always, in every prompt           | **~200 tokens** |
+| `tm` skill                | when you mention tasks            | ~3,300          |
+| `nm` skill                | when you mention notes            | ~1,900          |
+| `standup` / `agenda` skill | when a report or a meeting is     | ~500 each       |
+| A board                   | when it lists or starts work      | ~700            |
 
-A working session on tasks costs about **4,600 tokens** of context — the skill plus the board —
+A working session on tasks costs about **4,000 tokens** of context — the skill plus the board —
 and the board stays that size on purpose: `recent` is capped at 15 and everything older is
 searched with `find` rather than carried. That cap is the whole reason the cost is flat instead
 of growing with the project.
+
+Two things got it there rather than rewording. A report and a meeting are occasional, so each is
+its own skill with its own trigger and a task session pays for neither. And **the formats live in
+the tool**: `tm board --chat` and `tm standup --chat` render what an agent passes on, so no
+session carries a rendering contract, and an agent that never reads a skill still renders the
+same board ([`DEC-050`](llmeep/decisions/DEC-050-the-tool-renders-for-the-target.md)).
 
 **Measure it rather than trusting this table**, which was wrong by a third before anyone
 checked — the skill grew a section at a time, each one justified, and nothing added them up:

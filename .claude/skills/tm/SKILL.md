@@ -24,12 +24,10 @@ tm retitle <id> <title...>    # reword one, keeping its id and its place
 tm drop <id>                  # remove one that should not have been filed
 tm detail [id] [--folder]     # attach a detail and tag the board line
 tm find <term>                # search every task ever completed
+tm board --chat [--recent]    # the board, rendered to pass on as it is
 tm review [--reply <text>]    # LLM review of HEAD before pushing
 tm why <term|DEC-000>         # search decisions, or explain one
 tm why --stale [--yes]        # records nothing references; --yes prunes
-tm standup [--send]           # the period's work; --send posts it
-tm standup --cron             # the crontab line, if scheduling it
-tm agenda [--send]            # what a meeting must get through
 tm ontology [<path>|--none]   # where this repo's domain ontology lives
 tm feedback [<text>|-]        # note what llmeep got wrong; opt-in, never sent
 tm audience                   # how this user wants to be talked to
@@ -47,27 +45,19 @@ for the next person here.
 
 ## Translating what the user says
 
+Speech that maps to a verb you would not guess from the list above. Everything else does.
+
 | They say | You run |
 | --- | --- |
 | "what am I on" / "where were we" | `tm status` — reads, never starts. A `SessionStart` hook already ran it |
 | "what's next" / "start the next thing" | `tm go` — **starts** the top of the queue if nothing is running |
-| "let's start PLT-9puy" | `tm go PLT-9puy` |
-| "add a task for X" | `tm add X` — pass `-b` if the done-state is a business outcome |
-| "that's the next thing" / "move X up" | `tm prioritise <id>`, `-n` for the top |
-| "park that" / "I'm blocked on this" | `tm park` — steps it back one section, unassigned |
-| "not next after all" / "deprioritise X" | `tm park <id>` — a ranked task steps back to the pool |
+| "park that" / "I'm blocked" / "deprioritise X" | `tm park [id]` — steps it back one section, unassigned |
 | "what is sam working on" | `grep @sam llmeep/tasks/*/board.md` |
 | "give this to sam" | `tm add -f sam <title>`, or `tm go <id> -f sam` |
 | "commit task" / "that's done" | `tm done`, then commit with `closes <id>` |
-| "drop that" / "we're not doing that" | `tm drop <id>` — removes the line, writes no history |
-| a task needs more than its title holds | `tm detail [id]` — writes the file *and* tags the line; never both by hand |
-| "let's discuss PLT-9puy" / "that title is vague" | talk it over; record the outcome with the ordinary verbs |
-| "have we done this before" | `tm find <term>` |
 | "review this" / a push refused as unreviewed | `tm review` — then fix, or `--reply` to argue a point back |
 | "why is it like this" / "what did we decide about X" | `tm why <term>`, then `tm why DEC-000` |
 | "can we tidy the decisions" | `tm why --stale` — **without** `--yes`. Unreferenced is not finished with; the subject test is the user's |
-| "what did we get done this week" / "standup" | `tm standup` — **without** `--send` unless they ask to post it |
-| "schedule the standup" / "how do I automate this" | `tm standup --cron`, and point at `llmeep/tasks/_tooling/blueprints/standup.sh` |
 | "is the Telegram bot set up" / "post to the group instead" | `tm check --notify` — it lists every chat the bot can see; add `--send` only if they want a test message |
 | "our domain model is in docs/" / a commit says no ontology is recorded | `tm ontology <path>`, or `--none` |
 | "llmeep should really do X" / friction with the tooling itself | `tm feedback "<what happened>"` — see below |
@@ -130,10 +120,6 @@ something is manufacturing noise. `tm feedback "<what happened>"`.
 **Never about this project** — no code, file names, domain terms or task titles. If the point
 needs one, do not write it. Rubric: `llmeep/tasks/_tooling/ontology.md`.
 
-## Building an agenda
-
-That is the `agenda` skill, not this one. Invoke it when someone is preparing for a meeting.
-
 ## `discuss` is yours, `drop` is the tool's
 
 Both are on the board's hint line, and they resolve opposite ways for the reason
@@ -185,51 +171,22 @@ just prints the path, so it is safe to say when unsure. It lands under the task'
 remembered rather than done, that is `nm` — see its skill. A note becomes a task with
 `nm promote`, not `tm add`, so the link back to the conversation survives.
 
-## Rendering a standup
+## A standup and an agenda are other skills
 
-That is the `standup` skill. Invoke it when someone asks what shipped.
+Invoke `standup` when someone asks what shipped, `agenda` when they are preparing for a meeting.
 
-## When asked for tasks, lift the tasks
+## When asked for tasks, run `tm board --chat`
 
-**Read `llmeep/tasks/*/board.md` first, every time** — never from memory, never from the example
-below. A plausible wrong id reads exactly like a right one.
+**Print what it gives you and nothing else** — no commentary on what is outstanding, no
+suggestions about what to file, no summary of recent work. **Never in a code block:** that
+scrolls sideways on a phone, and this is read on a phone.
 
-Render the live state and **nothing else**: no commentary on what is outstanding, no suggestions
-about what to file, no summary of recent work. Markdown, **never a code block**.
+`--recent` adds the completed window, when they ask for it. An empty board renders as "nothing
+in the backlog", and that is the whole answer.
 
-    ### in progress
-    ---
-
-    **PLT-9puy**  Fix flaky auth test — @stew
-
-    ### prioritised
-    ---
-
-    **PLT-k3f9**  Migrate config loader — 3 commits in, *unassigned*
-
-    **PLT-2m4x**  Upgrade toolchain — blocked by PLT-9puy
-
-    ### backlog
-    ---
-
-    **PLT-7t1p**  Drop legacy endpoint — *unassigned*
-
-    ---
-
-    *start · prioritise · done · park · detail · drop · discuss*
-
-- **A blank line after every `---`.** Without one the renderer prints `---PLT-9puy`.
-- **Never link an id.** Plain bold only.
-- **Never reorder `prioritised`.** Its position *is* the priority.
-- **Sort `backlog` newest-filed first**, undated last. A view, never a write (`DEC-027`), and
-  not a ranking — never say "top of the backlog".
-- **Never print the date** (`DEC-030`).
-- **Print `commits:N` as "N commits in".** `since:` never renders.
-- **No numbered lines.** No `@name` means unassigned and available, not missing data.
-- Omit empty sections, and `recent` unless asked. End with the hint line; if both boards are
-  clear say "nothing in the backlog" and stop.
-
-Why each of those, and what broke without it: **Rendering a board** in `tasks/_tooling/ontology.md`.
+This was ten rules and a worked example here until `PLT-jzhh`. It is `board_sections` in `tm`
+now, so every agent gets the render rather than only one reading this file, and the reasoning
+behind each rule is **Rendering a board** in `llmeep/tasks/_tooling/ontology.md`.
 
 ## Rules
 

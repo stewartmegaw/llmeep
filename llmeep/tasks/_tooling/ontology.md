@@ -240,8 +240,10 @@ detail` writes from it, so the shape it shows and the shape the verb produces ca
 
 ## Rendering a board
 
-The skill carries the rules; this is why each exists, so the skill does not have to pay for the
-reasoning every time its subject comes up (`DEC-037`).
+**The tool carries the rules and this is why each exists** (`DEC-050`). `tm board --chat` and
+`tm standup --chat` render; the skills say to pass the output on and nothing else, so no session
+pays for the format or the reasoning behind it. Every rule below was prose in a skill until
+`PLT-jzhh`, which meant an agent without that skill — any agent but one — never had it.
 
 | Rule | Because |
 | --- | --- |
@@ -256,6 +258,7 @@ reasoning every time its subject comes up (`DEC-037`).
 | No numbered lines | A number falsely suggests a handle you can pass to a command |
 | No `@name` is a state | Unassigned and available is the normal state for anything nobody has started, not missing data |
 | The hint line | The verbs already work in conversation, and someone who did not design them has no way to know that |
+| `·` between a title and its notes | Titles contain em-dashes, and an em-dashed suffix after one reads as though the title never ended. The prose render used an em-dash; a renderer cannot smooth that over, which is how mechanising it surfaced (`PLT-jzhh`) |
 
 Render the live state and nothing else. Commentary on what is outstanding, suggestions about
 what to file, a summary of recent work — all of it is analysis nobody asked for, and asking is
@@ -315,7 +318,7 @@ step. See [`DEC-003`](https://github.com/stewartmegaw/llmeep/blob/main/decisions
 | ------ | -------------------- | --------------------------------------------------------------- |
 | `add`  | `tm add <title…>`    | Allocates the ID, files it in the `backlog` pool. `-n` prioritises it instead; `-f <name>` assigns. **Searches History.** |
 | `retitle` | `tm retitle <id> <title...>` | Rewords a task, keeping its id and its section. A retitle is not a refiling: history, the commits behind it and anything blocked on it key off the id. Refuses a completed task — `recent` titles are the record of what was done. The 120-cap applies, or the verb becomes the way around it (`DEC-011`). |
-| `board` | `tm board [--json]` | The open sections and the completed window. `--json` is for an interface — parsing `board.md` at the far end would be a second implementation of the model, drifting the first time a tag is added (`PLT-6yjz`). Reads only. |
+| `board` | `tm board [--json\|--chat]` | The open sections and the completed window. `--json` is for an interface — parsing `board.md` at the far end would be a second implementation of the model, drifting the first time a tag is added (`PLT-6yjz`). `--chat` is the same export rendered for a reader, `--recent` adding the window; both suppress the banner, because a line ahead of a document makes the document wrong. Reads only. |
 | `status` | `tm status`        | Where things stand: what is in progress, what a bare `go` would take next, and the two open counts. **Writes nothing and starts nothing** — the reason it is not `go`, which starts the top of the queue when nothing is running (`PLT-2xj3`). |
 | `go`   | `tm go [id]`         | No id: shows what is in progress, or starts the top of `prioritised` if nothing is. With an id: starts that one, from either open section. **Searches History.** |
 | `prioritise` | `tm prioritise <id> [-n]` | `backlog` → `prioritised`, at the bottom (`-n` for the top). |
@@ -328,7 +331,7 @@ step. See [`DEC-003`](https://github.com/stewartmegaw/llmeep/blob/main/decisions
 | | `tm check --context` | Measures what an agent loads. A skill loads whole, so it is the only file with a standing cost; the models are read on demand and excluded. |
 | `why`  | `tm why <term>`      | Greps decisions, pruned ones included. With an id, explains one: supersession chain, which records cite it, and where the tree references it. |
 | | `tm why --stale [--yes]` | Records nothing references — prune candidates. Dry without `--yes`; pruned records leave a stub in `decisions/history.tsv`. |
-| `standup` | `tm standup [--send]` | Reports the period's completions, what is in progress, and both open sections with their counts. Prints; `--send` posts. Run by a person; `_tooling/blueprints/standup.sh` is there if you want it unattended. |
+| `standup` | `tm standup [--send] [--chat]` | Reports the period's completions, what is in progress, and both open sections with their counts. Prints; `--send` posts. Run by a person; `_tooling/blueprints/standup.sh` is there if you want it unattended. |
 
 ```sh
 tm add Fix flaky auth test        # title needs no quotes; everything after the flags is the title
