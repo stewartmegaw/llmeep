@@ -5,6 +5,8 @@
 
 ## prioritised
 
+PLT-umh3 Split the standup into its own skill; a report is as occasional as a meeting  filed:2026-09-12
+PLT-um7k check never notices a DEC- citation naming a decision that does not exist  filed:2026-09-12
 PLT-6yjz A mobile-first web UI for llmeep: add by prompt, edit and delete tasks, read details, drop notes  detail  commits:9  filed:2026-09-07
 
 ## backlog
@@ -15,6 +17,7 @@ PLT-6pvp Present the repo for community contributions — README and GitHub setu
 PLT-fupy Lead the README with what it looks like: tasks, standup --send, notes, agenda  detail  filed:2026-08-18
 PLT-6vgh Test tm review end to end: a real commit through both reviewer APIs  filed:2026-08-19
 PLT-2gdj Periodically check connectors — Gmail, Google Docs — and turn what they find into captures  detail  filed:2026-09-07
+PLT-hrpu An agenda holds nothing the repo keeps — decide whether it should exist at all  detail  filed:2026-09-12
 
 ## recent
 
