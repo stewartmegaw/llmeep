@@ -2913,6 +2913,92 @@ class TestOntologyCurrency(Fixture):
         self.assertNotIn(self.WARNING, self.commit(top))
 
 
+class TestDecisionLinks(Fixture):
+    """`PLT-um7k`. A citation is a claim, and nothing was checking it. `check`
+    already validated that supersession is claimed from both sides; it never
+    asked whether the decision named existed at all. `tm` cited a decision that
+    had never been written for as long as it had existed — the only gap in the
+    sequence — and every reader who followed it found nothing."""
+
+    def a_repo(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        return top
+
+    def cite(self, top, text, name="OURS.md"):
+        """Into a file of the adopter's own. Everything `adopt` manages is
+        skipped, because llmeep's machinery cites llmeep's decisions and those
+        do not ship (`DEC-035`)."""
+        path = os.path.join(self.install_root(top), "decisions", name)
+        with open(path, "a") as fh:
+            fh.write("\n" + text + "\n")
+
+    def test_a_citation_naming_nothing_is_an_error(self):
+        top = self.a_repo()
+        self.cite(top, "As `DEC-999` requires.")
+        out = self.tm(top, "check")
+        self.assertNotEqual(out.returncode, 0)
+        self.assertIn("DEC-999", out.stdout + out.stderr)
+        self.assertIn("does not exist", out.stdout + out.stderr)
+
+    def test_a_citation_that_resolves_is_silent(self):
+        """The shipped tree cites decisions constantly; every one of them has to
+        pass or the check is unusable."""
+        top = self.a_repo()
+        self.assertEqual(self.tm(top, "check").returncode, 0,
+                         "a fresh install already fails its own citation check")
+
+    def test_the_placeholder_is_not_a_claim(self):
+        """`DEC-000` is the template's blank and `tm why`'s example. It names
+        nothing on purpose."""
+        top = self.a_repo()
+        self.cite(top, "Copy `DEC-000` and fill it in.")
+        self.assertEqual(self.tm(top, "check").returncode, 0)
+
+    def test_prose_about_work_may_name_a_missing_decision(self):
+        """A task detail saying "this cites a decision nobody wrote" is a true
+        statement, and making it an error would mean the only way to record the
+        problem is to not record it."""
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "a thing").stdout.strip()
+        self.tm(top, "go", tid)
+        self.tm(top, "detail")
+        detail = next(os.path.join(r, n)
+                      for r, _, ns in os.walk(os.path.join(self.install_root(top),
+                                                           "tasks", "platform", "tasks"))
+                      for n in ns if n.startswith(tid))
+        with open(detail, "a") as fh:
+            fh.write("\n`DEC-999` was never written, which is the point.\n")
+        self.assertEqual(self.tm(top, "check").returncode, 0,
+                         "prose about a missing decision was treated as a claim")
+
+    def test_the_source_tree_has_no_dangling_citation(self):
+        """The defect itself, asserted where it lives. llmeep's own checkout has
+        no manifest, so nothing is skipped and every citation in machinery and
+        in the models must resolve against the decisions shipping beside them.
+
+        It caught its own docstring on the first run, which is why nothing in
+        that file names the missing one as an example: a check that cannot
+        describe itself without failing itself needs an exemption, and the
+        exemption is the bug."""
+        src = self.working_copy()
+        root = os.path.join(src, "llmeep")
+        have = {n[:7] for n in os.listdir(os.path.join(root, "decisions"))
+                if n.startswith("DEC-")}
+        dangling = []
+        for base in ("tasks/_tooling", "notes/_tooling", "ontology", "decisions"):
+            for dirpath, _, names in os.walk(os.path.join(root, *base.split("/"))):
+                for n in names:
+                    path = os.path.join(dirpath, n)
+                    with open(path, errors="ignore") as fh:
+                        text = fh.read()
+                    for dec in sorted(set(re.findall(r"DEC-\d{3}", text))):
+                        if dec != "DEC-000" and dec not in have:
+                            dangling.append(f"{os.path.relpath(path, root)} -> {dec}")
+        self.assertEqual(dangling, [], dangling)
+
+
 class TestUpgrade(Fixture):
     """The axis that was covered by nothing, and where all three bugs lived."""
 

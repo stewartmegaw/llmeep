@@ -711,7 +711,18 @@ CI runs the identical checks with `tm check` and any failure reproduces without 
 **Blocks** — duplicate IDs across boards and history, a reused ID, two tasks in progress, an
 over-long or misordered `recent`, a dangling `blocked:` or `detail` tag, a detail with no board
 line or a mismatched frontmatter id, a decision rewritten in substance without being superseded,
-and a `closes` trailer naming nothing.
+a `DEC-` citation naming a decision that does not exist, and a `closes` trailer naming nothing.
+
+**A citation is a claim.** Supersession was checked from both sides long before anyone asked the
+simpler question — does the decision named here exist at all. The machinery cited one that had
+never been written for as long as it had existed, the only gap in the sequence, and every reader
+who followed it found nothing (`PLT-um7k`).
+
+Two exemptions, and both matter. `DEC-000` is the template's blank and `tm why`'s example, so it
+names nothing on purpose. And **everything `adopt` manages is skipped**: llmeep's machinery cites
+llmeep's decisions, an adopted repo builds its records empty (`DEC-035`), and without the
+exemption an install would fail its own first commit six times over. An adopter's `decisions/`
+holds theirs; llmeep's were never theirs to have.
 
 **Warns** — a task still in progress after a commit, platform files changed with nothing in
 progress *and* no `closes` trailer to account for them, new platform files that could carry a

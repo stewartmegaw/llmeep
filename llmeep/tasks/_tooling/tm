@@ -1142,7 +1142,12 @@ AGENDA = ".notes/agenda.md"
 
 # A sent agenda is renamed to this and a fresh one starts next time. It replaces
 # a marker file sitting beside the draft: two files to say one thing, and a live
-# `agenda.md` that might or might not already have gone out (`DEC-038`).
+# `agenda.md` that might or might not already have gone out.
+#
+# This cited a decision that had never been written, and did so for as long as
+# it existed. The reasoning above is the whole of it, so the citation went
+# rather than the thought (`PLT-um7k`); whether any of this earns a decision of
+# its own is `PLT-hrpu`.
 AGENDA_ROLLED = ".notes/agenda-%s.md"
 AGENDA_ROLLED_RE = re.compile(r"^agenda-(\d{4}-\d{2}-\d{2})(?:-(\d+))?\.md$")
 
@@ -2750,6 +2755,68 @@ def check_ontology_currency(rep, root):
     )
 
 
+# Where a `DEC-` reference is a claim that the decision exists: machinery and
+# models cite decisions as authority. A task detail or a note is prose about
+# work, and prose may legitimately name a decision in order to say it was never
+# written — `PLT-hrpu` does exactly that, and must not be an error for it.
+#
+# Which is also why nothing in this file may name the missing one as an example.
+# A check that cannot describe itself without failing itself is one you would
+# have to remember to exempt, and the exemption is the bug.
+CITING = ("tasks/_tooling", "notes/_tooling", "ontology", "decisions")
+
+DEC_CITED = re.compile(r"DEC-\d{3}")
+
+
+def check_decision_links(rep, root):
+    """**A citation is a claim, and nothing was checking it.**
+
+    `check` already validates that supersession is claimed from both sides. It
+    never asked the simpler question: does the decision named here exist at all?
+    This file carried such a citation for as long as it has existed — the only
+    gap in the sequence — and every reader who followed it found nothing
+    (`PLT-um7k`).
+
+    `DEC-000` is the template's placeholder and `tm why`'s example, so it is
+    never a claim about anything.
+
+    **Files `adopt` manages are skipped, and that is the whole reason this can
+    ship.** llmeep's machinery cites llmeep's decisions, and `DEC-035` builds
+    an adopted repo's records empty — so in an adopting repo every one of those
+    citations names a decision that is not there, and the first run of this
+    check failed an install six times over. An adopter's `decisions/` holds
+    their decisions; llmeep's are not theirs to have.
+
+    In llmeep's own checkout there is no manifest, nothing is managed, and the
+    machinery is checked against the decisions it actually ships beside — which
+    is where a dangling citation is a real defect and where this one was.
+    """
+    folder = os.path.join(root, "decisions")
+    if not os.path.isdir(folder):
+        return
+    have = {n[:7] for n in os.listdir(folder) if n.startswith("DEC-")}
+    top = (git("rev-parse", "--show-toplevel") or root).strip()
+    theirs = set(manifest(top).get("files", {}))
+    for base in CITING:
+        top = os.path.join(root, base)
+        if os.path.isfile(top):
+            files = [top]
+        else:
+            files = [os.path.join(d, n) for d, _, ns in os.walk(top) for n in ns]
+        for path in sorted(files):
+            if os.path.relpath(path, root).replace(os.sep, "/") in theirs:
+                continue
+            try:
+                with open(path, errors="ignore") as fh:
+                    text = fh.read()
+            except OSError:
+                continue
+            for dec in sorted(set(DEC_CITED.findall(text))):
+                if dec == "DEC-000" or dec in have:
+                    continue
+                rep.error(f"{os.path.relpath(path, root)} cites {dec}, which does not exist")
+
+
 def check_hooks(rep):
     """A hooks directory that has moved fails *silently* — git runs nothing and
     says nothing. So the one check that cannot rely on a hook is the one that
@@ -3239,6 +3306,7 @@ def cmd_check(args):
     else:
         check_boards(rep)
         check_details(rep)
+        check_decision_links(rep, root)
         check_hooks(rep)
         if "--staged" in args:
             check_bypass(rep, root)

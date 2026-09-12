@@ -6,7 +6,6 @@
 ## prioritised
 
 PLT-umh3 Split the standup into its own skill; a report is as occasional as a meeting  filed:2026-09-12
-PLT-um7k check never notices a DEC- citation naming a decision that does not exist  filed:2026-09-12
 PLT-6yjz A mobile-first web UI for llmeep: add by prompt, edit and delete tasks, read details, drop notes  detail  commits:9  filed:2026-09-07
 
 ## backlog
@@ -21,6 +20,7 @@ PLT-hrpu An agenda holds nothing the repo keeps — decide whether it should exi
 
 ## recent
 
+2026-09-12  PLT-um7k check never notices a DEC- citation naming a decision that does not exist  @stewart
 2026-09-12  PLT-2cyh The tm skill is back over its 4,000-token budget; three verbs have been added since PLT-rsn4  @stewart
 2026-09-09  PLT-2xj3 Show the board on session start, and again after a context clear  @stewart
 2026-09-09  PLT-6egb A task id in prose must carry a title snippet; the rule exists and is almost never followed  @stewart
@@ -35,4 +35,3 @@ PLT-hrpu An agenda holds nothing the repo keeps — decide whether it should exi
 2026-08-22  PLT-t774 Say when it is safe to clear context: report what the session holds that the records do not  @stewart
 2026-08-21  PLT-g9gv A non-coder's agent pushes on its own, except where the commit could reach a deploy  @stewart
 2026-08-20  PLT-8kg9 adopt should ask: coder or non-coder, feedback on or off, then say where notifications are configured  @stewart
-2026-08-20  PLT-22fn A user type in .env — coder or non-coder — shapes how the agent talks and what it decides alone  @stewart

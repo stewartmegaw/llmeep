@@ -108,3 +108,4 @@
 2026-09-09	PLT-6egb	platform	A task id in prose must carry a title snippet; the rule exists and is almost never followed	stewart
 2026-09-09	PLT-2xj3	platform	Show the board on session start, and again after a context clear	stewart
 2026-09-12	PLT-2cyh	platform	The tm skill is back over its 4,000-token budget; three verbs have been added since PLT-rsn4	stewart
+2026-09-12	PLT-um7k	platform	check never notices a DEC- citation naming a decision that does not exist	stewart
