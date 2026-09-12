@@ -1861,6 +1861,158 @@ class TestBoardExport(Fixture):
             self.assertEqual(fh.read(), before, "board --json wrote to the board")
 
 
+class TestNotesRender(Fixture):
+    """`PLT-8fmt`, `DEC-050`. The notes render was a worked example and nine
+    rules in the nm skill — the same fourth-renderer-in-prose the board and the
+    standup had, and doing more than formatting: a `grep` of the task ledger for
+    a `✓` is work, not layout."""
+
+    def a_repo(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        return top
+
+    def rendered(self, top, *args):
+        out = self.nm(top, "notes", "--chat", *args)
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        return out.stdout
+
+    def captured(self, top, text):
+        out = self.nm(top, "add", text)
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        return re.search(r"NTE-\S+", out.stdout).group(0)
+
+    def test_an_empty_archive_says_so(self):
+        self.assertIn("nothing captured yet", self.rendered(self.a_repo()))
+
+    def test_a_note_carries_its_id_in_bold_and_no_link(self):
+        """A relative markdown link to a repo file renders as "unsupported link"
+        over Remote Control — which this subsystem knows because the finding is
+        itself one of llmeep's notes."""
+        top = self.a_repo()
+        nid = self.captured(top, "they want SSO before they renew")
+        raw = self.rendered(top)
+        self.assertIn(f"**{nid}**", raw)
+        self.assertNotIn("](", raw)
+        self.assertNotIn("```", raw)
+
+    def test_a_blank_line_follows_every_rule(self):
+        """Without one the renderer prints a literal `---NTE-shmy`."""
+        top = self.a_repo()
+        self.captured(top, "they want SSO before they renew")
+        lines = self.rendered(top).split("\n")
+        for i, line in enumerate(lines):
+            if line.startswith("---"):
+                self.assertEqual(line, "---", f"text ran into a rule: {line!r}")
+                self.assertEqual(lines[i + 1], "", f"no blank line after line {i}")
+
+    def test_captures_waiting_come_first(self):
+        """The actionable part, and invisible in `notes.md` — nothing in the
+        archive says a file is sitting in `raw/`."""
+        top = self.a_repo()
+        self.captured(top, "they want SSO before they renew")
+        raw_dir = os.path.join(self.install_root(top), "notes", "raw")
+        os.makedirs(raw_dir, exist_ok=True)
+        for name in ("acme-call.md", "board-review.md"):
+            with open(os.path.join(raw_dir, name), "w") as fh:
+                fh.write("a summary worth reading twice\n")
+        first = self.rendered(top).split("\n")[0]
+        self.assertEqual(first, "2 captures waiting in raw/", first)
+
+    def test_one_capture_is_not_plural(self):
+        top = self.a_repo()
+        self.captured(top, "they want SSO before they renew")
+        raw_dir = os.path.join(self.install_root(top), "notes", "raw")
+        os.makedirs(raw_dir, exist_ok=True)
+        with open(os.path.join(raw_dir, "acme-call.md"), "w") as fh:
+            fh.write("one\n")
+        self.assertIn("1 capture waiting in raw/", self.rendered(top))
+
+    def test_a_promoted_note_shows_its_task(self):
+        top = self.a_repo()
+        nid = self.captured(top, "the fixture loader needs replacing")
+        out = self.nm(top, "promote", nid)
+        tid = re.search(r"PLT-\S+", out.stdout).group(0)
+        line = next(l for l in self.rendered(top).split("\n") if nid in l)
+        self.assertIn(f"→ {tid}", line)
+        self.assertNotIn("✓", line, "a live task was ticked as shipped")
+
+    def test_a_promoted_note_ticks_once_its_task_ships(self):
+        """The tick means awaiting removal, not hidden: `prune` deletes it
+        outright because the task now carries the record (`DEC-023`)."""
+        top = self.a_repo()
+        nid = self.captured(top, "the fixture loader needs replacing")
+        out = self.nm(top, "promote", nid)
+        tid = re.search(r"PLT-\S+", out.stdout).group(0)
+        self.tm(top, "go", tid)
+        self.tm(top, "done", "--force")
+        line = next(l for l in self.rendered(top).split("\n") if nid in l)
+        self.assertIn("✓", line, line)
+
+    def test_provenance_is_dropped_unless_asked_for(self):
+        """It matters when searching and is noise when reading."""
+        top = self.a_repo()
+        self.nm(top, "add", "--from", "acme-call", "they want SSO before they renew")
+        self.assertNotIn("acme-call", self.rendered(top))
+        self.assertIn("acme-call", self.rendered(top, "--src"))
+        self.assertNotIn("src:", self.rendered(top, "--src"),
+                         "the tag was printed instead of the source")
+
+    def test_the_display_bound_is_not_the_storage_bound(self):
+        """20 shown against 200 kept. An agent reads the window whole cheaply; a
+        person scanning a phone does not."""
+        top = self.a_repo()
+        for i in range(23):
+            self.captured(top, f"a thing worth remembering number {i}")
+        raw = self.rendered(top)
+        self.assertEqual(raw.count("**NTE-"), 20, "the display bound was not applied")
+        self.assertIn("…and 3 older", raw)
+        everything = self.rendered(top, "--all")
+        self.assertEqual(everything.count("**NTE-"), 23)
+        self.assertNotIn("…and", everything)
+
+    def test_the_hint_line_ends_it(self):
+        top = self.a_repo()
+        self.captured(top, "they want SSO before they renew")
+        last = self.rendered(top).rstrip().split("\n")[-1]
+        self.assertTrue(last.startswith("*promote · drop · find"), last)
+
+    def test_the_terminal_form_is_not_markdown(self):
+        """`cat notes/notes.md` is still the file as stored; this is the window
+        rendered for a shell, and markdown there is noise."""
+        top = self.a_repo()
+        nid = self.captured(top, "they want SSO before they renew")
+        out = self.nm(top, "notes")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertIn(nid, out.stdout)
+        self.assertNotIn("**", out.stdout)
+        self.assertNotIn("###", out.stdout)
+
+    def test_it_writes_nothing(self):
+        top = self.a_repo()
+        self.captured(top, "they want SSO before they renew")
+        archive = os.path.join(self.install_root(top), "notes", "notes.md")
+        with open(archive, "rb") as fh:
+            before = fh.read()
+        self.rendered(top)
+        with open(archive, "rb") as fh:
+            self.assertEqual(fh.read(), before, "nm notes wrote to the archive")
+
+    def test_it_refuses_arguments_it_does_not_know(self):
+        self.assertNotEqual(self.nm(self.a_repo(), "notes", "--json").returncode, 0)
+
+    def test_the_skill_no_longer_carries_the_render(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        with open(os.path.join(top, ".claude", "skills", "nm", "SKILL.md")) as fh:
+            skill = fh.read()
+        self.assertIn("nm notes", skill, "the skill never says how to render the window")
+        self.assertNotIn("### 2026-08-01", skill, "the worked example is still in the skill")
+        self.assertNotIn("promote · drop · find", skill,
+                         "the hint line is still specified in prose")
+
+
 class TestChatRender(Fixture):
     """`PLT-jzhh`, `DEC-050`. Both renders were prose in a skill: ten rules and a
     worked example for the board, four more and a second example for the

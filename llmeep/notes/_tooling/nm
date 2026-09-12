@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """nm — notes. See notes/_tooling/ontology.md for the model.
 
-Five commands: add, drop, promote, prune, find.
+Six commands: add, drop, promote, prune, find, notes.
 
 `nm` is mechanical. Reading a transcript and deciding what matters is judgement,
 which belongs to the agent (principle 7) — so there is no `process` command.
@@ -312,6 +312,124 @@ def capture_names():
     ]
 
 
+# What a person is shown. `WINDOW` is what is stored, and the two are bounded
+# separately and by different numbers on purpose: an agent reads 200 lines
+# cheaply and a person scanning a phone does not.
+RENDER_LIST = 20
+
+# The last line of a rendered archive, on the same grounds as the board's: the
+# verbs work in conversation and someone who did not design them cannot know
+# that (`PLT-gx39`).
+NOTES_HINT = "*promote · drop · find · discuss*"
+
+
+def notes_sections(limit=RENDER_LIST, keep_source=False):
+    """The window as `(heading, [line, …])`, dates newest first, plus what the
+    render has to say around it: how many captures are waiting, and how many
+    notes the limit hid.
+
+    **This was prose in the nm skill until `PLT-8fmt`** — the same fourth
+    renderer `DEC-050` took out of the board and the standup, and the same three
+    objections: it reached one agent, it could not be tested, and it was doing
+    real work by hand. A `grep` of the task ledger for a `✓` is not formatting.
+    """
+    archive = Archive()
+    archive.notes.sort(key=lambda n: n.on or "", reverse=True)
+    shown = archive.notes if limit is None else archive.notes[:limit]
+    shipped = shipped_tasks() if any(n.task for n in shown) else set()
+    sections, on = [], None
+    for note in shown:
+        if note.on != on:
+            on = note.on
+            sections.append((on, []))
+        sections[-1][1].append(note_line(note, shipped, keep_source))
+    hidden = len(archive.notes) - len(shown)
+    return sections, len(capture_names()), hidden
+
+
+def note_line(note, shipped, keep_source=False):
+    """`**id**  text`, then where it went.
+
+    **Never a link.** A relative markdown link to a repo file renders as
+    "unsupported link" over Remote Control — tested 2026-08-01, and captured as a
+    note about itself.
+
+    A promoted note carries its task, and a `✓` once that task has shipped: the
+    note is then awaiting removal rather than hidden, because `prune` deletes it
+    outright and the task now carries the record (`DEC-023`).
+
+    `src:` is dropped unless asked for. Provenance matters when searching, not
+    when reading.
+    """
+    line = f"**{note.id}**  {note.text}"
+    if note.task:
+        line += f" → {note.task}"
+        if note.task in shipped:
+            line += " ✓"
+    if keep_source and note.source:
+        line += f"  ·  from {note.source}"
+    return line
+
+
+def render_notes(sections, waiting, hidden):
+    """Markdown for the conversation the agent is in. Never a code block: that
+    scrolls sideways on a phone, which is where this is read.
+
+    **A blank line after every `---`.** Without one the terminal renderer
+    swallows the rule into the line below and prints a literal `---NTE-shmy` —
+    tested 2026-08-02.
+    """
+    out = []
+    if waiting:
+        # First, because it is the actionable part and it is invisible in
+        # `notes.md` — nothing in the archive says a capture is waiting.
+        out += [f"{waiting} capture{'s' if waiting != 1 else ''} waiting in raw/", ""]
+    if not sections:
+        return "\n".join(out + ["nothing captured yet"])
+    for on, body in sections:
+        out += [f"### {on}", "---", ""]
+        for line in body:
+            out += [line, ""]
+    if hidden:
+        out += [f"…and {hidden} older — `nm find <term>`, or ask for all", ""]
+    return "\n".join(out + ["---", "", NOTES_HINT])
+
+
+def render_notes_plain(sections, waiting, hidden):
+    """A terminal, where markdown is noise. Same content, same order, same
+    bound: `cat notes/notes.md` is still there for the file as it is stored."""
+    out = []
+    if waiting:
+        out.append(f"  {waiting} capture(s) waiting in raw/")
+    for on, body in sections:
+        out += ["", f"  {on}"]
+        out += [f"    {re.sub(r'[*]{2}', '', line)}" for line in body]
+    if not sections:
+        out.append("  nothing captured yet")
+    elif hidden:
+        out.append(f"\n  …and {hidden} older — nm find <term>, or --all")
+    return "\n".join(out)
+
+
+def cmd_notes(args):
+    """**The window, for the person on the other end of the conversation.**
+    Bare it prints for a terminal; `--chat` renders markdown to pass on as it is,
+    which mirrors `tm board` exactly (`DEC-019`, `DEC-050`).
+
+    `--all` lifts the display bound, which is the "or ask for all" the render
+    offers. `--src` keeps provenance on the line.
+    """
+    chat, all_of_it = "--chat" in args, "--all" in args
+    keep_source = "--src" in args
+    if [a for a in args if a not in ("--chat", "--all", "--src")]:
+        raise Fail("usage: nm notes [--chat] [--all] [--src]")
+    sections, waiting, hidden = notes_sections(
+        limit=None if all_of_it else RENDER_LIST, keep_source=keep_source)
+    render = render_notes if chat else render_notes_plain
+    print(render(sections, waiting, hidden))
+    return 0
+
+
 def cmd_promote(args):
     """A note becomes a task. The note stays until that task ships — a task can
     be parked or dropped, and until it lands the note is the only record the
@@ -510,11 +628,12 @@ USAGE = """nm — notes
   nm drop <NTE-id | file>           remove a note, or a processed capture
   nm promote <NTE-id> [-b] [-n]     turn a note into a task
   nm prune [--yes]                  bound raw/ and the archive
+  nm notes [--chat] [--all]         the window; --chat renders it to pass on as it is
   nm find <term>                    search every note ever captured
 
   nm check                          validate records; used by hooks and CI
 
-Reading is `cat notes/notes.md`. Distilling is the agent's job, not a command.
+`cat notes/notes.md` is the file as stored. Distilling is the agent's job, not a command.
 Model: notes/_tooling/ontology.md"""
 
 
@@ -524,7 +643,8 @@ def main():
         print(USAGE)
         return 0
     commands = {"add": cmd_add, "drop": cmd_drop, "promote": cmd_promote,
-                "prune": cmd_prune, "find": cmd_find, "check": cmd_check}
+                "prune": cmd_prune, "find": cmd_find, "check": cmd_check,
+                "notes": cmd_notes}
     cmd = commands.get(argv[0])
     if not cmd:
         print(f"unknown command: {argv[0]}\n\n{USAGE}", file=sys.stderr)

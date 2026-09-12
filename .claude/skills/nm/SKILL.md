@@ -16,6 +16,7 @@ llmeep/notes/_tooling/nm add [--from <src>] <text...>   # capture; reads stdin f
 llmeep/notes/_tooling/nm drop <NTE-id | file>           # remove a note, or a processed capture
 llmeep/notes/_tooling/nm promote <NTE-id> [-b] [-n]     # note becomes a task, linked both ways
 llmeep/notes/_tooling/nm prune [--yes]                  # bound raw/, drop shipped notes; dry without --yes
+llmeep/notes/_tooling/nm notes [--chat] [--all]         # the window, rendered to pass on as it is
 llmeep/notes/_tooling/nm find <term>                    # search every note ever captured
 ```
 
@@ -81,57 +82,20 @@ producing fifteen, you are transcribing rather than distilling.
 | "what's in the inbox" | `ls llmeep/notes/raw/` |
 | "I've processed that file" | `nm drop <file>` |
 | "drop that note" / "that one's wrong" | `nm drop <NTE-id>` — removes it from the archive *and* history |
-| "what have we captured lately" | `cat llmeep/notes/notes.md` |
+| "what have we captured lately" | `nm notes` — `--chat` to render it for them |
 
-## When asked for notes, summarise them
+## When asked for notes, run `nm notes --chat`
 
-**Show the 20 most recent and say how many remain** — `…and 34 older, `nm find` or ask for all`.
-The file holds up to 200 because an agent reads it whole cheaply; a person scanning a phone does
-not. Storage and presentation are bounded separately and by different numbers.
+**Print what it gives you and nothing else, and never in a code block** — that scrolls sideways
+on a phone, and this is read on a phone. `--all` is the "ask for all" it offers; `--src` adds
+provenance, which matters when searching and is noise when reading.
 
-**Read `llmeep/notes/notes.md` first, every time.** Never render the list from memory or from the
-example below — ids are four random characters and a plausible-looking wrong one is
-indistinguishable from a right one until someone acts on it.
+**Offer `nm prune` when you see ticks.** A ticked note is awaiting removal, not hidden: its task
+shipped and now carries the record.
 
+If captures are waiting, offer once to distil them. Do not distil unasked.
 
-Render the archive compactly, grouped by date, and **lead with the count of unprocessed
-captures** — that is the actionable part, and it is invisible in `notes.md`.
-
-**Render as markdown, never a code block** — a code block scrolls horizontally on a phone,
-which is where this gets read. Date, then `---` on its own line. Bold the id. Blank line
-between notes. `###` heading for the date, `---` under it.
-
-**Leave a blank line after every `---`.** Without one the terminal renderer swallows the rule
-into the line below and prints a literal `---NTE-shmy` — tested 2026-08-02.
-
-    3 captures waiting in raw/
-
-    ### 2026-08-01
-    ---
-
-    **NTE-shmy**  Acme want SSO before they will renew → PLT-9wmv ✓
-
-    **NTE-enu9**  Sam owns the Stripe migration → PLT-2m4x
-
-    **NTE-k8dq**  Their security review lands 2026-09-15
-
-    ---
-
-    *promote · drop · find · discuss*
-
-End with the rule and hint line whenever there are notes. **Never link the ids** — relative
-markdown links to repo files render as "unsupported link" over Remote Control.
-
-**Mark a linked task `✓` once it is done** — one `grep -f` of the linked ids against
-`llmeep/tasks/_tooling/history.tsv`. A ticked note is awaiting removal, not hidden: `nm prune` deletes
-it outright, window and history row both, because the task now carries the record.
-
-**Offer `nm prune` when you see ticks.** That is the command that clears them.
-
-Mark promoted notes with their task. Drop the `src:` tags unless asked — provenance matters when
-searching, not when reading. No commentary.
-
-If captures are waiting, offer once to distil them; do not distil unasked.
+The render is `notes_sections` in `nm` since `PLT-8fmt`, for `DEC-050`'s reasons.
 
 ## Rules
 
@@ -149,6 +113,8 @@ on the line.
 - **`llmeep/notes/raw/` is for things worth reading again** — a written summary, a shared document, an
   idea to process later. The test is whether anyone would open it twice. Presence means pending;
   there is no processed marker.
-- **Reading is `cat llmeep/notes/notes.md`.** There is no `list`, on the same grounds as the board.
+- **Reading is `nm notes`**, which renders the window; `cat llmeep/notes/notes.md` is the file as
+  stored. The 20 shown and the 200 kept are bounded separately, because an agent reads the file
+  whole cheaply and a person scanning a phone does not.
 - **Decisions are not notes**, and live at `llmeep/decisions/`, outside this subsystem — claims the
   project stands behind, never edited in substance. Do not put one through this pipeline.

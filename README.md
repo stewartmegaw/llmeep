@@ -70,6 +70,7 @@ llmeep/tasks/_tooling/tm park                      # step it back one section; u
 llmeep/tasks/_tooling/tm done                      # complete the current task
 llmeep/tasks/_tooling/tm drop PLT-9puy             # remove one that should not have been filed
 llmeep/tasks/_tooling/tm find auth                 # search everything ever completed
+llmeep/tasks/_tooling/tm board --chat              # the board, rendered to pass on as it is
 llmeep/tasks/_tooling/tm review                    # LLM review of the commit before you push it
 llmeep/tasks/_tooling/tm why standup               # search decisions; `tm why DEC-017` explains one
 llmeep/tasks/_tooling/tm standup                   # what closed this period; --send posts it
@@ -113,6 +114,7 @@ llmeep/notes/_tooling/nm add --from acme-call "Acme want SSO before they will re
 llmeep/notes/_tooling/nm promote NTE-shmy   # a note becomes a task, linked both ways
 llmeep/notes/_tooling/nm drop <file>        # a capture in llmeep/notes/raw/ is processed; git keeps it
 llmeep/notes/_tooling/nm prune              # bound raw/ and the archive; dry without --yes
+llmeep/notes/_tooling/nm notes --chat       # the window, rendered to pass on as it is
 llmeep/notes/_tooling/nm find <term>        # search every note ever captured
 ```
 

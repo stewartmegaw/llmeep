@@ -125,8 +125,8 @@ A link discovered later is new information about an existing row, not a second r
 
 ## Skill
 
-Five commands. Reading is `cat notes/notes.md`; there is no `list`, on the same grounds as the
-board.
+Six commands. `nm notes` renders the window and `cat notes/notes.md` is the file as stored — the
+same split as the board, which has `tm board` beside it.
 
 | Skill     | Invocation                        | Does                                                     |
 | --------- | --------------------------------- | -------------------------------------------------------- |
@@ -135,6 +135,7 @@ board.
 | `promote` | `nm promote <NTE-id> [-b] [-n]`   | `tm add`, then link both ways.                            |
 | `prune`   | `nm prune [--yes]`                | Bound `raw/` and the window. Dry unless `--yes`.          |
 | `find`    | `nm find <term>`                  | Search every note ever captured.                          |
+| `notes`   | `nm notes [--chat] [--all] [--src]` | The window, rendered. Bare for a terminal, `--chat` as markdown to pass on. **The render is the tool's** (`DEC-050`): grouping by date, ticking a promoted note whose task has shipped, counting the captures waiting in `raw/`, and bounding what is shown — none of which is formatting, and all of which was prose in a skill until `PLT-8fmt`. Reads only. |
 
 `nm check` validates records; it is not a skill, because it touches no note.
 
@@ -153,6 +154,19 @@ reading a transcript and deciding what matters. `nm` never parses one:
 | Link a note to its task | Decide a note is task-shaped rather than context |
 | Delete a processed capture | Write the task title |
 | Bound the window | — |
+
+## Rendering the window
+
+**The tool carries the rules** (`DEC-050`). The shared ones are the board's — markdown never a
+code block, a blank line after every `---`, never link an id, no numbered lines — and the tasks
+ontology's **Rendering a board** has the reasoning for each. Four are this subsystem's own:
+
+| Rule | Because |
+| --- | --- |
+| Captures waiting comes first | It is the actionable part and it is invisible in `notes.md`; nothing in the archive says a file is sitting in `raw/` |
+| 20 shown, 200 kept | Storage and presentation are bounded separately and by different numbers: an agent reads the window whole cheaply, a person scanning a phone does not (`DEC-025`) |
+| A promoted note ticks once its task ships | The tick means *awaiting removal*, not *hidden* — `prune` deletes it outright, row included, because the task now carries the record (`DEC-023`) |
+| `src:` is dropped unless asked | Provenance matters when searching, not when reading |
 
 ## Pruning
 
