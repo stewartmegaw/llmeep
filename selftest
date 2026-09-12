@@ -573,6 +573,87 @@ class TestFeedback(Fixture):
                          "the commit path grew feedback output")
 
 
+class TestFeedbackPrompt(Fixture):
+    """`PLT-asy6`. The prompt to spend a pass on llmeep lived in the `tm` skill,
+    so the only agent that ever ran one was an agent reading `.claude/` — the
+    wrong half of a loop whose value is friction reported from projects on other
+    agents. `done` asks now, and `TestFeedback` still holds the line that the
+    commit path grows nothing."""
+
+    def install(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        return top
+
+    def switch_on(self, top):
+        with open(os.path.join(self.install_root(top), ".env"), "a") as fh:
+            fh.write("FEEDBACK=on\n")
+
+    def closed(self, top):
+        tid = self.tm(top, "add", "--id", "-n", "Migrate the config loader").stdout.strip()
+        self.tm(top, "go", tid)
+        out = self.tm(top, "done", "--force")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        return out.stdout
+
+    def test_done_asks_when_the_switch_is_on(self):
+        top = self.install()
+        self.switch_on(top)
+        out = self.closed(top)
+        flat = " ".join(out.split())   # the prompt wraps for a terminal
+        self.assertIn("feedback is on", flat, out)
+        self.assertIn("get in the way", flat, "the question itself is missing")
+        self.assertIn("tm feedback", flat, "the prompt never names the command")
+        self.assertIn("nothing from this project", flat,
+                      "the one hard constraint did not travel with the prompt")
+
+    def test_done_says_nothing_when_it_is_off(self):
+        """Off means no pass, no prompt, no cost — including for an adopter who
+        never opted in and should never read the word."""
+        top = self.install()
+        out = self.closed(top)
+        self.assertNotIn("feedback", out.lower(), out)
+
+    def test_the_rubric_it_names_is_there(self):
+        """A warning that names a file nobody can open teaches people to ignore
+        warnings. The path is printed from the repo root, which is where the
+        guidance says to run `tm`."""
+        top = self.install()
+        self.switch_on(top)
+        out = self.closed(top)
+        named = re.search(r"Rubric: (\S+?),", " ".join(out.split()))
+        self.assertIsNotNone(named, out)
+        self.assertTrue(os.path.isfile(os.path.join(top, named.group(1))),
+                        f"the prompt names {named.group(1)}, which is not there")
+
+    def test_it_is_once_per_closed_task_not_once_per_command(self):
+        """Same argument as the handover line beside it: a prompt on every
+        command is a prompt nobody reads."""
+        top = self.install()
+        self.switch_on(top)
+        self.tm(top, "add", "-n", "another thing")
+        for args in (("status",), ("go",), ("board", "--chat"), ("park",)):
+            out = self.tm(top, *args)
+            self.assertNotIn("feedback is on", out.stdout,
+                             f"tm {' '.join(args)} printed the pass prompt")
+
+    def test_the_skill_no_longer_carries_the_pass(self):
+        """The rubric and the constraint reach every agent from the tool and the
+        ontology now; a copy in one vendor's skill is a second one to drift."""
+        top = self.install()
+        with open(os.path.join(top, ".claude", "skills", "tm", "SKILL.md")) as fh:
+            skill = fh.read()
+        self.assertNotIn("manufacturing noise", skill, "the pass is still in the skill")
+        self.assertNotIn("Never about this project", skill)
+        with open(os.path.join(self.install_root(top),
+                               "tasks", "_tooling", "ontology.md")) as fh:
+            ontology = fh.read()
+        self.assertIn("Feedback to llmeep", ontology)
+        self.assertIn("there is no hook", ontology,
+                      "the ontology stopped saying why there is no hook")
+
+
 class TestAdoptAsks(Fixture):
     """`PLT-8kg9`. Two settings an install cannot infer, and the reason this is
     delicate: most installs are run by an agent, where there is no terminal to

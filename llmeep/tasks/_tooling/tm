@@ -1845,8 +1845,50 @@ def cmd_done(args):
                   + "; ".join(what for what, _ in rest))
         else:
             print("\n  nothing carries over after that — a good moment to clear.")
+        print_feedback_pass()
         return
     raise Fail(f"no task {tid}" if tid else "nothing in progress")
+
+
+def print_feedback_pass():
+    """**The prompt to spend one pass on llmeep itself, when the switch is on.**
+
+    It lived in the tm skill until `PLT-asy6`, which meant the only agent that
+    ever ran the pass was one reading `.claude/`. The whole value of the feature
+    is friction reported from other people's projects, so a prompt that reaches
+    one vendor's agent is the wrong half of the loop to leave to a vendor.
+
+    **Here and not a git hook.** The ontology's *the trigger is the agent, and
+    there is no hook* still holds and this does not touch it: `done` is a command
+    somebody ran, printing to the person or agent who ran it, which is not commit
+    output nobody reads (`DEC-015`'s failure, kept in `DEC-016`'s reasoning).
+    Ordering: `done` runs immediately before the commit rather than after it,
+    which is the same moment for a question about the task just finished, and the
+    one place the flow is guaranteed to pass through.
+
+    Once per closed task, on the same argument as the handover line above it: a
+    prompt on every commit is a prompt nobody reads. And nothing here judges what
+    belongs in a note — that is the agent's, against the rubric in the ontology
+    (principle 7).
+    """
+    if not feedback_on():
+        return
+    # Named from the repo root, the way the guidance tells anyone to run `tm`.
+    #
+    # **Both sides resolved first.** `git rev-parse` returns a real path and
+    # `HERE` does not, so on macOS — where `/var` is a symlink to `/private/var`
+    # — `relpath` walked eight levels up and back down again and printed a path
+    # nobody could type. Caught by asserting the file it names is there, which is
+    # the only assertion that would have.
+    top = os.path.realpath((git("rev-parse", "--show-toplevel") or REPO).strip())
+    rubric = os.path.relpath(os.path.realpath(os.path.join(HERE, "ontology.md")), top)
+    if rubric.startswith(".."):   # an install outside its own repo; name it plainly
+        rubric = typeable(os.path.join(HERE, "ontology.md"))
+    print("\n  feedback is on — one pass, one question: did llmeep's machinery get in the"
+          "\n  way, or is something missing its principles imply? Usually nothing, and a pass"
+          "\n  that always finds something is manufacturing noise."
+          "\n  `tm feedback \"<what happened>\"` — nothing from this project: no code, file"
+          f"\n  names, domain terms or task titles. Rubric: {rubric}, Feedback to llmeep.")
 
 
 def cmd_detail(args):
@@ -3593,6 +3635,20 @@ def feedback_path():
     return os.path.join(REPO, FEEDBACK)
 
 
+def typeable(path):
+    """A path as something a reader can actually type: relative to the cwd when
+    that stays inside it, absolute when it does not.
+
+    `relpath` against the cwd alone produces `../../../..` up to the root and
+    back down the moment the caller is somewhere else — and on macOS it does it
+    even *inside* the tree, because `git rev-parse` resolves `/var` to
+    `/private/var` and nothing else does (`PLT-asy6`). Resolving both sides
+    first is what makes the comparison mean anything."""
+    path = os.path.realpath(path)
+    rel = os.path.relpath(path, os.path.realpath(os.getcwd()))
+    return rel if not rel.startswith("..") else path
+
+
 def feedback_on():
     """The switch is `FEEDBACK` in `.env`, and its default is off.
 
@@ -3625,7 +3681,7 @@ def feedback_entries(path=None):
 
 
 def feedback_off_message():
-    where = os.path.relpath(os.path.join(REPO, ".env"), os.getcwd())
+    where = typeable(os.path.join(REPO, ".env"))
     return ("feedback is off. It is opt-in because it spends your tokens:\n"
             f"  a review pass after a commit, written by your agent.\n\n"
             f"  Turn it on with `FEEDBACK=on` in {where} — see .env.example.\n"
@@ -3653,9 +3709,9 @@ def cmd_feedback(args):
             print()
             return
         if not entries:
-            print(f"  nothing drafted yet — {os.path.relpath(feedback_path(), os.getcwd())}\n")
+            print(f"  nothing drafted yet — {typeable(feedback_path())}\n")
             return
-        print(f"  {len(entries)} draft(s) — {os.path.relpath(feedback_path(), os.getcwd())}\n")
+        print(f"  {len(entries)} draft(s) — {typeable(feedback_path())}\n")
         for when, body in entries:
             # A draft is free prose and often several lines; the list is an
             # index to the file, so it gets one line each.
@@ -3672,7 +3728,7 @@ def cmd_feedback(args):
         if new:
             fh.write(FEEDBACK_INTRO)
         fh.write(f"\n## {date.today().isoformat()}\n\n{text}\n")
-    print(f"\n  noted — {os.path.relpath(path, os.getcwd())}")
+    print(f"\n  noted — {typeable(path)}")
     print("  local and gitignored; nothing is sent.\n")
 
 

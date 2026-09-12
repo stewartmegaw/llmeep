@@ -19,6 +19,7 @@ PLT-hrpu An agenda holds nothing the repo keeps — decide whether it should exi
 
 ## recent
 
+2026-09-12  PLT-asy6 Move the feedback pass out of the tm skill and into post-commit, so every adopter gets the prompt  @stewart
 2026-09-12  PLT-8fmt Move the notes render into nm, the way DEC-050 moved the board and standup renders  @stewart
 2026-09-12  PLT-jzhh The tool renders for the target: move both render contracts into tm, and cut the phrase table duplication  @stewart
 2026-09-12  PLT-umh3 Split the standup into its own skill; a report is as occasional as a meeting  @stewart
@@ -33,4 +34,3 @@ PLT-hrpu An agenda holds nothing the repo keeps — decide whether it should exi
 2026-08-30  PLT-tabe New-file check asks about the ontology for every new file, including ones with no domain concept  @stewart
 2026-08-30  PLT-pmqf Rename sidecar to detail, the word the board tag already uses; sidecar means nothing to a non-coder  @stewart
 2026-08-28  PLT-e5hw Hook warns of unfiled work on every correctly-ordered commit; a closes trailer should satisfy it  @stewart
-2026-08-28  PLT-z3hf adopt checksums the working agreement against the repo-root README, not the installed copy  @stewart

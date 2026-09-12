@@ -930,17 +930,23 @@ choice about their own spend and never a decision made for a teammate. `tm feedb
 outright when it is off, so the gate is mechanical rather than a convention. **When it is off,
 nothing in this section happens at all**: no pass, no prompt, no cost.
 
-### The trigger is the agent, and there is no hook
+### `done` asks, and there is no hook
 
-**After committing, when the switch is on, spend one short pass on this and nothing else.**
-It belongs where `tm done` already is — in the commit flow, run by whoever is committing.
+**When the switch is on, `tm done` prints the question, and the pass is one short pass on that
+and nothing else.** The prompt was in the `tm` skill until `PLT-asy6`, where only an agent
+reading `.claude/` ever saw it — the wrong half of a loop whose whole value is friction reported
+from projects on other agents.
 
-There is no git hook, and there will not be one. A hook cannot run a review; it is a shell
-script, and the judgement here is the whole point. A hook that merely *reminded* would print
-into commit output, which [`DEC-016`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-016-cron-schedules-the-standup.md)
+There is still no git hook, and there will not be one. A hook cannot run a review; it is a shell
+script, and the judgement here is the whole point. A hook that merely *reminded* would print into
+commit output, which [`DEC-016`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-016-cron-schedules-the-standup.md)
 already established is the emptiest room available — most so when an agent is doing the
-committing. So the trigger cannot block, slow or fail a commit, because there is nothing on the
-commit path to fail.
+committing. `done` is not that room: it is a command somebody ran, printing to whoever ran it,
+and it cannot block, slow or fail a commit because it is not on the commit path.
+
+Once per closed task rather than once per commit, and it fires just *before* the commit rather
+than after — the same moment for a question about the work that just finished, and the one point
+the flow is guaranteed to pass through.
 
 Nothing every time. Most commits produce no note, and a pass that always finds something is
 producing noise to justify itself.

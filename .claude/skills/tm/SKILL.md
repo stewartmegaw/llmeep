@@ -60,7 +60,7 @@ Speech that maps to a verb you would not guess from the list above. Everything e
 | "can we tidy the decisions" | `tm why --stale` — **without** `--yes`. Unreferenced is not finished with; the subject test is the user's |
 | "is the Telegram bot set up" / "post to the group instead" | `tm check --notify` — it lists every chat the bot can see; add `--send` only if they want a test message |
 | "our domain model is in docs/" / a commit says no ontology is recorded | `tm ontology <path>`, or `--none` |
-| "llmeep should really do X" / friction with the tooling itself | `tm feedback "<what happened>"` — see below |
+| "llmeep should really do X" / friction with the tooling itself | `tm feedback "<what happened>"` — it refuses if the switch is off, and says so |
 | "can I clear?" / "am I safe to start fresh" | `tm handover` — what this session holds that the records do not |
 
 **You are the mobile interface.** The channel is outbound only — nothing reads its inbox, so
@@ -109,16 +109,6 @@ call. Do not stay silent either, which is the case this rule exists for.
 
 Not a tidiness rule: two closes in one working tree cannot be split by file afterwards, so the
 one-to-one link `tm find` reads back is lost. The ontology's **Git** section has the incident.
-
-## After committing, if feedback is on
-
-Off by default, and `tm feedback` refuses while it is — so run it, and if it says off, this
-section is over. When on, one short pass on one question: **did llmeep's machinery get in the
-way, or is something missing its principles imply?** Usually nothing; a pass that always finds
-something is manufacturing noise. `tm feedback "<what happened>"`.
-
-**Never about this project** — no code, file names, domain terms or task titles. If the point
-needs one, do not write it. Rubric: `llmeep/tasks/_tooling/ontology.md`.
 
 ## `discuss` is yours, `drop` is the tool's
 
