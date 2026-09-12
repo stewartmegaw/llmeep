@@ -1,6 +1,6 @@
 ---
 name: tm
-description: Tasks, standups and meeting agendas — create, start, complete and search tasks, report what shipped, build an agenda and send it, and search past decisions. Use when the user refers to tasks, priorities, what to work on next, completing work, a standup, an agenda, or why something was decided ("what's next", "start PLT-9puy", "commit task", "new agenda", "standup", "why is it like this", "have we tried this before").
+description: Tasks and standups — create, start, reword, complete and search tasks, report what shipped, and search past decisions. Use when the user refers to tasks, priorities, what to work on next, completing work, a standup, whether it is safe to clear, or why something was decided ("what's next", "start PLT-9puy", "commit task", "standup", "why is it like this", "have we tried this before"). A meeting agenda is the agenda skill.
 ---
 
 # tm
@@ -71,6 +71,7 @@ for the next person here.
 | "is the Telegram bot set up" / "post to the group instead" | `tm check --notify` — it lists every chat the bot can see; add `--send` only if they want a test message |
 | "our domain model is in docs/" / a commit says no ontology is recorded | `tm ontology <path>`, or `--none` |
 | "llmeep should really do X" / friction with the tooling itself | `tm feedback "<what happened>"` — see below |
+| "can I clear?" / "am I safe to start fresh" | `tm handover` — what this session holds that the records do not |
 
 **You are the mobile interface.** The channel is outbound only — nothing reads its inbox, so
 task management is this conversation, wherever it happens (`DEC-006`).
@@ -90,6 +91,20 @@ this; just create the task and say you have.
 
 Exceptions worth not bothering about: typo fixes, formatting, a one-line config tweak. If you
 would not mention it in standup, it does not need a task.
+
+## Clearing is safe here, and saying so is your job
+
+**When `done` says "nothing carries over", pass it on.** It prints that on every close, and
+relaying it is the whole point: clearing early is the ordinary habit here, not the nervous one,
+because `go` plus the board brings a session back.
+
+**"Can I clear?" is `tm handover`, never a guess from how full the context feels.** It lists
+what nothing on disk could reconstruct. The list is knowingly incomplete — a decision that
+should have been written and was not is the most expensive thing a clear can cost, and nothing
+detects it.
+
+Never name a way to clear; that is the harness's, and its spelling is not yours to assume
+(`DEC-043`).
 
 ## A closed task is committed before the next one starts
 
@@ -117,38 +132,7 @@ needs one, do not write it. Rubric: `llmeep/tasks/_tooling/ontology.md`.
 
 ## Building an agenda
 
-`tm agenda` creates the draft and says so. **Then stop** — no listing, no suggestions. They have
-`tasks`, `notes` and `tm why` for looking things up.
-
-**You write `llmeep/.notes/agenda.md`** as they talk, and **everything is reshaped into this
-form** — pasted prose, a task id, a note plus a passing thought. Nothing goes in verbatim.
-
-    1. Injury Database – Value?
-
-    - What's the value proposition of the component
-    - Who would pay for it?
-
-    Next Steps
-
-**No markdown.** A heading is a plain numbered line, a bullet is a hyphen. It is going to a chat
-message, where `##` renders as `##` — strip it out of anything they paste. `Next Steps` stays last.
-
-**A section is a topic, not a record.** Most of an agenda corresponds to nothing in the repo —
-strategy, open questions.
-
-**Their words go in; what you find is offered.** Search each topic they raise — `tm find`, the
-boards, `nm find`, `tm why` — then name the aligned records **once per section** and wait for a
-yes. Nothing you found goes in unasked.
-
-**Print the whole agenda after every change.** It goes out under their name and gets read aloud;
-nothing should reach the meeting they have not seen.
-
-**Offer the gaps back too.** A question nobody can answer yet is a note; something that plainly
-has to be done is a task. Never file unasked — turning every unknown into a record buries the
-few that matter.
-
-`--send` posts it under a dated heading, body as written — never unasked. A later `tm agenda`
-says `sent <date>`, and `edited since` if it moved on.
+That is the `agenda` skill, not this one. Invoke it when someone is preparing for a meeting.
 
 ## `discuss` is yours, `drop` is the tool's
 

@@ -2,11 +2,10 @@
 
 ## in progress
 
-PLT-6yjz A mobile-first web UI for llmeep: add by prompt, edit and delete tasks, read details, drop notes  @stewart  detail  commits:8  since:79d64ef  filed:2026-09-07
 
 ## prioritised
 
-PLT-2cyh The tm skill is back over its 4,000-token budget; three verbs have been added since PLT-rsn4  detail  commits:1  filed:2026-08-31
+PLT-6yjz A mobile-first web UI for llmeep: add by prompt, edit and delete tasks, read details, drop notes  detail  commits:9  filed:2026-09-07
 
 ## backlog
 
@@ -19,6 +18,7 @@ PLT-2gdj Periodically check connectors — Gmail, Google Docs — and turn what 
 
 ## recent
 
+2026-09-12  PLT-2cyh The tm skill is back over its 4,000-token budget; three verbs have been added since PLT-rsn4  @stewart
 2026-09-09  PLT-2xj3 Show the board on session start, and again after a context clear  @stewart
 2026-09-09  PLT-6egb A task id in prose must carry a title snippet; the rule exists and is almost never followed  @stewart
 2026-09-09  PLT-yhjj Record why the repo-is-the-centre claim is an eighth principle rather than ontology guidance  @stewart
@@ -33,4 +33,3 @@ PLT-2gdj Periodically check connectors — Gmail, Google Docs — and turn what 
 2026-08-21  PLT-g9gv A non-coder's agent pushes on its own, except where the commit could reach a deploy  @stewart
 2026-08-20  PLT-8kg9 adopt should ask: coder or non-coder, feedback on or off, then say where notifications are configured  @stewart
 2026-08-20  PLT-22fn A user type in .env — coder or non-coder — shapes how the agent talks and what it decides alone  @stewart
-2026-08-19  PLT-sx7r Code review by two LLM APIs before a commit is pushed, with a permanent reviewed mark  @stewart

@@ -913,6 +913,45 @@ class TestPushState(Fixture):
         self.assertIn("records", self.state(top))
 
 
+    def test_the_agenda_skill_ships_and_is_rerooted(self):
+        """Split out of `tm` because a meeting is occasional and every task
+        session was paying for it (`PLT-2cyh`). A skill an adopter does not get
+        is a skill that does not exist, and one naming a `tm` that is not there
+        is worse than absent."""
+        top = self.a_project(name="agenda-skill")
+        self.adopt(self.working_copy(), top, "--into", "ops")
+        path = os.path.join(top, ".claude", "skills", "agenda", "SKILL.md")
+        self.assertTrue(os.path.isfile(path), "the agenda skill did not ship")
+        with open(path) as fh:
+            body = fh.read()
+        self.assertIn("ops/tasks/_tooling/tm", body)
+        self.assertNotIn("llmeep/tasks/_tooling/tm", body)
+        self.assertIn(".claude/skills/agenda/SKILL.md", self.manifest(top)["files"])
+
+    def test_every_shipped_skill_is_measured(self):
+        """`DEC-037` budgets the session. Moving a workflow into its own skill
+        moves a cost, and a cost that stops being measured is one nobody
+        notices growing back — which is how this task exists at all."""
+        top = self.a_project(name="measured")
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        out = self.tm(top, "check", "--context").stdout
+        skills = [d for d in os.listdir(os.path.join(top, ".claude", "skills"))
+                  if os.path.isdir(os.path.join(top, ".claude", "skills", d))]
+        for name in skills:
+            self.assertIn(f"{name} skill", out,
+                          f"{name} ships but --context never mentions it")
+
+    def test_a_task_session_is_inside_its_budget(self):
+        """The check that made this task, asserted rather than eyeballed."""
+        top = self.a_project(name="budget")
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        out = self.tm(top, "check", "--context")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertNotIn("over the", out.stdout, out.stdout)
+
+
 class TestAudience(Fixture):
     """`DEC-040`. The promise is that a non-coder never has git put in front of
     them, and nothing mechanical can check what an agent says — so what is

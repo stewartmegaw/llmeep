@@ -3119,6 +3119,11 @@ CHARS_PER_TOKEN = 4     # rough and deliberately so — the point is drift, not 
 SESSIONS = (
     ("a task session", "tm skill", "platform board"),
     ("a notes session", "nm skill", "notes archive"),
+    # An agenda is built from what someone says rather than from a record, so
+    # this one is a skill and nothing else. Measured all the same: splitting a
+    # workflow out of `tm` moves a cost, and a cost that stops being measured
+    # is one nobody notices growing back (`PLT-2cyh`).
+    ("an agenda session", "agenda skill", None),
 )
 
 
@@ -3131,6 +3136,8 @@ def context_cost():
     for label, path, when in (
         ("tm skill", os.path.join(top, ".claude/skills/tm/SKILL.md"), "tasks are mentioned"),
         ("nm skill", os.path.join(top, ".claude/skills/nm/SKILL.md"), "notes are mentioned"),
+        ("agenda skill", os.path.join(top, ".claude/skills/agenda/SKILL.md"),
+         "a meeting is mentioned"),
         ("platform board", os.path.join(ROOT, "platform/board.md"), "it lists or starts work"),
         ("business board", os.path.join(ROOT, "business/board.md"), "it lists or starts work"),
         ("notes archive", os.path.join(REPO, "notes", "notes.md"), "notes are read"),
@@ -3145,13 +3152,14 @@ def check_context(rep):
     size = {l: t for l, t, _ in rows}
     print("\n  what an agent carries\n")
     for label, tokens, when in rows:
-        print(f"    {label:<16} ~{tokens:>5} tokens   when {when}")
+        print(f"    {label:<18} ~{tokens:>5} tokens   when {when}")
     print()
     for name, skill, record in SESSIONS:
         if skill not in size:
             continue
-        total = size[skill] + size.get(record, 0)
-        print(f"    {name:<16} ~{total:>5} tokens   {skill} plus {record}")
+        total = size[skill] + (size.get(record, 0) if record else 0)
+        made_of = f"{skill} plus {record}" if record else f"{skill} alone"
+        print(f"    {name:<18} ~{total:>5} tokens   {made_of}")
         if total > SESSION_BUDGET:
             rep.warn(f"{name} is ~{total} tokens, over the {SESSION_BUDGET} budget — "
                      f"{skill} loads whole every time its subject comes up")

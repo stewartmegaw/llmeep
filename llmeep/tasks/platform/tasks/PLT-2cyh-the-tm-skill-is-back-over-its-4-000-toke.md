@@ -14,10 +14,10 @@ mean doing this twice.
 
 ## Acceptance
 
-- [ ] `tm check --context` reports the tm skill under 4,000 and a task session under 5,000
-- [ ] The skill tells the agent to relay `done`'s clear prompt, and to run `tm handover` when
+- [x] `tm check --context` reports the tm skill under 4,000 and a task session under 5,000
+- [x] The skill tells the agent to relay `done`'s clear prompt, and to run `tm handover` when
       asked whether it is safe to clear
-- [ ] Nothing the skill says today is lost silently — anything cut is either moved into
+- [x] Nothing the skill says today is lost silently — anything cut is either moved into
       `ontology.md` or deliberately dropped, and this Log says which
 
 ## Context
@@ -71,3 +71,18 @@ They have to fit inside the reduced budget, not on top of it.
 
 - 2026-09-04 — Filed after the tm skill measured ~4,546 across three commits.
 - 2026-09-07 — Folded in the handover gap raised the same week, with the six-for-six evidence.
+- 2026-09-12 — Done. What moved and where:
+  - **Board and standup rendering reasoning → `tasks/_tooling/ontology.md`**, under *Rendering a
+    board*. Every rule stayed in the skill as an imperative; every *why* left, including the two
+    dated findings and the standup's three extra rules.
+  - **The agenda workflow → its own skill**, `.claude/skills/agenda/`. A meeting is occasional
+    and every task session was paying 387 tokens for it. `adopt` installs and reroots it, and
+    `tm --help` still lists `tm agenda`.
+  - **The command list writes the tool's path once** rather than twenty-two times, which also
+    surfaced `retitle` and `handover` missing from it entirely.
+  - **`tm`'s description narrowed** so an agenda no longer routes to this skill.
+  - **Nothing was deliberately dropped.** Two verbs and both handover rules were *added*.
+  - `check --context` measures every shipped skill now, so the split moved a cost rather than
+    hiding one. An unmeasured cost is what let this happen twice.
+
+  4,652 → 3,992 on the file; 5,347 → 4,690 on a session, against a 5,000 budget.
