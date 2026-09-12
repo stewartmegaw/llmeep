@@ -913,20 +913,32 @@ class TestPushState(Fixture):
         self.assertIn("records", self.state(top))
 
 
-    def test_the_agenda_skill_ships_and_is_rerooted(self):
-        """Split out of `tm` because a meeting is occasional and every task
-        session was paying for it (`PLT-2cyh`). A skill an adopter does not get
-        is a skill that does not exist, and one naming a `tm` that is not there
-        is worse than absent."""
-        top = self.a_project(name="agenda-skill")
+    def test_every_split_out_skill_ships_and_is_rerooted(self):
+        """A meeting and a report are both occasional, and every task session
+        was paying for instructions it was not going to use (`PLT-2cyh`,
+        `PLT-umh3`). A skill an adopter does not get is a skill that does not
+        exist, and one naming a `tm` that is not there is worse than absent."""
+        top = self.a_project(name="split-skills")
         self.adopt(self.working_copy(), top, "--into", "ops")
-        path = os.path.join(top, ".claude", "skills", "agenda", "SKILL.md")
-        self.assertTrue(os.path.isfile(path), "the agenda skill did not ship")
-        with open(path) as fh:
-            body = fh.read()
-        self.assertIn("ops/tasks/_tooling/tm", body)
-        self.assertNotIn("llmeep/tasks/_tooling/tm", body)
-        self.assertIn(".claude/skills/agenda/SKILL.md", self.manifest(top)["files"])
+        for name in ("agenda", "standup"):
+            path = os.path.join(top, ".claude", "skills", name, "SKILL.md")
+            self.assertTrue(os.path.isfile(path), f"the {name} skill did not ship")
+            with open(path) as fh:
+                body = fh.read()
+            self.assertIn("ops/tasks/_tooling/tm", body, name)
+            self.assertNotIn("llmeep/tasks/_tooling/tm", body, name)
+            self.assertIn(f".claude/skills/{name}/SKILL.md", self.manifest(top)["files"])
+
+    def test_the_tm_skill_does_not_claim_what_it_no_longer_carries(self):
+        """A description is a router. One still advertising standups and
+        agendas pulls 4,000 tokens in to answer a question two smaller skills
+        now own — which would make the split cost more than it saved."""
+        top = self.a_project(name="routing")
+        self.adopt(self.working_copy(), top)
+        with open(os.path.join(top, ".claude", "skills", "tm", "SKILL.md")) as fh:
+            head = fh.read().split("---")[1]
+        self.assertIn("standup skill", head)
+        self.assertIn("agenda skill", head)
 
     def test_every_shipped_skill_is_measured(self):
         """`DEC-037` budgets the session. Moving a workflow into its own skill

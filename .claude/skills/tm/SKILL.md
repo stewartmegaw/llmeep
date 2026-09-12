@@ -1,6 +1,6 @@
 ---
 name: tm
-description: Tasks and standups — create, start, reword, complete and search tasks, report what shipped, and search past decisions. Use when the user refers to tasks, priorities, what to work on next, completing work, a standup, whether it is safe to clear, or why something was decided ("what's next", "start PLT-9puy", "commit task", "standup", "why is it like this", "have we tried this before"). A meeting agenda is the agenda skill.
+description: Tasks — create, start, reword, prioritise, park, complete and search tasks, attach detail to one, and search past decisions. Use when the user refers to tasks, priorities, what to work on next, completing work, whether it is safe to clear, or why something was decided ("what's next", "start PLT-9puy", "commit task", "why is it like this", "have we tried this before"). A standup is the standup skill; a meeting agenda is the agenda skill.
 ---
 
 # tm
@@ -187,37 +187,7 @@ remembered rather than done, that is `nm` — see its skill. A note becomes a ta
 
 ## Rendering a standup
 
-`tm standup` prints for a terminal and you are rendering for a phone. **Bold each heading, leave
-everything else exactly as the tool wrote it** — same wording, same order, same counts. Do not
-re-summarise: what you show and what Telegram receives are the same report.
-
-    **2026-08-02 → 2026-08-03**
-
-    **@stew**
-    ✓ Fix flaky auth test
-
-    **In progress**
-    PLT  Migrate config loader — @sam
-
-    **Priority (2)**
-    PLT  Upgrade toolchain
-    BUS  Renew the Acme contract
-
-    **Backlog (11)**
-    PLT  Replace the fixture loader
-    …and 9 more
-
-    **Captured, not yet work**
-    · Acme want SSO before they will renew
-
-- **`PLT` / `BUS` are the tool's.** Keep them and the two-space gap; never tag a line it did
-  not tag. Captured notes keep their `·` and have no ledger.
-- **The counts are the full sections.** Reproduce them and `…and N more` verbatim; never
-  recount from what you can see.
-- **Never re-sort**, and never read `Backlog` as priority.
-- **Never a code block.** No hint line — a standup is a report, not a menu.
-
-Why: **Rendering a board** in `tasks/_tooling/ontology.md`, which the standup shares.
+That is the `standup` skill. Invoke it when someone asks what shipped.
 
 ## When asked for tasks, lift the tasks
 

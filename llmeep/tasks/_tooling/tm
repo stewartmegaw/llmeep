@@ -3191,6 +3191,7 @@ SESSIONS = (
     # workflow out of `tm` moves a cost, and a cost that stops being measured
     # is one nobody notices growing back (`PLT-2cyh`).
     ("an agenda session", "agenda skill", None),
+    ("a standup session", "standup skill", "platform board"),
 )
 
 
@@ -3205,6 +3206,8 @@ def context_cost():
         ("nm skill", os.path.join(top, ".claude/skills/nm/SKILL.md"), "notes are mentioned"),
         ("agenda skill", os.path.join(top, ".claude/skills/agenda/SKILL.md"),
          "a meeting is mentioned"),
+        ("standup skill", os.path.join(top, ".claude/skills/standup/SKILL.md"),
+         "a report is asked for"),
         ("platform board", os.path.join(ROOT, "platform/board.md"), "it lists or starts work"),
         ("business board", os.path.join(ROOT, "business/board.md"), "it lists or starts work"),
         ("notes archive", os.path.join(REPO, "notes", "notes.md"), "notes are read"),
