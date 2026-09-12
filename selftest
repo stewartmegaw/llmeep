@@ -1483,6 +1483,39 @@ print(json.dumps(out))
         self.assertEqual(sh("git", "rev-list", "--count", "HEAD", cwd=top).stdout.strip(),
                          head, "it committed after refusing")
 
+    def test_a_task_cannot_be_started_from_the_app(self):
+        """Starting is a claim to be working on something, and that happens at a
+        terminal. From a phone it puts a task in progress with nobody on it,
+        blocks the next `tm go` under WIP-1, and collects the commit count of
+        whatever is actually being written — that count is attributed by the
+        window, not by name (`DEC-047`)."""
+        top = self.adopted("no-start")
+        head = sh("git", "rev-list", "--count", "HEAD", cwd=top).stdout.strip()
+        result = self.drive(top, {"tool": "start", "args": {"id": "PLT-0000"}})
+        self.assertIn("not a tool", " ".join(result["told"]))
+        self.assertEqual(result["ok"]["used"], [])
+        self.assertEqual(sh("git", "rev-list", "--count", "HEAD", cwd=top).stdout.strip(), head)
+
+    def test_no_tool_reaches_go(self):
+        """The table is the constraint, so the check is on what it can emit
+        rather than on the names in it — a tool called anything at all must not
+        turn into `tm go`."""
+        top = self.adopted("no-go")
+        script = self.path("verbs.py")
+        with open(script, "w") as fh:
+            fh.write("import json, os, sys\n"
+                     "sys.path.insert(0, os.path.join(sys.argv[1], 'llmeep', 'ui', 'api'))\n"
+                     "import server\n"
+                     "args = {'id': 'PLT-0000', 'title': 'x', 'term': 'x',\n"
+                     "        'lines': ['a'], 'source': 's'}\n"
+                     "print(json.dumps(sorted({server.TOOLS[t](dict(args))[1][0]\n"
+                     "                         for t in server.TOOLS})))\n")
+        env = dict(os.environ, LLMEEP_REPO=top, LLMEEP_AUTH_HANDLED="yes")
+        out = sh(sys.executable, script, self.working_copy(), cwd=top, env=env)
+        verbs = json.loads(out.stdout.strip().split("\n")[-1])
+        self.assertNotIn("go", verbs, verbs)
+        self.assertIn("done", verbs, "closing a task should still be possible")
+
     def test_a_malformed_id_never_reaches_the_tool(self):
         top = self.adopted("bad-id")
         head = sh("git", "rev-list", "--count", "HEAD", cwd=top).stdout.strip()

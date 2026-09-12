@@ -92,6 +92,14 @@ def can_write():
 # nowhere else. That is the first of two guards; the second is that only those
 # trees are ever staged.
 #
+# **`go` is deliberately absent.** Starting a task is a claim to be working on
+# it, and the work happens at a terminal — a task started from a phone puts
+# something in progress with nobody on it, blocks the next `tm go` under WIP-1,
+# and collects the commit count of whatever is actually being written, because
+# that count is attributed by the window rather than by name (`DEC-047`).
+# Filing, reprioritising, parking and closing all say something true from a
+# phone. Starting does not.
+#
 # `(tool, args) -> (executable, argv, stdin or None)`.
 TOOLS = {
     # Reading. Free, and the reason the agent can answer rather than guess.
@@ -112,7 +120,6 @@ TOOLS = {
     "prioritise": lambda a: ("tm", ["prioritise", a["id"]]
                              + (["-n"] if a.get("top") else []), None),
     "park":       lambda a: ("tm", ["park", a["id"]], None),
-    "start":      lambda a: ("tm", ["go", a["id"]], None),
     "done":       lambda a: ("tm", ["done", a["id"]], None),
     "drop":       lambda a: ("tm", ["drop", a["id"]], None),
     "detail":     lambda a: ("tm", ["detail", a["id"]], None),
@@ -168,6 +175,11 @@ Reply with one JSON object per turn and nothing else:
 Asking is a real answer — say something with "done": true and wait for a reply.
 So is changing nothing. Read first when you need an id; reading is free.
 
+**You cannot start a task from here.** Where the instructions below say `tm go`,
+say so and stop: starting is a claim to be working on something, and that
+happens at a terminal. Filing it, ranking it, parking it or closing it are all
+fine.
+
 They may not be a developer, and they are reading this on a phone.
 
 ----------------------------------------------------------------------------
@@ -182,7 +194,7 @@ TOOL_ARGS = {
     "add": '{"title": "...", "ledger": "platform|business", "prioritise": bool}',
     "retitle": '{"id": "...", "title": "..."}',
     "prioritise": '{"id": "...", "top": bool}',
-    "park": '{"id": "..."}', "start": '{"id": "..."}', "done": '{"id": "..."}',
+    "park": '{"id": "..."}', "done": '{"id": "..."}',
     "drop": '{"id": "..."}', "detail": '{"id": "..."}',
     "capture": '{"lines": ["...", "..."], "source": "..."}',
     "promote": '{"id": "NTE-...", "ledger": "...", "prioritise": bool}',

@@ -2,11 +2,11 @@
 
 ## in progress
 
-PLT-2cyh The tm skill is back over its 4,000-token budget; three verbs have been added since PLT-rsn4  @stewart  detail  since:25eb089  filed:2026-08-31
+PLT-6yjz A mobile-first web UI for llmeep: add by prompt, edit and delete tasks, read details, drop notes  @stewart  detail  commits:8  since:79d64ef  filed:2026-09-07
 
 ## prioritised
 
-PLT-6yjz A mobile-first web UI for llmeep: add by prompt, edit and delete tasks, read details, drop notes  detail  commits:8  filed:2026-09-07
+PLT-2cyh The tm skill is back over its 4,000-token budget; three verbs have been added since PLT-rsn4  detail  commits:1  filed:2026-08-31
 
 ## backlog
 

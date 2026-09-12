@@ -6,6 +6,7 @@ import {
   Typography,
 } from '@mui/material'
 import Read, { Doc, size } from './Read.jsx'
+import Pills from './Pills.jsx'
 
 // Where this is mounted. The server injects it; a dev server has none.
 const BASE = (window.LLMEEP_BASE || '').replace(/\/$/, '')
@@ -14,9 +15,11 @@ const BASE = (window.LLMEEP_BASE || '').replace(/\/$/, '')
 // deliberately absent: it is history, and this screen is about what is live.
 const SECTIONS = [
   ['in_progress', 'In progress'],
-  ['prioritised', 'Next'],
+  ['prioritised', 'Prioritised'],
   ['backlog', 'Backlog'],
 ]
+
+const LEDGERS = ['platform', 'business']
 
 export default function App() {
   const [board, setBoard] = React.useState(null)
@@ -25,6 +28,15 @@ export default function App() {
   const [canWrite, setCanWrite] = React.useState(false)
   const [tab, setTab] = React.useState('board')
   const [sub, setSub] = React.useState('decisions')
+  // Everything on to begin with, and you switch off what you do not want. There
+  // is no "All" pill because every pill being lit *is* all — a control whose
+  // job is to undo the other controls is one more thing to understand.
+  const [off, setOff] = React.useState(() => new Set())
+  const toggle = (v) => setOff((prev) => {
+    const next = new Set(prev)
+    next.has(v) ? next.delete(v) : next.add(v)
+    return next
+  })
   const [docs, setDocs] = React.useState([])
   const [detail, setDetail] = React.useState(null)
   // How much room the composer is taking, so nothing ends up underneath it.
@@ -87,17 +99,22 @@ export default function App() {
               naming them for half of what they do. */}
           <Tab value="other" label="Other" />
         </Tabs>
-        {tab === 'other' && (
-          <Tabs value={sub} onChange={(_, v) => setSub(v)} variant="fullWidth"
-                textColor="inherit"
-                sx={{ minHeight: 38, '& .MuiTab-root': { minHeight: 38, fontSize: 13 } }}>
-            <Tab value="decisions" label="Decisions" />
-            <Tab value="ontology" label="Ontology" />
-          </Tabs>
-        )}
+
       </AppBar>
 
       <Container maxWidth="sm" sx={{ px: 2 }}>
+        {tab === 'other' && (
+          <Pills sx={{ mt: 2 }} value={sub} onChange={setSub}
+                 options={[
+                   { value: 'decisions', label: 'Decisions',
+                     count: browsable.filter((d) => d.group === 'Decisions').length },
+                   { value: 'ontology', label: 'Ontology',
+                     count: browsable.filter((d) => d.group === 'Ontology').length },
+                 ]} />
+        )}
+        {tab === 'board' && board && (
+          <BoardFilters board={board} off={off} onToggle={toggle} />
+        )}
         {error && (
           <Typography color="error" sx={{ mt: 3, whiteSpace: 'pre-wrap' }}>{error}</Typography>
         )}
@@ -108,7 +125,7 @@ export default function App() {
                 key={sub} />
         )}
         {tab === 'board' && board && Object.entries(board).map(([ledger, sections]) => (
-          <Ledger key={ledger} name={ledger} sections={sections}
+          <Ledger key={ledger} name={ledger} sections={sections} off={off}
                   docs={docs} onDetail={setDetail} />
         ))}
       </Container>
@@ -230,8 +247,11 @@ function Say({ onDone, onHeight }) {
   )
 }
 
-function Ledger({ name, sections, docs, onDetail }) {
-  const live = SECTIONS.filter(([key]) => sections[key]?.length)
+// `off` holds the pills that have been switched off — a ledger name or a
+// section key. Empty means show everything, which is where it starts.
+function Ledger({ name, sections, off, docs, onDetail }) {
+  if (off.has(name)) return null
+  const live = SECTIONS.filter(([key]) => !off.has(key) && sections[key]?.length)
   if (!live.length) return null
   return (
     <Box sx={{ mt: 3 }}>
@@ -412,4 +432,31 @@ function DetailSheet({ head, docs, onClose }) {
       </DialogContent>
     </Dialog>
   )
+}
+
+// The pills above the board: three sections and both ledgers, all lit, all
+// toggles. An empty one is shown disabled rather than hidden — that a business
+// board exists and has nothing on it is worth knowing, and a row that changes
+// shape as work arrives has to be re-read every time.
+function BoardFilters({ board, off, onToggle }) {
+  const count = (sections, key) => (key ? sections[key]?.length || 0
+    : SECTIONS.reduce((n, [k]) => n + (sections[k]?.length || 0), 0))
+
+  const options = SECTIONS.map(([key, label]) => {
+    const n = Object.values(board).reduce((sum, s) => sum + count(s, key), 0)
+    return { value: key, label, count: n, disabled: n === 0 }
+  })
+  for (const name of LEDGERS) {
+    const sections = board[name]
+    if (!sections) continue
+    const n = count(sections)
+    options.push({
+      value: name,
+      label: name[0].toUpperCase() + name.slice(1),
+      count: n,
+      disabled: n === 0,
+    })
+  }
+  const selected = new Set(options.filter((o) => !off.has(o.value)).map((o) => o.value))
+  return <Pills sx={{ mt: 2 }} options={options} selected={selected} onChange={onToggle} />
 }

@@ -115,6 +115,12 @@ changed, which is the failure `DEC-003` exists to prevent.
 It runs until it is done, which includes asking you something and waiting. Reading is free, so
 it looks before it acts.
 
+**It cannot start a task.** Filing, ranking, parking, rewording and closing all say something
+true from a phone; starting is a claim to be working on something, and that happens at a
+terminal. A task started from here would sit in progress with nobody on it, block the next
+`tm go` under WIP-1, and take the credit for commits being written against something else —
+that count is attributed by the window, not by name (`DEC-047`).
+
 ## It can only ever change `llmeep/`
 
 The agent never runs a command. It names a tool, and the name is checked against a fixed table
