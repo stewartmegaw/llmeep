@@ -122,6 +122,9 @@ export default function App() {
         {tab === 'other' && (
           <Read base={BASE} docs={browsable}
                 only={sub === 'decisions' ? 'Decisions' : 'Ontology'}
+                empty={sub === 'decisions'
+                  ? 'No decisions recorded yet.'
+                  : 'No domain ontology recorded yet — ask to record where yours lives.'}
                 key={sub} />
         )}
         {tab === 'board' && board && Object.entries(board).map(([ledger, sections]) => (

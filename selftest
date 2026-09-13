@@ -1418,11 +1418,60 @@ else:
             fh.write(f"---\nid: DEC-001\ntitle: {title}\nstatus: accepted\n---\n\n"
                      f"# DEC-001 — {title}\n\nBody text.\n")
 
-    def test_it_lists_notes_decisions_and_the_ontology(self):
+    def test_it_lists_what_this_repo_records(self):
+        """An adopted repo records notes and decisions from the day it is
+        installed. It has no ontology of its own until someone says where theirs
+        is — the group is absent rather than filled with llmeep's (`PLT-e7u9`)."""
         top = self.adopted("browse")
         self.a_decision(top, "DEC-001-a-thing.md", "We chose the boring option")
         groups = {d["group"] for d in self.run_driver(top, "catalogue")}
+        self.assertEqual(groups, {"Notes", "Decisions"})
+
+        os.makedirs(os.path.join(top, "docs"), exist_ok=True)
+        with open(os.path.join(top, "docs", "domain.md"), "w") as fh:
+            fh.write("# Our domain\n\n- **Invoice** — a demand for payment.\n")
+        self.tm(top, "ontology", "docs/domain.md")
+        groups = {d["group"] for d in self.run_driver(top, "catalogue")}
         self.assertEqual(groups, {"Notes", "Decisions", "Ontology"})
+
+    def test_llmeeps_own_model_is_not_this_repos_ontology(self):
+        """`PLT-e7u9`, `DEC-052`. `adopt` installs llmeep's model into the repo
+        (`DEC-032`), so every pattern in the Ontology group resolved to it: an
+        adopter's tab listed Core, Principles, Taskman, Notes and a guide to
+        writing an ontology — five documents about llmeep and none about them.
+
+        The manifest is the test of whose a file is. Nothing is deleted or made
+        unreadable to an agent; it stops being offered as this repo's record."""
+        top = self.adopted("not-ours", "--into", "ops")
+        catalogue = self.run_driver(top, "catalogue")
+        paths = [d["path"] for d in catalogue]
+        for ours in ("ontology/core.md", "ontology/principles.md",
+                     "ontology/domain-ontology.md", "tasks/_tooling/ontology.md",
+                     "notes/_tooling/ontology.md"):
+            self.assertNotIn(ours, paths, f"llmeep's {ours} was offered as theirs")
+            self.assertTrue(os.path.isfile(os.path.join(top, "ops", ours)),
+                            f"{ours} was removed rather than unlisted")
+        self.assertFalse([d for d in catalogue if d["group"] == "Ontology"],
+                         "the Ontology group is llmeep's documents")
+
+    def test_llmeeps_own_checkout_still_lists_its_model(self):
+        """The other half, and the reason the manifest is the test rather than a
+        filename list: llmeep's own tree has no manifest because it is the source
+        rather than an install, so there its model *is* the project's own and
+        belongs in the catalogue — the same asymmetry `tm check` uses to decide
+        whose decisions a citation may name (`DEC-035`)."""
+        src_tree = self.working_copy()
+        script = self.path("drive_source.py")
+        with open(script, "w") as fh:
+            fh.write(self.DRIVER)
+        env = dict(os.environ, LLMEEP_REPO=src_tree, LLMEEP_AUTH_HANDLED="yes")
+        out = sh(sys.executable, script, src_tree, "catalogue", cwd=src_tree, env=env)
+        self.assertTrue(out.stdout.strip(), out.stderr)
+        catalogue = json.loads(out.stdout.strip().split("\n")[-1])
+        paths = [d["path"] for d in catalogue if d["group"] == "Ontology"]
+        for mine in ("ontology/core.md", "ontology/principles.md",
+                     "tasks/_tooling/ontology.md"):
+            self.assertIn(mine, paths, f"llmeep's own {mine} vanished from its own app")
 
     def test_a_decision_is_listed_by_what_it_decided(self):
         """`DEC-001` is not a name anyone can hold in their head, so the title

@@ -20,6 +20,7 @@ PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; us
 
 ## recent
 
+2026-09-13  PLT-e7u9 An adopter's UI shows llmeep's own ontology in a tab; it should show theirs, or nothing  @stewart
 2026-09-12  PLT-buj6 Split the decisions guidance into its own skill; tm done asks the question that has no utterance behind it  @stewart
 2026-09-12  PLT-asy6 Move the feedback pass out of the tm skill and into post-commit, so every adopter gets the prompt  @stewart
 2026-09-12  PLT-8fmt Move the notes render into nm, the way DEC-050 moved the board and standup renders  @stewart
@@ -34,4 +35,3 @@ PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; us
 2026-08-31  PLT-b8gk park unassigns, so part-done work looks untouched; show a commit count on the board line  @stewart
 2026-08-30  PLT-hwx5 Give sidecars a verb: attaching one needs a hand edit to board.md that the guidance forbids  @stewart
 2026-08-30  PLT-tabe New-file check asks about the ontology for every new file, including ones with no domain concept  @stewart
-2026-08-30  PLT-pmqf Rename sidecar to detail, the word the board tag already uses; sidecar means nothing to a non-coder  @stewart

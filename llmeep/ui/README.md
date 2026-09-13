@@ -69,8 +69,13 @@ that would rather inject secrets than mount them.
 ## Reading is wider than writing
 
 Three tabs. **Board** is what is live. **Notes** opens the notes straight away — a list with one
-row on it is not a list. **Other** holds **Decisions** and **Ontology**, the second including
-your own domain ontology if `tm ontology` recorded where it is.
+row on it is not a list. **Other** holds **Decisions** and **Ontology**.
+
+**Ontology is your domain ontology**, wherever `tm ontology` recorded it — and nothing else. The
+copies of llmeep's own model that `adopt` installs are skipped: an agent reads them on demand,
+which is who they were installed for, and a tool for looking at your own work should not spend a
+tab talking about itself ([`DEC-052`](../decisions/DEC-052-the-app-catalogues-this-repos-records.md)).
+Until one is recorded the screen says so.
 
 Decisions are listed by what they decided rather than by `DEC-044`, which is not a name anyone
 can hold in their head.

@@ -339,6 +339,7 @@ def catalogue():
     import glob
     import hashlib
     root = records_root()
+    ours = llmeep_files()
     out = []
     for group, patterns in READABLE:
         found = []
@@ -348,6 +349,15 @@ def catalogue():
             name = os.path.basename(full)
             if not os.path.isfile(full) or name.startswith(NOT_A_DOCUMENT) \
                     or "template" in name:
+                continue
+            # **llmeep's own documents are not this repo's records** (`DEC-052`).
+            # `ontology/` and the two `_tooling/ontology.md` files are installed
+            # by `adopt`, so in an adopted repo every pattern above resolved to
+            # llmeep's model and an adopter's Ontology tab listed five documents
+            # about llmeep and none about them (`PLT-e7u9`). Both relative forms
+            # are tested because the manifest names adapter files from the repo
+            # root and everything else from the install folder.
+            if {os.path.relpath(full, root), os.path.relpath(full, REPO)} & ours:
                 continue
             out.append(entry(full, root, group))
     out.extend(details(root))
@@ -425,6 +435,27 @@ def entry(full, root, group):
             "group": group, "title": doc_title(full) if kind == "text" else os.path.basename(full),
             "path": os.path.relpath(full, root), "kind": kind, "type": ctype,
             "bytes": os.path.getsize(full)}
+
+
+def llmeep_files():
+    """Every path `adopt` installed, from the manifest — llmeep's own machinery
+    and llmeep's own model, not the adopter's records.
+
+    **Empty in llmeep's own checkout**, which has no manifest because it is the
+    source rather than an install. There these documents *are* the project's own
+    model and belong in the catalogue, which is the same asymmetry `tm check`
+    uses to decide whose decisions a citation may name (`DEC-035`).
+
+    Read by pattern rather than by running the script, like `install_folder`.
+    """
+    path = os.path.join(REPO, ".llmeep")
+    if not os.path.isfile(path):
+        return set()
+    with open(path) as fh:
+        block = re.search(r'#\s*"files":\s*\{(.*?)#\s*\}', fh.read(), re.S)
+    if not block:
+        return set()
+    return set(re.findall(r'#\s*"([^"]+)":\s*"[0-9a-f]+"', block.group(1)))
 
 
 def manifest_ontology():

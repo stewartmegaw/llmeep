@@ -13,7 +13,7 @@ import Markdown from './Markdown.jsx'
 // `only` names the group to show. A screen that is one group needs no group
 // heading, and a screen that is one *document* — Notes — should open it rather
 // than offer a list of one.
-export default function Read({ base, only, docs: given }) {
+export default function Read({ base, only, docs: given, empty }) {
   const [docs, setDocs] = React.useState(given || null)
   const [open, setOpen] = React.useState(null)
   const [error, setError] = React.useState(null)
@@ -56,9 +56,14 @@ export default function Read({ base, only, docs: given }) {
   }
   if (!docs) return <Box sx={{ mt: 4, textAlign: 'center' }}><CircularProgress size={22} /></Box>
   if (!mine.length) {
+    // `empty` says what would fill this screen, where "nothing" is a state
+    // someone can act on. The Ontology screen needs it: llmeep's own model is no
+    // longer listed here (`DEC-052`), so an adopter who has not recorded theirs
+    // sees an empty tab and no reason for it (`PLT-e7u9`).
     return (
-      <Typography color="text.secondary" sx={{ mt: 4, textAlign: 'center' }}>
-        Nothing here yet.
+      <Typography color="text.secondary"
+                  sx={{ mt: 4, textAlign: 'center', px: 3, lineHeight: 1.5 }}>
+        {empty || 'Nothing here yet.'}
       </Typography>
     )
   }
