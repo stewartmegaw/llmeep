@@ -973,6 +973,30 @@ class TestPushState(Fixture):
     def state(self, top):
         return self.tm(top, "unpushed").stdout
 
+    def test_the_json_form_is_the_same_classification(self):
+        """`PLT-xxcu`. The app acts on this to decide whether a commit may go
+        out, so it reads the classification rather than recomputing it — a second
+        implementation of *which commits may leave* is the one to get wrong."""
+        top = self.with_upstream()
+        self.commit(top, "adopt llmeep")
+        self.push(top)
+        out = self.tm(top, "unpushed", "--json")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertFalse(out.stdout.lstrip().startswith("·"), "the banner reached a parser")
+        self.assertEqual(json.loads(out.stdout), {"state": "clear", "commits": 0})
+
+        self.tm(top, "add", "filed for the record")
+        self.commit(top, "file a task")
+        self.assertEqual(json.loads(self.tm(top, "unpushed", "--json").stdout),
+                         {"state": "records", "commits": 1})
+
+        with open(os.path.join(top, "src", "app.py"), "a") as fh:
+            fh.write("x = 1\n")
+        self.commit(top, "their code")
+        parsed = json.loads(self.tm(top, "unpushed", "--json").stdout)
+        self.assertEqual(parsed["state"], "code")
+        self.assertEqual(parsed["commits"], 2, "the range is classified whole, not per commit")
+
     def test_nothing_unpushed_is_clear(self):
         top = self.with_upstream()
         self.commit(top, "adopt llmeep")
@@ -1677,6 +1701,85 @@ print(json.dumps(out))
 
     FILE_ONE = {"tool": "add", "args": {"title": "Filed by the app",
                                         "ledger": "platform"}}
+
+    def with_remote(self, name, *args):
+        """An adopted repo with a real tracking branch, so `git push` in the app
+        has somewhere to go and the bare repo can be read back as the proof."""
+        bare = self.path(f"{name}-origin.git")
+        sh("git", "init", "-q", "--bare", bare)
+        top = self.a_project(name=name)
+        sh("git", "remote", "add", "origin", bare, cwd=top)
+        branch = sh("git", "rev-parse", "--abbrev-ref", "HEAD", cwd=top).stdout.strip()
+        sh("git", "push", "-q", "-u", "origin", branch, cwd=top)
+        self.adopt(self.working_copy(), top, *args)
+        self.quieten(top)
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "commit", "-qm", "adopt", cwd=top)
+        sh("git", "push", "-q", cwd=top)
+        return top, bare
+
+    def remote_log(self, bare):
+        return sh("git", "--git-dir", bare, "log", "--pretty=%s").stdout
+
+    def test_a_records_commit_is_pushed(self):
+        """`PLT-xxcu`. Every other agent here drives its own git; this app is the
+        agent for someone with no terminal, so a commit that never left the phone
+        was a record nobody else had — including the next person to pull."""
+        top, bare = self.with_remote("pushes")
+        result = self.drive(top, self.FILE_ONE)
+        self.assertNotIn("error", result, result)
+        self.assertTrue(result["ok"]["pushed"], result["ok"])
+        self.assertIsNone(result["ok"]["note"])
+        self.assertIn("from the app", self.remote_log(bare),
+                      "the commit never reached the remote")
+
+    def test_a_commit_behind_their_code_is_not_pushed(self):
+        """`DEC-042`: a push moves the branch, so records committed behind a code
+        change go out with it — and a push is where a deploy starts. The app has
+        no verb for pushing someone's project, so it says why it stopped."""
+        top, bare = self.with_remote("holds-back")
+        with open(os.path.join(top, "src", "app.py"), "a") as fh:
+            fh.write("x = 1\n")
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "commit", "-qm", "their unpushed code", cwd=top)
+
+        result = self.drive(top, self.FILE_ONE)
+        self.assertNotIn("error", result, result)
+        self.assertFalse(result["ok"]["pushed"])
+        self.assertIn("deploy", result["ok"]["note"])
+        self.assertIsNotNone(result["ok"]["commit"], "it should still have committed")
+        self.assertNotIn("from the app", self.remote_log(bare),
+                         "their code was pushed by an app that only writes records")
+
+    def test_no_upstream_says_so_and_still_commits(self):
+        top = self.adopted("nowhere-to-push")
+        result = self.drive(top, self.FILE_ONE)
+        self.assertNotIn("error", result, result)
+        self.assertFalse(result["ok"]["pushed"])
+        self.assertIn("nowhere to push", result["ok"]["note"])
+        self.assertEqual(self.committed_files(top), ["llmeep/tasks/platform/board.md"])
+
+    def test_a_failed_push_is_reported_rather_than_swallowed(self):
+        """A success that is half true is worse than a warning: the person is
+        told their change is committed and not live, which they can act on."""
+        top, bare = self.with_remote("broken-remote")
+        shutil.rmtree(bare)
+        result = self.drive(top, self.FILE_ONE)
+        self.assertNotIn("error", result, result)
+        self.assertFalse(result["ok"]["pushed"])
+        self.assertIn("push failed", result["ok"]["note"])
+        self.assertIsNotNone(result["ok"]["commit"], "the commit was lost with the push")
+
+    def test_a_read_only_turn_pushes_nothing(self):
+        """Nothing to commit means nothing to push, and a `git push` on every
+        question would turn reading the board into a network call."""
+        top, bare = self.with_remote("reads")
+        before = self.remote_log(bare)
+        result = self.drive(top, {"tool": "board", "args": {}})
+        self.assertNotIn("error", result, result)
+        self.assertIsNone(result["ok"]["commit"])
+        self.assertFalse(result["ok"]["pushed"])
+        self.assertEqual(self.remote_log(bare), before)
 
     def test_a_nested_install_commits_only_records(self):
         top = self.adopted("nested")

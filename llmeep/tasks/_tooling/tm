@@ -707,9 +707,19 @@ def cmd_handover(args):
 
 
 def cmd_unpushed(args):
-    if args:
-        raise Fail("unpushed takes no arguments")
+    """Reports; never pushes (`DEC-042`, `DEC-005`).
+
+    `--json` is for an interface, on `board --json`'s reasoning: the app has to
+    act on this classification, and computing it at the far end would be a second
+    implementation of the rule that says which commits may go out — drifting the
+    first time a record tree is added (`PLT-xxcu`).
+    """
+    if [a for a in args if a != "--json"]:
+        raise Fail("usage: tm unpushed [--json]")
     state, count = push_state()
+    if "--json" in args:
+        print(json.dumps({"state": state, "commits": count}, indent=2))
+        return
     plural = "" if count == 1 else "s"
     if state == "no upstream":
         print("\n  no upstream — this branch tracks nothing, so nothing can be"
@@ -3549,6 +3559,7 @@ USAGE = """tm — taskman
   tm status                     where things stand; starts nothing, writes nothing
   tm board [--json]             the open sections and the window, for an interface
   tm board --chat [--recent]    the board rendered to pass on as it is
+  tm unpushed [--json]          what is unpushed, and whether it may go out
   tm go [id] [-f who]           show your current task, or start the next one
   tm prioritise <id> [-n]       backlog → prioritised (-n puts it on top)
   tm park [id] [-n]             step it back one section (-n for the top of prioritised)
@@ -3566,7 +3577,7 @@ USAGE = """tm — taskman
   tm ontology [<path>|--none]   where your domain ontology lives, or that there is none
   tm feedback [<text...>|-]     note what llmeep itself got wrong (opt-in, local, never sent)
   tm audience                   how this user wants to be talked to (USER_TYPE in .env)
-  tm unpushed                   whether what is unpushed can reach a build
+  tm unpushed [--json]          whether what is unpushed can reach a build
   tm handover                   what this session holds that the records do not
 
   tm check [--staged]           validate records; used by hooks and CI

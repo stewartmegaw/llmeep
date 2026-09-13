@@ -139,3 +139,14 @@ your change to make room for its own is not its call.
 
 So your uncommitted code stays exactly as you left it, and a commit from this app touches
 records and nothing else.
+
+**And then it pushes** — a commit that never leaves the phone is a record nobody else has
+([`DEC-053`](../decisions/DEC-053-the-app-pushes-what-it-commits.md)). The branch has to track a
+remote the container can write to; without one the app says so rather than failing quietly.
+
+What it will not push is a range with your code in it. A push moves the branch, so records
+committed behind a code change travel with it, and a push is where a deploy starts
+([`DEC-042`](../decisions/DEC-042-a-non-coders-agent-pushes-records-and-asks-about-their-code.md)).
+In that case it commits, tells you the change is not live, and leaves the push to you. A push
+that fails for any other reason is reported the same way — committed, not live — because a
+success that is half true is worse than a warning.

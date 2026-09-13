@@ -115,3 +115,4 @@
 2026-09-12	PLT-asy6	platform	Move the feedback pass out of the tm skill and into post-commit, so every adopter gets the prompt	stewart
 2026-09-12	PLT-buj6	platform	Split the decisions guidance into its own skill; tm done asks the question that has no utterance behind it	stewart
 2026-09-13	PLT-e7u9	platform	An adopter's UI shows llmeep's own ontology in a tab; it should show theirs, or nothing	stewart
+2026-09-13	PLT-xxcu	platform	The app commits but never pushes, so records changed on a phone are not live for anyone else	stewart

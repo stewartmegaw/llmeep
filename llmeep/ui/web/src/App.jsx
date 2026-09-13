@@ -187,7 +187,10 @@ function Say({ onDone, onHeight }) {
       .then((d) => {
         setTurns((t) => [...t, d.error
           ? { who: 'error', text: d.error }
-          : { who: 'llmeep', text: d.answer, used: d.used, changed: d.changed }])
+          : { who: 'llmeep', text: d.answer, used: d.used, changed: d.changed,
+              // Whether it is live for anyone else. A change that committed and
+              // did not push is not a failure and not a success (`PLT-xxcu`).
+              note: d.note }])
         if (d.changed) onDone()
       })
       .catch((e) => setTurns((t) => [...t, { who: 'error', text: e.message }]))
@@ -356,9 +359,13 @@ function Turn({ turn }) {
     )
   }
   return (
-    <Alert severity={turn.who === 'error' ? 'error' : turn.changed ? 'success' : 'info'}
+    <Alert severity={turn.who === 'error' ? 'error'
+             : turn.note ? 'warning' : turn.changed ? 'success' : 'info'}
            icon={false} sx={{ mb: 1 }}>
       <Typography sx={{ whiteSpace: 'pre-wrap' }}>{turn.text}</Typography>
+      {turn.note && (
+        <Typography variant="body2" sx={{ mt: 1, opacity: 0.9 }}>{turn.note}</Typography>
+      )}
       {turn.used?.length > 0 && (
         <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
           {turn.used.map((u, i) => (

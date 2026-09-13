@@ -598,7 +598,9 @@ def act(text, session="default"):
             answer = str(step.get("say", "")).strip() or "Done."
             log.append({"role": "assistant", "content": json.dumps(step)})
             sha = commit_used(used) if changed else None
-            return {"answer": answer, "used": used, "commit": sha, "changed": changed}
+            pushed, note = push_after_commit() if sha else (False, None)
+            return {"answer": answer, "used": used, "commit": sha, "changed": changed,
+                    "pushed": pushed, "note": note}
 
         name = str(step.get("tool", "")).strip()
         args = step.get("args") or {}
@@ -656,6 +658,47 @@ def run_tool(name, args):
 def commit_used(used):
     doing = ", ".join(dict.fromkeys(n for n in used if n not in READ_ONLY))
     return commit(f"{doing or 'records'}, from the app"[:72])
+
+
+def push_after_commit():
+    """Push what was just committed, and say what happened.
+
+    **A commit that never leaves the phone is not a record anyone else has**
+    (`PLT-xxcu`). Every other agent here drives its own git; this app is the
+    agent for someone who has no terminal, so committing without pushing left
+    their work visible to nobody — including the next person to pull.
+
+    **What may go out is `DEC-042`'s classification, not "always".** `records`
+    pushes without asking, which is what that decision already licenses: boards,
+    notes and history reach no build. `code` does not, because a push is where a
+    deploy starts and the range goes out as a whole — records committed behind a
+    code change travel with it. The classification comes from `tm unpushed
+    --json` rather than being recomputed here, so there is one implementation of
+    the rule about which commits may leave.
+
+    Returns `(pushed, note)`. **A failed push is reported, never swallowed**: the
+    person is told their change is committed and not live, which is a state they
+    can act on, rather than being shown a success that is half true.
+    """
+    try:
+        state = json.loads(tm("unpushed", "--json")).get("state")
+    except Exception as exc:                           # noqa: BLE001
+        return False, f"committed, but the push state could not be read: {exc}"
+    if state == "no upstream":
+        return False, "committed. This branch tracks no remote, so there is nowhere to push."
+    if state == "code":
+        # The app cannot resolve this one: its tools write records and nothing
+        # else, so it has no verb for pushing someone's project. `DEC-042` has
+        # the agent ask; here the honest move is to say why it stopped.
+        return False, ("committed. Not pushed: there are code changes waiting to go out too, "
+                       "and a push is where a deploy starts — that one is yours to make.")
+    if state == "clear":
+        return True, None
+    try:
+        git("push")
+    except Exception as exc:                           # noqa: BLE001
+        return False, f"committed, but the push failed: {exc}"
+    return True, None
 
 
 

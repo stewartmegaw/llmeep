@@ -5,6 +5,7 @@
 
 ## prioritised
 
+PLT-u7c3 tm merge resolves a board conflict by the ontology table, which is six deterministic rules and one exception  filed:2026-09-13
 PLT-6yjz A mobile-first web UI for llmeep: add by prompt, edit and delete tasks, read details, drop notes  detail  commits:9  filed:2026-09-07
 
 ## backlog
@@ -17,9 +18,11 @@ PLT-6vgh Test tm review end to end: a real commit through both reviewer APIs  fi
 PLT-2gdj Periodically check connectors — Gmail, Google Docs — and turn what they find into captures  detail  filed:2026-09-07
 PLT-hrpu An agenda holds nothing the repo keeps — decide whether it should exist at all  detail  filed:2026-09-12
 PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; use typeable() so they stay typeable  filed:2026-09-12
+PLT-ks8p A webhook endpoint so a push to the default branch reaches the app, resolving record conflicts and pushing the result  filed:2026-09-13
 
 ## recent
 
+2026-09-13  PLT-xxcu The app commits but never pushes, so records changed on a phone are not live for anyone else  @stewart
 2026-09-13  PLT-e7u9 An adopter's UI shows llmeep's own ontology in a tab; it should show theirs, or nothing  @stewart
 2026-09-12  PLT-buj6 Split the decisions guidance into its own skill; tm done asks the question that has no utterance behind it  @stewart
 2026-09-12  PLT-asy6 Move the feedback pass out of the tm skill and into post-commit, so every adopter gets the prompt  @stewart
@@ -34,4 +37,3 @@ PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; us
 2026-09-07  PLT-8evz Draft an eighth principle: the repo is the centre and the UI is how a non-technical person reaches it  @stewart
 2026-08-31  PLT-b8gk park unassigns, so part-done work looks untouched; show a commit count on the board line  @stewart
 2026-08-30  PLT-hwx5 Give sidecars a verb: attaching one needs a hand edit to board.md that the guidance forbids  @stewart
-2026-08-30  PLT-tabe New-file check asks about the ontology for every new file, including ones with no domain concept  @stewart
