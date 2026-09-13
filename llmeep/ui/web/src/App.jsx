@@ -23,6 +23,7 @@ const LEDGERS = ['platform', 'business']
 
 export default function App() {
   const [board, setBoard] = React.useState(null)
+  const [updated, setUpdated] = React.useState(null)
   const [error, setError] = React.useState(null)
   const [loading, setLoading] = React.useState(true)
   const [canWrite, setCanWrite] = React.useState(false)
@@ -69,7 +70,7 @@ export default function App() {
     setLoading(true)
     fetch(`${BASE}/api/board`)
       .then((r) => (r.ok ? r.json() : r.text().then((t) => Promise.reject(new Error(t)))))
-      .then((d) => { setBoard(d.ledgers); setError(null) })
+      .then((d) => { setBoard(d.ledgers); setUpdated(d.updated); setError(null) })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
   }, [])
@@ -81,7 +82,16 @@ export default function App() {
       <AppBar position="sticky" color="default" elevation={0}
               sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Toolbar sx={{ minHeight: 52 }}>
-          <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 600 }}>llmeep</Typography>
+          <Box sx={{ flexGrow: 1 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, lineHeight: 1.2 }}>llmeep</Typography>
+            {/* When the records last changed, not when this tab last asked. The
+                same answer for everyone looking at the same repo, which is the
+                question someone reading a board on a phone actually has
+                (`PLT-f4n6`). */}
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+              {updated ? `updated ${ago(updated)}` : 'no records yet'}
+            </Typography>
+          </Box>
           {tab === 'board' && (
             <IconButton onClick={load} aria-label="Reload the board" size="small">
               {loading ? <CircularProgress size={18} /> : <span aria-hidden>↻</span>}
@@ -145,6 +155,30 @@ export default function App() {
 // those it is, is the agent's to work out and not the person's to declare —
 // asking them to pick a verb first is asking them to learn the system before
 // they can use it, and this screen exists for people who should not have to.
+// How long ago, in the coarsest unit that is still true. A board is read on a
+// phone, where "3 days ago" is the answer and a timestamp is a puzzle — and
+// where an exact clock time invites reading a sort key as a deadline, which
+// `DEC-030` keeps off board lines for the same reason.
+//
+// Today and yesterday get named rather than counted: "22 hours ago" is a worse
+// answer than "yesterday" to anyone who has just woken up.
+function ago(iso) {
+  const then = new Date(iso)
+  if (Number.isNaN(then.getTime())) return 'recently'
+  const mins = Math.floor((Date.now() - then.getTime()) / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins} min ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 6) return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`
+  const today = new Date().toDateString()
+  if (then.toDateString() === today) return `today at ${then.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+  const yesterday = new Date(Date.now() - 86400000).toDateString()
+  if (then.toDateString() === yesterday) return 'yesterday'
+  const days = Math.floor(mins / 1440)
+  if (days < 14) return `${days} days ago`
+  return then.toLocaleDateString([], { day: 'numeric', month: 'short' })
+}
+
 // The session id is the browser's, not the server's: it identifies which
 // conversation this is, and losing it costs the talk and never a record.
 const SESSION = Math.random().toString(36).slice(2)

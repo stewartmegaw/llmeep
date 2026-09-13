@@ -117,3 +117,4 @@
 2026-09-13	PLT-e7u9	platform	An adopter's UI shows llmeep's own ontology in a tab; it should show theirs, or nothing	stewart
 2026-09-13	PLT-xxcu	platform	The app commits but never pushes, so records changed on a phone are not live for anyone else	stewart
 2026-09-13	PLT-u7c3	platform	Records must survive a merge whether git noticed or not: resolve from three sides, conflict or clean	stewart
+2026-09-13	PLT-f4n6	platform	The app header should say when the records last changed, in small text under the title	stewart

@@ -66,6 +66,13 @@ Read on each request, so a line added there takes effect on the next page load r
 the next restart. Container environment variables of the same names still win, for a deployment
 that would rather inject secrets than mount them.
 
+**The header says when the records last changed** — `updated 12 min ago`, from the last commit
+touching `tasks/`, `notes/`, `decisions/` or `ontology/`. A commit and not a working-tree mtime: a
+fresh clone sets those to checkout time, so every container restart would claim everything just
+happened. It answers *how current is this*, so it is the same answer for everyone looking at the
+same repo, and it is deliberately coarse — "yesterday" beats "22 hours ago" to anyone who has just
+woken up.
+
 ## Reading is wider than writing
 
 Three tabs. **Board** is what is live. **Notes** opens the notes straight away — a list with one

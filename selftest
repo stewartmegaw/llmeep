@@ -1632,6 +1632,8 @@ import server
 what = sys.argv[2]
 if what == "catalogue":
     print(json.dumps(server.catalogue()))
+elif what == "board":
+    print(json.dumps({"updated": server.records_changed()}))
 elif what == "tools":
     print(json.dumps(sorted(server.TOOLS)))
 elif what.startswith("bytes:"):
@@ -1775,6 +1777,35 @@ else:
         paths = [d["path"] for d in self.run_driver(top, "catalogue")]
         self.assertTrue(paths, "nothing was catalogued in an --into ops install")
         self.assertIn("notes/notes.md", paths)
+
+    def test_the_board_says_when_the_records_last_changed(self):
+        """`PLT-f4n6`. The header answers *how current is this*, so the answer has
+        to be the same for everyone looking at the same repo — the last commit
+        touching a record tree, not a working-tree mtime that a fresh clone sets
+        to checkout time and every container restart resets."""
+        top = self.adopted("updated")
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "-c", "user.name=t", "-c", "user.email=t@t",
+           "commit", "-qm", "adopt", cwd=top)
+        board = self.run_driver(top, "board")
+        self.assertIsNotNone(board.get("updated"), board)
+        self.assertRegex(board["updated"], r"^\d{4}-\d{2}-\d{2}T")
+
+    def test_a_decision_counts_as_a_record_changing(self):
+        """The app shows decisions and an ontology it cannot write, so a header
+        saying nothing happened while a decision landed this morning would be
+        wrong about the thing it answers."""
+        top = self.adopted("updated-wider")
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "-c", "user.name=t", "-c", "user.email=t@t",
+           "commit", "-qm", "adopt", cwd=top)
+        before = self.run_driver(top, "board")["updated"]
+        self.a_decision(top, "DEC-001-a-thing.md", "We chose the boring option")
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false",
+           "commit", "-qm", "record a decision", "--date", "2030-01-01T09:00:00", cwd=top)
+        after = self.run_driver(top, "board")["updated"]
+        self.assertNotEqual(before, after, "a decision did not move the last-changed time")
 
     def test_the_adopters_own_ontology_is_offered(self):
         """`DEC-031`: theirs lives wherever they keep it, and `tm ontology`

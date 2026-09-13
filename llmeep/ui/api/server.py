@@ -660,6 +660,33 @@ def commit_used(used):
     return commit(f"{doing or 'records'}, from the app"[:72])
 
 
+def records_changed():
+    """When the records last changed, as an ISO timestamp, or `None`.
+
+    The commit date of the last commit touching a record tree — not the working
+    tree's mtimes, which a fresh clone sets to checkout time and every container
+    restart would reset. The question a reader has is *how current is this*, and
+    the answer has to be the same for everyone looking at the same repo
+    (`PLT-f4n6`).
+
+    A commit rather than a push: a records commit is pushed the moment it is made
+    now (`DEC-053`), and a repo with no remote has no push to date from.
+
+    **Every record tree, not only the writable ones.** The app shows decisions and
+    an ontology it cannot change, and a header saying nothing happened while a
+    decision landed this morning would be wrong about the thing it is answering.
+    """
+    folder = records_folder()
+    trees = [f"{folder}/{t}" if folder else t for t in READ_TREES]
+    if not trees:
+        return None
+    try:
+        out = git("log", "-1", "--format=%cI", "--", *trees).strip()
+    except Exception:                                  # noqa: BLE001
+        return None
+    return out or None
+
+
 def push_after_commit():
     """Push what was just committed, and say what happened.
 
@@ -737,6 +764,11 @@ def strip_fence(text):
 # install: `decisions/` is written by an agent that reasoned about a change, and
 # `.claude/` is the adapter. A text box on a phone has business in neither.
 WRITABLE = ("tasks", "notes")
+
+# Every tree that holds a record, which is what "last updated" is about — the
+# same four `tm` calls records. Wider than WRITABLE on purpose: this app reads
+# decisions and an ontology it may not write.
+READ_TREES = ("tasks", "notes", "decisions", "ontology")
 
 
 def writable_paths():
@@ -832,7 +864,11 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/file":
             return self.send_file(self.query("id"))
         if path == "/api/board":
-            return self.send_json_from(lambda: json.loads(tm("board", "--json")))
+            # `updated` rides with the board rather than having an endpoint of its
+            # own: it changes when the records change, so it should arrive when
+            # they do and go stale at exactly the same moment.
+            return self.send_json_from(
+                lambda: {**json.loads(tm("board", "--json")), "updated": records_changed()})
         if path == "/api/status":
             return self.send_json_from(lambda: {"text": tm("status")})
         return self.send_static(path)
