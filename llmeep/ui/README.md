@@ -73,6 +73,40 @@ happened. It answers *how current is this*, so it is the same answer for everyon
 same repo, and it is deliberately coarse — "yesterday" beats "22 hours ago" to anyone who has just
 woken up.
 
+## When somebody else pushes
+
+`POST /api/refresh` tells this container that the branch moved. Point a GitHub push webhook at it,
+or fire it from anything that can sign a body.
+
+```
+HOOK_SECRET=<a long random string>     # in the repo's .env, and as the webhook's secret
+```
+
+**The signature is the whole gate.** This route sits in front of `LLMEEP_AUTH_HANDLED`, because a
+push hook is not a person and cannot get through whatever fronts the app for people. It checks
+`X-Hub-Signature-256` as an HMAC over the exact bytes sent, and with no `HOOK_SECRET` configured it
+refuses every call rather than trusting one — the same fail-closed choice as the auth gate itself.
+It is `/api/refresh` and not `/api/github` because a vendor's name in the committed core is
+[principle 3](../ontology/principles.md) failing where it matters most; GitHub's signature scheme is
+simply the one most senders already speak.
+
+What it does, given a push to the default branch:
+
+| Situation | What happens |
+| --- | --- |
+| Nothing new | `current`. |
+| Nobody committed here | Fast-forwards. The common case and the whole of it. |
+| The app committed too | Merges, settles the records with `tm resolve`, commits and pushes the result — so what everyone else pulls is the settled board, not this container's private version of it. |
+| A conflict outside `tasks/` or `notes/` | Aborts. The tree is exactly as it was, and that merge is yours. |
+| Something staged outside the records | Refuses to touch the tree at all. |
+
+It follows a code-only push too, and says `records: false`. Refusing to follow your code would only
+make this checkout diverge, which is the problem the endpoint exists to prevent.
+
+**Why the merge needs settling at all:** git merging a board cleanly is not the same as merging it
+correctly — a task dropped on one side while the app ranked it comes back, and nothing in the diff
+looks wrong ([`DEC-054`](../decisions/DEC-054-the-deterministic-half-of-a-merge-is-the-tools.md)).
+
 ## Reading is wider than writing
 
 Three tabs. **Board** is what is live. **Notes** opens the notes straight away — a list with one

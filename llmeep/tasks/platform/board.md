@@ -17,10 +17,10 @@ PLT-6vgh Test tm review end to end: a real commit through both reviewer APIs  fi
 PLT-2gdj Periodically check connectors — Gmail, Google Docs — and turn what they find into captures  detail  filed:2026-09-07
 PLT-hrpu An agenda holds nothing the repo keeps — decide whether it should exist at all  detail  filed:2026-09-12
 PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; use typeable() so they stay typeable  filed:2026-09-12
-PLT-ks8p A webhook endpoint so a push to the default branch reaches the app, resolving record conflicts and pushing the result  filed:2026-09-13
 
 ## recent
 
+2026-09-13  PLT-ks8p A webhook endpoint so a push to the default branch reaches the app, resolving record conflicts and pushing the result  @stewart
 2026-09-13  PLT-f4n6 The app header should say when the records last changed, in small text under the title  @stewart
 2026-09-13  PLT-u7c3 Records must survive a merge whether git noticed or not: resolve from three sides, conflict or clean  @stewart
 2026-09-13  PLT-xxcu The app commits but never pushes, so records changed on a phone are not live for anyone else  @stewart
@@ -35,4 +35,3 @@ PLT-ks8p A webhook endpoint so a push to the default branch reaches the app, res
 2026-09-09  PLT-2xj3 Show the board on session start, and again after a context clear  @stewart
 2026-09-09  PLT-6egb A task id in prose must carry a title snippet; the rule exists and is almost never followed  @stewart
 2026-09-09  PLT-yhjj Record why the repo-is-the-centre claim is an eighth principle rather than ontology guidance  @stewart
-2026-09-07  PLT-8evz Draft an eighth principle: the repo is the centre and the UI is how a non-technical person reaches it  @stewart

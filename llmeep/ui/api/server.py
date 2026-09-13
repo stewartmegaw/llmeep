@@ -660,6 +660,138 @@ def commit_used(used):
     return commit(f"{doing or 'records'}, from the app"[:72])
 
 
+# ------------------------------------------------------------------ refresh
+#
+# **Somebody else pushed, and this container did not know.** The app pushes what
+# it commits (`DEC-053`), so it is a writer on a branch other people write to;
+# a checkout that never fetches drifts until its next commit is a merge nobody
+# asked for. This is the inbound half: one endpoint anything can fire, a fetch,
+# and the records settled by the model rather than by git's opinion of them.
+#
+# **Generic on purpose.** A GitHub push hook is what this is for, and a route
+# called `/api/github` would put a vendor in the committed core — the objection
+# `DEC-016` raised against shipping a workflow file. So it is `/api/refresh`,
+# meaning *something upstream moved*, and it authenticates with the signature
+# scheme GitHub happens to send, which any sender can produce with an HMAC.
+HOOK_SIGNATURE = "X-Hub-Signature-256"
+
+
+def hook_secret():
+    return setting("HOOK_SECRET")
+
+
+def hook_authentic(body, sent):
+    """**The app has no login and this route is the one thing GitHub must be able
+    to reach**, so the signature is the whole gate and it fails closed.
+
+    Compared in constant time, over the raw bytes: re-serialising the JSON first
+    would sign a different document than the one that arrived."""
+    import hashlib
+    import hmac
+    secret = hook_secret()
+    if not secret:
+        return False
+    want = "sha256=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(want, (sent or "").strip())
+
+
+def default_branch_ref(payload):
+    """What a push to the default branch looks like in the payload, or `None`
+    when the sender did not say. GitHub sends both halves; anything else that
+    sends neither is taken at its word and acted on."""
+    branch = ((payload.get("repository") or {}).get("default_branch") or "").strip()
+    return f"refs/heads/{branch}" if branch else None
+
+
+def refresh(payload):
+    """Fetch, then make this checkout's records right.
+
+    **Fast-forward is the common case and the whole of it.** Nobody committed
+    here since the last push, so there is nothing to merge and nothing to
+    resolve.
+
+    **Diverged is the case worth building for.** The app committed something
+    from a phone while somebody else pushed, so the branch has two tips and
+    `board.md` is the file both of them touched. `git merge` is allowed to do the
+    textual part, and then `tm resolve` settles the records by the model —
+    including when git reported no conflict at all, because a clean merge of a
+    board is not a correct one (`DEC-054`). The resolution is committed and
+    pushed, so what everybody else pulls is the settled version rather than this
+    container's private opinion of it.
+
+    **Anything conflicting outside the records aborts the whole thing.** The app
+    writes `tasks/` and `notes/`, so a conflict anywhere else is not its to
+    settle and the tree goes back exactly as it was.
+    """
+    ref = default_branch_ref(payload)
+    pushed = (payload.get("ref") or "").strip()
+    if ref and pushed and pushed != ref:
+        return {"action": "ignored", "note": f"{pushed} is not the default branch"}
+    if already_staged_elsewhere():
+        return {"action": "refused",
+                "note": "changes are staged outside the records here; not touching the tree"}
+
+    git("fetch", "--quiet")
+    upstream = git("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}").strip()
+    if not upstream:
+        return {"action": "refused", "note": "this branch tracks no remote"}
+    behind = [c for c in git("rev-list", f"HEAD..{upstream}").split() if c]
+    ahead = [c for c in git("rev-list", f"{upstream}..HEAD").split() if c]
+    if not behind:
+        return {"action": "current", "note": None}
+
+    records = [p for p in git("diff", "--name-only", f"HEAD..{upstream}").split("\n")
+               if p.strip() and p.startswith(tuple(t + "/" for t in read_trees()))]
+    if not ahead:
+        git("merge", "--ff-only", upstream)
+        return {"action": "fast-forward", "commits": len(behind),
+                "records": bool(records), "note": None}
+
+    return merge_and_settle(upstream, behind, ahead, records)
+
+
+def merge_and_settle(upstream, behind, ahead, records):
+    merged = subprocess.run(
+        ["git", "-c", f"user.name={GIT_NAME}", "-c", f"user.email={GIT_EMAIL}",
+         "merge", "--no-commit", "--no-ff", upstream],
+        cwd=REPO, capture_output=True, text=True, timeout=TIMEOUT)
+    stuck = [p for p in git("diff", "--name-only", "--diff-filter=U").split("\n")
+             if p.strip()]
+    outside = [p for p in stuck if not p.startswith(tuple(writable_paths()))]
+    if outside:
+        git("merge", "--abort")
+        return {"action": "aborted", "note":
+                f"conflicts outside the records — {', '.join(outside[:3])}. The tree is "
+                f"as it was; that merge is yours to do."}
+
+    settled = tm("resolve")
+    # **Staging comes after `resolve`, and it is this side's job.** `resolve`
+    # writes the records and never the index, so that finishing a merge stays a
+    # deliberate act (`DEC-005`, `DEC-054`) — which means the paths it settled are
+    # still unmerged until something stages them. Checking before staging read
+    # "could not settle it" about a file it had just settled correctly.
+    git("add", "--", *writable_paths())
+    still = [p for p in git("diff", "--name-only", "--diff-filter=U").split("\n")
+             if p.strip()]
+    if still:
+        git("merge", "--abort")
+        return {"action": "aborted",
+                "note": f"could not settle {', '.join(still[:3])} — the tree is as it was"}
+    git("-c", f"user.name={GIT_NAME}", "-c", f"user.email={GIT_EMAIL}",
+        "commit", "--no-edit", "-m",
+        f"merge {len(behind)} commit(s) from upstream, records settled by tm resolve")
+    pushed, note = push_after_commit()
+    return {"action": "merged", "commits": len(behind), "local": len(ahead),
+            "records": bool(records), "pushed": pushed,
+            "note": note, "settled": [l.strip() for l in settled.split("\n")
+                                      if l.strip().startswith("·")]}
+
+
+def read_trees():
+    folder = records_folder()
+    return [f"{folder}/{t}" if folder else t for t in READ_TREES]
+
+
 def records_changed():
     """When the records last changed, as an ISO timestamp, or `None`.
 
@@ -877,6 +1009,25 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?")[0]
         if BASE != "/" and path.startswith(BASE):
             path = path[len(BASE):] or "/"
+        if path == "/api/refresh":
+            # **Ahead of the auth gate, and gated by a signature instead.** The
+            # gate exists because whatever fronts this app is what authenticates
+            # a person; a push hook is not a person and cannot get through it.
+            # What it can do is prove it holds the shared secret, over the exact
+            # bytes it sent.
+            body = self.rfile.read(int(self.headers.get("Content-Length") or 0))
+            if not hook_secret():
+                return self.send_json(503, {"error":
+                    "no HOOK_SECRET is set, so this endpoint cannot tell who is "
+                    "calling it. Put HOOK_SECRET=<a long random string> in the repo's "
+                    ".env and use the same value as the webhook's secret."})
+            if not hook_authentic(body, self.headers.get(HOOK_SIGNATURE)):
+                return self.send_json(401, {"error": "signature does not match"})
+            try:
+                payload = json.loads(body or b"{}")
+            except Exception:                          # noqa: BLE001
+                payload = {}
+            return self.send_json_from(lambda: refresh(payload))
         if not AUTH_HANDLED:
             return self.send_text(503, refusal())
         if path != "/api/intent":

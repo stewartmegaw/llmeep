@@ -118,3 +118,4 @@
 2026-09-13	PLT-xxcu	platform	The app commits but never pushes, so records changed on a phone are not live for anyone else	stewart
 2026-09-13	PLT-u7c3	platform	Records must survive a merge whether git noticed or not: resolve from three sides, conflict or clean	stewart
 2026-09-13	PLT-f4n6	platform	The app header should say when the records last changed, in small text under the title	stewart
+2026-09-13	PLT-ks8p	platform	A webhook endpoint so a push to the default branch reaches the app, resolving record conflicts and pushing the result	stewart

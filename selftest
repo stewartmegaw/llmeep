@@ -942,6 +942,223 @@ class TestHandover(Fixture):
         self.assertNotIn("push", out)
 
 
+class TestRefreshHook(Fixture):
+    """`PLT-ks8p`. The app pushes what it commits (`DEC-053`), which makes it a
+    writer on a branch other people write to — and a checkout that never fetches
+    drifts until its next commit is a merge nobody asked for. This is the inbound
+    half: one endpoint anything can fire, and the records settled by the model
+    rather than by git's opinion of them."""
+
+    DRIVER = """import json, os, sys
+sys.path.insert(0, os.path.join(sys.argv[1], "llmeep", "ui", "api"))
+import server
+payload = json.loads(sys.argv[2])
+try:
+    print(json.dumps({"ok": server.refresh(payload)}))
+except Exception as exc:
+    print(json.dumps({"error": str(exc)}))
+"""
+
+    def a_pair(self, name):
+        """A bare remote, this container's checkout, and a second clone standing
+        in for whoever else pushes."""
+        bare = self.path(f"{name}-origin.git")
+        sh("git", "init", "-q", "--bare", bare)
+        top = self.a_project(name=name)
+        sh("git", "remote", "add", "origin", bare, cwd=top)
+        branch = sh("git", "rev-parse", "--abbrev-ref", "HEAD", cwd=top).stdout.strip()
+        sh("git", "push", "-q", "-u", "origin", branch, cwd=top)
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "commit", "-qm", "adopt", cwd=top)
+        sh("git", "push", "-q", cwd=top)
+
+        other = self.path(f"{name}-other")
+        sh("git", "clone", "-q", bare, other)
+        sh("git", "-C", other, "config", "user.name", "someone")
+        sh("git", "-C", other, "config", "user.email", "someone@example.com")
+        return top, bare, other
+
+    def their_tm(self, other, *args):
+        return sh(os.path.join(other, "llmeep", "tasks", "_tooling", "tm"), *args, cwd=other)
+
+    def they_push(self, other, message):
+        sh("git", "add", "-A", cwd=other)
+        out = sh("git", "commit", "-qm", message, cwd=other)
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        push = sh("git", "push", "-q", cwd=other)
+        self.assertEqual(push.returncode, 0, push.stdout + push.stderr)
+
+    def hook(self, top, payload=None):
+        script = self.path("drive_hook.py")
+        with open(script, "w") as fh:
+            fh.write(self.DRIVER)
+        env = dict(os.environ, LLMEEP_REPO=top, LLMEEP_AUTH_HANDLED="yes")
+        out = sh(sys.executable, script, self.working_copy(),
+                 json.dumps(payload or {}), cwd=top, env=env)
+        self.assertTrue(out.stdout.strip(), out.stderr)
+        result = json.loads(out.stdout.strip().split("\n")[-1])
+        self.assertNotIn("error", result, result)
+        return result["ok"]
+
+    def board(self, top):
+        with open(os.path.join(self.install_root(top),
+                               "tasks", "platform", "board.md")) as fh:
+            return fh.read()
+
+    def remote_board(self, bare, branch="HEAD"):
+        return sh("git", "--git-dir", bare, "show",
+                  f"{branch}:llmeep/tasks/platform/board.md").stdout
+
+    def test_nothing_to_do_says_current(self):
+        top, _, _ = self.a_pair("current")
+        self.assertEqual(self.hook(top)["action"], "current")
+
+    def test_a_push_from_elsewhere_fast_forwards(self):
+        """The common case and the whole of it: nobody committed here, so there
+        is nothing to merge and nothing to settle."""
+        top, _, other = self.a_pair("forward")
+        self.their_tm(other, "add", "filed by somebody else")
+        self.they_push(other, "their task")
+        result = self.hook(top)
+        self.assertEqual(result["action"], "fast-forward", result)
+        self.assertTrue(result["records"], "a record change was not noticed")
+        self.assertIn("filed by somebody else", self.board(top))
+
+    def test_a_code_only_push_is_still_followed_but_says_so(self):
+        """Only record changes are worth acting on, and a checkout that refuses to
+        follow their code diverges anyway — so it keeps current and reports that
+        nothing it shows has changed."""
+        top, _, other = self.a_pair("code-only")
+        with open(os.path.join(other, "src", "app.py"), "a") as fh:
+            fh.write("their_change = 1\n")
+        self.they_push(other, "their code")
+        result = self.hook(top)
+        self.assertEqual(result["action"], "fast-forward")
+        self.assertFalse(result["records"], "a code-only push claimed record changes")
+
+    def test_a_push_to_another_branch_is_ignored(self):
+        top, _, other = self.a_pair("wrong-branch")
+        self.their_tm(other, "add", "filed by somebody else")
+        self.they_push(other, "their task")
+        result = self.hook(top, {"ref": "refs/heads/feature",
+                                 "repository": {"default_branch": "master"}})
+        self.assertEqual(result["action"], "ignored", result)
+        self.assertNotIn("filed by somebody else", self.board(top))
+
+    def test_both_sides_filing_a_task_merges_and_pushes_the_result(self):
+        """The case this exists for. Somebody filed a task on their machine while
+        somebody filed one through the app, so `board.md` has two tips."""
+        top, bare, other = self.a_pair("diverged")
+        self.their_tm(other, "add", "filed by somebody else")
+        self.they_push(other, "their task")
+        self.tm(top, "add", "filed through the app")
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "-c", "user.name=app", "-c", "user.email=app@app",
+           "commit", "-qm", "app task", cwd=top)
+
+        result = self.hook(top)
+        self.assertEqual(result["action"], "merged", result)
+        self.assertTrue(result["pushed"], result)
+        for title in ("filed by somebody else", "filed through the app"):
+            self.assertIn(title, self.board(top), "a task was lost in the merge")
+            self.assertIn(title, self.remote_board(bare),
+                          "the settled board was not pushed for everyone else")
+        self.assertEqual(self.tm(top, "check").returncode, 0, self.board(top))
+
+    def test_a_merge_git_would_get_wrong_is_settled_before_it_is_pushed(self):
+        """`DEC-054`'s case: they dropped a task while the app ranked it. Git
+        merges that cleanly and the dropped task comes back, with nothing in the
+        diff looking wrong. What gets pushed is the settled board."""
+        top, bare, other = self.a_pair("settled")
+        tid = self.tm(top, "add", "--id", "filed then dropped").stdout.strip()
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "-c", "user.name=app", "-c", "user.email=app@app",
+           "commit", "-qm", "file it", cwd=top)
+        sh("git", "push", "-q", cwd=top)
+        sh("git", "-C", other, "pull", "-q")
+
+        self.their_tm(other, "drop", tid)
+        self.they_push(other, "they dropped it")
+        self.tm(top, "prioritise", tid)
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "-c", "user.name=app", "-c", "user.email=app@app",
+           "commit", "-qm", "app ranked it", cwd=top)
+
+        result = self.hook(top)
+        self.assertEqual(result["action"], "merged", result)
+        self.assertNotIn(tid, self.board(top), "a dropped task came back through the hook")
+        self.assertNotIn(tid, self.remote_board(bare),
+                         "the resurrected task was pushed to everyone else")
+
+    def test_a_conflict_outside_the_records_aborts_and_changes_nothing(self):
+        """The app writes `tasks/` and `notes/`, so a conflict anywhere else is
+        not its to settle — and a container that half-merged somebody's source is
+        worse than one that is behind."""
+        top, _, other = self.a_pair("their-conflict")
+        with open(os.path.join(other, "src", "app.py"), "w") as fh:
+            fh.write("theirs = 1\n")
+        self.they_push(other, "their code")
+        with open(os.path.join(top, "src", "app.py"), "w") as fh:
+            fh.write("ours = 2\n")
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "-c", "user.name=app", "-c", "user.email=app@app",
+           "commit", "-qm", "our code", cwd=top)
+        head = sh("git", "rev-parse", "HEAD", cwd=top).stdout.strip()
+
+        result = self.hook(top)
+        self.assertEqual(result["action"], "aborted", result)
+        self.assertIn("src/app.py", result["note"])
+        self.assertEqual(sh("git", "rev-parse", "HEAD", cwd=top).stdout.strip(), head,
+                         "HEAD moved despite aborting")
+        with open(os.path.join(top, "src", "app.py")) as fh:
+            self.assertEqual(fh.read(), "ours = 2\n", "their file was left half-merged")
+
+    def test_a_dirty_index_outside_the_records_is_left_alone(self):
+        top, _, other = self.a_pair("dirty")
+        self.their_tm(other, "add", "filed by somebody else")
+        self.they_push(other, "their task")
+        with open(os.path.join(top, "src", "scratch.py"), "w") as fh:
+            fh.write("half a thought\n")
+        sh("git", "add", "src/scratch.py", cwd=top)
+        result = self.hook(top)
+        self.assertEqual(result["action"], "refused", result)
+        self.assertNotIn("filed by somebody else", self.board(top))
+
+    def test_the_signature_is_the_gate(self):
+        """The app has no login and this route is the one thing a push hook must
+        reach, so the signature is the whole gate — and it fails closed when no
+        secret is set rather than trusting whatever arrives."""
+        top, _, _ = self.a_pair("signed")
+        script = self.path("drive_sig.py")
+        with open(script, "w") as fh:
+            fh.write("""import hashlib, hmac, json, os, sys
+sys.path.insert(0, os.path.join(sys.argv[1], "llmeep", "ui", "api"))
+import server
+body = b'{"ref": "refs/heads/master"}'
+out = {"no_secret": server.hook_authentic(body, "sha256=whatever")}
+os.environ["HOOK_SECRET"] = "a long random string"
+good = "sha256=" + hmac.new(b"a long random string", body, hashlib.sha256).hexdigest()
+out["right"] = server.hook_authentic(body, good)
+out["wrong"] = server.hook_authentic(body, "sha256=" + "0" * 64)
+out["absent"] = server.hook_authentic(body, None)
+out["other_body"] = server.hook_authentic(b'{"ref": "refs/heads/other"}', good)
+print(json.dumps(out))
+""")
+        env = dict(os.environ, LLMEEP_REPO=top, LLMEEP_AUTH_HANDLED="yes")
+        env.pop("HOOK_SECRET", None)
+        out = sh(sys.executable, script, self.working_copy(), cwd=top, env=env)
+        self.assertTrue(out.stdout.strip(), out.stderr)
+        checked = json.loads(out.stdout.strip().split("\n")[-1])
+        self.assertFalse(checked["no_secret"], "it authenticated with no secret configured")
+        self.assertTrue(checked["right"], "a correct signature was rejected")
+        self.assertFalse(checked["wrong"], "a wrong signature was accepted")
+        self.assertFalse(checked["absent"], "a missing signature was accepted")
+        self.assertFalse(checked["other_body"],
+                         "a signature for different bytes was accepted")
+
+
 class TestResolve(Fixture):
     """`PLT-u7c3`. `board.md` is one file everyone touches — the cost `DEC-001`
     accepted — and the ontology's **Merging boards** table carried the rules as
