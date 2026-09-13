@@ -331,6 +331,7 @@ step. See [`DEC-003`](https://github.com/stewartmegaw/llmeep/blob/main/decisions
 | | `tm check --context` | Measures what an agent loads. A skill loads whole, so it is the only file with a standing cost; the models are read on demand and excluded. |
 | `why`  | `tm why <term>`      | Greps decisions, pruned ones included. With an id, explains one: supersession chain, which records cite it, and where the tree references it. |
 | | `tm why --stale [--yes]` | Records nothing references — prune candidates. Dry without `--yes`; pruned records leave a stub in `decisions/history.tsv`. |
+| `resolve` | `tm resolve` | Settles what a merge did to the records, by **Merging boards** above. Reads three sides — index stages, `MERGE_HEAD`, or a merge commit's two parents — and rewrites only the record files a side actually changed. Writes files, not the index (`DEC-054`). |
 | `standup` | `tm standup [--send] [--chat]` | Reports the period's completions, what is in progress, and both open sections with their counts. Prints; `--send` posts. Run by a person; `_tooling/blueprints/standup.sh` is there if you want it unattended. |
 
 ```sh
@@ -768,9 +769,11 @@ it is cleared. The escape hatch stays open, and it is not silent.
 ### Merging boards
 
 Branches conflict on `board.md` — it is one file that everyone touches, the cost `DEC-001`
-accepted knowingly. There is no tool for this: resolving it is judgement about what each branch
-*intended*, which belongs to the agent. But judgement needs rules, or it improvises differently
-each time. Apply these in order:
+accepted knowingly. **`tm resolve` applies the table below** (`DEC-054`): six of these seven
+rules are arithmetic on two sets, and the one that is not says out loud what it chose. Run it
+during a conflict, or after a merge git resolved by itself — including one it already committed,
+which is the case that matters, because a clean merge of a board is not the same as a correct
+one.
 
 | Element        | Rule                                                                       |
 | -------------- | -------------------------------------------------------------------------- |
@@ -787,9 +790,25 @@ sequential, so there is no shared counter for two branches to race. If one appea
 keep the ID an existing commit already references (`git log --grep="closes <id>"`) and give the
 other a fresh one, recording the renumber in its log.
 
-> **If you are an agent resolving a board conflict:** apply the table above rather than
-> resolving textually. A textual merge will silently drop task lines, leave two tasks in
-> progress, or drop a history row — all of which look fine in the diff.
+> **If you are an agent resolving a board conflict:** run `tm resolve` rather than resolving
+> textually, and read what it says it did. A textual merge will silently drop task lines, leave
+> two tasks in progress, or drop a history row — all of which look fine in the diff.
+
+**The merge git is happy with is the dangerous one.** A conflict at least asks. A task dropped on
+one side while the other moved it between sections touches different lines, so git takes both
+edits and the task is back; a task completed on one side while the other ranked it lands in two
+sections at once. Neither raises a marker, which is why `resolve` reads three sides — the index
+during a conflict, `MERGE_HEAD` during a merge, the two parents of a merge already committed —
+and why it is worth running when nothing looked wrong.
+
+**Presence first, section second.** A board is a set of tasks, each of which is in one section.
+Resolving the four sections independently reads "prioritised on one side" as a deletion from that
+side's pool and "dropped on one side" as an addition on the other, which brings dropped tasks
+back. Where the two sides disagree about the section, the stronger one wins: `recent` (a
+completion has a history row behind it) over `in progress` over `prioritised` over `backlog`.
+
+**It writes the records and never the index.** Staging and committing stay with whoever ran it
+(`DEC-005`).
 
 ### Natural language over a deterministic core
 

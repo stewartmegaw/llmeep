@@ -618,6 +618,301 @@ def record_prefixes(top):
     return tuple(f"{base}{tree}/" for tree in RECORD_TREES)
 
 
+# ----------------------------------------------------------------- resolve
+#
+# **A merge of records has a right answer, and nothing applied it.** `board.md`
+# is one file everyone touches — the cost `DEC-001` accepted knowingly — and the
+# ontology's **Merging boards** carried the rules as instructions to an agent,
+# warning that a textual merge "will silently drop task lines, leave two tasks in
+# progress, or drop a history row — all of which look fine in the diff".
+#
+# Six of those seven rules are deterministic, so they are code now. The seventh
+# is not, and says out loud what it chose rather than choosing quietly.
+#
+# **The dangerous merge is the one git is happy with.** A conflict at least asks.
+# A task dropped on one side while the other moved it between sections touches
+# different lines, so git takes both edits, asks nobody, and the task is back —
+# and a task completed on one side while the other ranked it ends up in two
+# sections at once. Nothing in the diff looks wrong. So this reads three sides
+# wherever they happen to live: the index during a conflict, `MERGE_HEAD` during
+# a merge git resolved itself, and the two parents of a merge commit already
+# made (`PLT-u7c3`).
+#
+# **Union means union of additions, minus deletions.** Plain union resurrects a
+# task somebody dropped, which reads as a merge artifact nobody can explain.
+#
+# **It writes records and never the index.** Staging and committing belong to
+# whoever ran it, so every git call in this file stays a read (`DEC-005`).
+
+
+def conflicted_paths():
+    out = git("diff", "--name-only", "--diff-filter=U")
+    return [p for p in out.split("\n") if p.strip()]
+
+
+def show(rev, path):
+    """One revision of one path, or `None` when it is not in that revision. `rev`
+    may be an index stage (`:1`) or a commit."""
+    out = subprocess.run(["git", "show", f"{rev}:{path}"], cwd=REPO,
+                         capture_output=True, text=True, timeout=10)
+    return out.stdout if out.returncode == 0 else None
+
+
+def merge_sides():
+    """`(situation, base, ours, theirs)` as three revisions to read, or `None`
+    when there is no merge to settle."""
+    if conflicted_paths():
+        return ("conflict", ":1", ":2", ":3")
+    gitdir = (git("rev-parse", "--git-dir") or "").strip()
+    if gitdir and os.path.exists(os.path.join(REPO, gitdir, "MERGE_HEAD")):
+        base = (git("merge-base", "HEAD", "MERGE_HEAD") or "").strip()
+        return ("merging", base, "HEAD", "MERGE_HEAD") if base else None
+    parents = (git("rev-list", "--parents", "-n", "1", "HEAD") or "").split()
+    if len(parents) == 3:                       # own sha, then two parents
+        base = (git("merge-base", parents[1], parents[2]) or "").strip()
+        return ("merged", base, parents[1], parents[2]) if base else None
+    return None
+
+
+def changed_records(sides, top):
+    """Record files either side touched since the base — the only ones a merge
+    can have got wrong. Reading every record file would rewrite files nobody
+    edited, which is noise in a diff and a lie in a commit."""
+    _, base, ours, theirs = sides
+    if base.startswith(":"):
+        return [p for p in conflicted_paths() if p.startswith(record_prefixes(top))]
+    touched = set()
+    for side in (ours, theirs):
+        for line in git("diff", "--name-only", base, side).split("\n"):
+            if line.strip() and line.startswith(record_prefixes(top)):
+                touched.add(line.strip())
+    return sorted(touched)
+
+
+def resolve_lines(base, ours, theirs, key):
+    """Three-way set merge over lines, keyed by `key`. Returns what survives and
+    what is worth saying about how."""
+    b = {key(l): l for l in base}
+    o = {key(l): l for l in ours}
+    t = {key(l): l for l in theirs}
+    kept, notes = {}, []
+    for k in list(o) + [k for k in t if k not in o]:
+        in_base = k in b
+        if in_base and (k not in o or k not in t):
+            # Deleted on one side, deliberately. `drop` says the record should
+            # not exist, which outranks the other side leaving it alone — and is
+            # worth naming when that side had changed it.
+            survivor = o.get(k) or t.get(k)
+            if survivor != b[k]:
+                notes.append(f"{k} was dropped on one side and edited on the other "
+                             f"— honoured the drop")
+            continue
+        mine, yours = o.get(k), t.get(k)
+        if mine is not None and yours is not None and mine != yours:
+            if not in_base or (mine != b[k] and yours != b[k]):
+                notes.append(f"{k} differs on both sides — kept this branch's line")
+            kept[k] = mine if (not in_base or mine != b[k]) else yours
+        else:
+            kept[k] = mine if mine is not None else yours
+    return kept, notes
+
+
+# Which section wins when the two sides put one task in different ones. A
+# completion has a history row behind it, so `recent` outranks everything;
+# started outranks ranked; and an explicit ranking outranks the absence of one,
+# which is the table's own wording.
+SECTION_RANK = ("recent", "in progress", "prioritised", "backlog")
+
+
+def resolve_board(path, sides, said):
+    """One `board.md`, by the ontology's table.
+
+    **Presence is decided for the whole board before any section is.** Resolving
+    four sections independently looked right and was not: a task prioritised on
+    one side is *absent from that side's pool*, which reads as a deletion, and a
+    task dropped on one side while the other moved it reads as an addition — so a
+    dropped task came back whenever the other side had touched it. A board is a
+    set of tasks, each of which is in one section, so the merge is over that set
+    and the section is resolved afterwards.
+    """
+    text = [show(rev, path) for rev in sides[1:]]
+    if text[1] is None or text[2] is None:
+        raise Fail(f"{path} is missing on one side of the merge — resolve it by hand")
+    parsed = [parse_board_text(t or "") for t in text]
+    flat = [{board_line_id(name, line): (name, line)
+             for name, lines in board.items() for line in lines} for board in parsed]
+
+    def packed(side):
+        return [f"{tid}\t{name}\t{line}" for tid, (name, line) in side.items()]
+
+    kept, notes = resolve_lines(packed(flat[0]), packed(flat[1]), packed(flat[2]),
+                                key=lambda p: p.split("\t", 1)[0])
+
+    out = {name: {} for name in ("in progress", "prioritised", "backlog", "recent")}
+    for tid, entry in kept.items():
+        _, name, line = entry.split("\t", 2)
+        mine, yours = flat[1].get(tid), flat[2].get(tid)
+        if mine and yours and mine[0] != yours[0]:
+            name = min((mine[0], yours[0]), key=SECTION_RANK.index)
+            line = (mine if mine[0] == name else yours)[1]
+            other = yours[0] if name == mine[0] else mine[0]
+            notes.append(f"{tid} was in prioritised on one side — kept the ranking"
+                         if {name, other} == {"prioritised", "backlog"}
+                         else f"{tid} is in {name} on one side and {other} on the "
+                              f"other — kept {name}")
+        out[name][tid] = line
+
+    # WIP-1. Which branch's work is in the merge is not something a file can
+    # tell, so the branch being merged into keeps its task and the incoming one
+    # goes back to the top of the queue — said, not chosen quietly.
+    if len(out["in progress"]) > 1:
+        ours_first = list(parsed[1].get("in progress", []))
+        mine = ours_first[0].split()[0] if ours_first else None
+        for tid in list(out["in progress"]):
+            if tid == mine:
+                continue
+            line = out["in progress"].pop(tid)
+            out["prioritised"] = {tid: strip_progress_tags(line), **out["prioritised"]}
+            notes.append(f"{tid} was in progress on the other side — returned it to the "
+                         f"top of prioritised, unassigned. Swap them with `tm park` and "
+                         f"`tm go` if that is the work in this merge")
+
+    # `recent` is a window, bounded here as `done` bounds it.
+    window = sorted(out["recent"].items(), key=lambda kv: kv[1].split()[0], reverse=True)
+    out["recent"] = dict(window[:WINDOW])
+    if len(window) > WINDOW:
+        notes.append(f"recent held {len(window)} after the merge — pruned to {WINDOW}; "
+                     f"history.tsv keeps them all")
+
+    body = [f"# {os.path.basename(os.path.dirname(path))}"]
+    for name in ("in progress", "prioritised", "backlog", "recent"):
+        body += ["", f"## {name}", ""]
+        body += list(out[name].values())
+    said.extend(notes)
+    return "\n".join(body).rstrip() + "\n"
+
+
+def board_line_id(section, line):
+    """The task id on a board line, whichever section it is in.
+
+    `recent` leads with the completion date and every other section leads with
+    the id. Keying the whole board on `split()[0]` therefore filed completed
+    tasks under a *date* — so two tasks finished on one day collided, and the same
+    task ranked on one side and finished on the other looked like two different
+    records, which dropped it from the merge entirely. Found by a test that
+    merged a completion against a ranking (`PLT-u7c3`)."""
+    tokens = line.split()
+    return tokens[1] if section == "recent" and len(tokens) > 1 else tokens[0]
+
+
+def parse_board_text(text):
+    """`{section: [line, …]}` from a board file's text, lines kept verbatim.
+
+    Lines rather than `Task` objects: a resolution hands back what each side
+    wrote, and re-rendering through `Task` would normalise spacing on every line
+    it touched, turning a two-line merge into a whole-file diff."""
+    out, section = {}, None
+    for raw in text.split("\n"):
+        line = raw.rstrip()
+        if line.startswith("## "):
+            section = line[3:].strip()
+            out.setdefault(section, [])
+            continue
+        if not line.strip() or line.startswith("#"):
+            continue
+        if section in SECTIONS or section == "recent":
+            out.setdefault(section, []).append(line)
+    return out
+
+
+def strip_progress_tags(line):
+    """A task going back to the queue drops what belonged to it being started —
+    the assignee and the anchor. `commits:` stays: `park` keeps it, and it is the
+    only thing saying anyone ever picked the task up (`DEC-047`)."""
+    return " ".join(t for t in line.split()
+                    if not t.startswith("@") and not t.startswith("since:"))
+
+
+def resolve_history(path, sides, said):
+    """`history.tsv` is append-only, so both sides appended: keep every row and
+    sort by date. A deletion is not honoured here — `prune` is the only thing
+    that removes a row, and it removes it from every branch that has it."""
+    text = [show(rev, path) for rev in sides[1:]]
+    if text[1] is None or text[2] is None:
+        raise Fail(f"{path} is missing on one side of the merge — resolve it by hand")
+    header, rows = None, {}
+    for side in text[1:]:
+        for line in (side or "").split("\n"):
+            if line.startswith("#"):
+                header = header or line
+            elif line.strip():
+                rows[line] = line
+    ordered = sorted(rows, key=lambda l: l.split("\t")[0])
+    said.append(f"{os.path.basename(path)} — kept all {len(ordered)} rows, both sides")
+    return "\n".join(([header] if header else []) + ordered) + "\n"
+
+
+def cmd_resolve(args):
+    """**Settle what a merge did to this install's records.**
+
+    Run it while a conflict is open, or straight after a merge git resolved by
+    itself — including one it has already committed, which is the case worth
+    having: a clean merge of a board is not the same as a correct one.
+
+    Only the record trees. Anything else conflicted is named and left alone,
+    because what a conflict in somebody's source means is not something this
+    knows (`DEC-005`, principle 7).
+    """
+    if args:
+        raise Fail("resolve takes no arguments")
+    top = (git("rev-parse", "--show-toplevel") or "").strip()
+    if not top:
+        raise Fail("not a git repository")
+    sides = merge_sides()
+    if sides is None:
+        print("\n  no merge to settle — nothing conflicted, and HEAD is not a merge.\n")
+        return
+    situation = sides[0]
+    ours = record_prefixes(top)
+    theirs = [p for p in conflicted_paths() if not p.startswith(ours)]
+
+    said, done, unchanged = [], [], []
+    for path in changed_records(sides, top):
+        name = os.path.basename(path)
+        if name == "board.md":
+            text = resolve_board(path, sides, said)
+        elif name == "history.tsv":
+            text = resolve_history(path, sides, said)
+        else:
+            continue
+        full = os.path.join(top, path)
+        before = open(full).read() if os.path.exists(full) else None
+        if before == text:
+            unchanged.append(path)
+            continue
+        with open(full, "w") as fh:
+            fh.write(text)
+        done.append(path)
+
+    print()
+    if situation == "merged" and done:
+        print("  HEAD is a merge commit and it got these wrong:\n")
+    for path in done:
+        print(f"  ✓ {path}")
+    for note in said:
+        print(f"    · {note}")
+    if unchanged and not done:
+        print(f"  ✓ {len(unchanged)} record file(s) survived the merge unchanged")
+    if theirs:
+        print("\n  left alone — not this install's records:")
+        for path in theirs:
+            print(f"    {path}")
+    if done:
+        print("\n  written, not staged. Check the result, then commit it yourself —"
+              "\n  committing is yours (`DEC-005`).")
+    print()
+
+
 def push_state():
     """`clear`, `records`, `code` or `no upstream`, and how many commits.
 
@@ -3578,6 +3873,7 @@ USAGE = """tm — taskman
   tm feedback [<text...>|-]     note what llmeep itself got wrong (opt-in, local, never sent)
   tm audience                   how this user wants to be talked to (USER_TYPE in .env)
   tm unpushed [--json]          whether what is unpushed can reach a build
+  tm resolve                    settle a conflict in the records, by the model
   tm handover                   what this session holds that the records do not
 
   tm check [--staged]           validate records; used by hooks and CI
@@ -3794,7 +4090,7 @@ def main():
         "standup": cmd_standup, "agenda": cmd_agenda, "ontology": cmd_ontology,
         "feedback": cmd_feedback, "audience": cmd_audience,
         "unpushed": cmd_unpushed, "handover": cmd_handover,
-        "check": cmd_check, "review": cmd_review,
+        "check": cmd_check, "review": cmd_review, "resolve": cmd_resolve,
     }
     cmd = commands.get(argv[0])
     if not cmd:

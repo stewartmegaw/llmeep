@@ -71,6 +71,7 @@ llmeep/tasks/_tooling/tm done                      # complete the current task
 llmeep/tasks/_tooling/tm drop PLT-9puy             # remove one that should not have been filed
 llmeep/tasks/_tooling/tm find auth                 # search everything ever completed
 llmeep/tasks/_tooling/tm board --chat              # the board, rendered to pass on as it is
+llmeep/tasks/_tooling/tm resolve                   # settle what a merge did to the records
 llmeep/tasks/_tooling/tm review                    # LLM review of the commit before you push it
 llmeep/tasks/_tooling/tm why standup               # search decisions; `tm why DEC-017` explains one
 llmeep/tasks/_tooling/tm standup                   # what closed this period; --send posts it

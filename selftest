@@ -942,6 +942,235 @@ class TestHandover(Fixture):
         self.assertNotIn("push", out)
 
 
+class TestResolve(Fixture):
+    """`PLT-u7c3`. `board.md` is one file everyone touches — the cost `DEC-001`
+    accepted — and the ontology's **Merging boards** table carried the rules as
+    instructions to an agent, with the warning that a textual merge "will
+    silently drop task lines, leave two tasks in progress, or drop a history row
+    — all of which look fine in the diff".
+
+    Six of those rules are deterministic. These assert them, and assert that the
+    seventh says out loud what it chose."""
+
+    def a_repo(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "commit", "-qm", "adopt", cwd=top)
+        return top
+
+    def commit(self, top, message):
+        sh("git", "add", "-A", cwd=top)
+        out = sh("git", "commit", "-m", message, cwd=top)
+        self.assertEqual(out.returncode, 0, f"{out.stdout}\n{out.stderr}")
+
+    def branch(self, top, name):
+        sh("git", "checkout", "-q", "-b", name, cwd=top)
+
+    def switch(self, top, name):
+        sh("git", "checkout", "-q", name, cwd=top)
+
+    def trunk(self, top):
+        return sh("git", "rev-parse", "--abbrev-ref", "HEAD", cwd=top).stdout.strip()
+
+    def filed(self, top, title, *flags):
+        return self.tm(top, "add", "--id", *flags, title).stdout.strip()
+
+    def board(self, top):
+        with open(os.path.join(self.install_root(top),
+                               "tasks", "platform", "board.md")) as fh:
+            return fh.read()
+
+    def section(self, top, name):
+        """Ids in one section of the board on disk. `recent` leads with the
+        completion date, which is the trap the resolver fell into."""
+        out, current = [], None
+        for line in self.board(top).split("\n"):
+            if line.startswith("## "):
+                current = line[3:].strip()
+            elif line.strip() and current == name:
+                tokens = line.split()
+                out.append(tokens[1] if name == "recent" else tokens[0])
+        return out
+
+    def diverge(self, top, theirs, ours):
+        """Run `theirs` on a branch and `ours` on the trunk, then merge so the
+        two conflict. Returns `tm resolve`'s output."""
+        main = self.trunk(top)
+        self.branch(top, "other")
+        theirs()
+        self.commit(top, "their work")
+        self.switch(top, main)
+        ours()
+        self.commit(top, "our work")
+        merge = sh("git", "-c", "user.name=t", "-c", "user.email=t@t",
+                   "merge", "-m", "merge other", "other", cwd=top)
+        self.conflicted = merge.returncode != 0
+        out = self.tm(top, "resolve")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        return out.stdout
+
+    def test_no_merge_says_so(self):
+        top = self.a_repo()
+        self.assertIn("no merge to settle", self.tm(top, "resolve").stdout)
+
+    def test_a_clean_merge_is_the_case_that_matters(self):
+        """The one git is happy with. A drop on one side and a prioritise on the
+        other touch different lines, so git takes both edits, asks nobody, and
+        the dropped task is back — with nothing in the diff looking wrong. That
+        is why this reads three commits and not only index stages."""
+        top = self.a_repo()
+        tid = self.filed(top, "filed then dropped")
+        self.commit(top, "base")
+        said = self.diverge(top,
+                            theirs=lambda: self.tm(top, "drop", tid),
+                            ours=lambda: self.tm(top, "prioritise", tid))
+        self.assertFalse(self.conflicted, "git conflicted; this case is the clean merge")
+        self.assertIn("HEAD is a merge commit and it got these wrong", said)
+        self.assertNotIn(tid, self.board(top), "a dropped task came back through a merge")
+        self.assertEqual(self.tm(top, "check").returncode, 0, self.board(top))
+
+    def test_both_sides_additions_survive(self):
+        """The cheap case and by far the commonest: two people filed tasks. A
+        textual merge drops one of them and the diff looks fine."""
+        top = self.a_repo()
+        self.tm(top, "add", "-n", "the shared one")
+        self.commit(top, "base")
+        ids = {}
+        self.diverge(top,
+                     theirs=lambda: ids.update(theirs=self.filed(top, "filed on theirs")),
+                     ours=lambda: ids.update(ours=self.filed(top, "filed on ours")))
+        pool = self.section(top, "backlog")
+        self.assertIn(ids["ours"], pool)
+        self.assertIn(ids["theirs"], pool)
+        self.assertEqual(len(pool), 2, self.board(top))
+        self.assertEqual(self.tm(top, "check").returncode, 0, self.board(top))
+
+    def test_a_ranking_outranks_the_absence_of_one(self):
+        """Someone prioritised it while someone else left it in the pool."""
+        top = self.a_repo()
+        tid = self.filed(top, "which section does this belong in")
+        self.commit(top, "base")
+        said = self.diverge(top,
+                            theirs=lambda: self.tm(top, "prioritise", tid),
+                            ours=lambda: self.tm(top, "add", "something else"))
+        self.assertIn(tid, self.section(top, "prioritised"), self.board(top))
+        self.assertNotIn(tid, self.section(top, "backlog"))
+        self.assertIn("kept the ranking", said)
+
+    def test_a_dropped_task_is_not_resurrected(self):
+        """`drop` says the record should not exist and writes no history, so a
+        union that brought it back would be a merge artifact nobody can explain.
+        Named, because the other side had edited it."""
+        top = self.a_repo()
+        tid = self.filed(top, "never should have been filed", "-n")
+        self.commit(top, "base")
+        said = self.diverge(top,
+                            theirs=lambda: self.tm(top, "drop", tid),
+                            ours=lambda: self.tm(top, "retitle", tid, "sharpened wording"))
+        self.assertNotIn(tid, self.board(top), "a dropped task came back")
+        self.assertIn("dropped on one side", said)
+
+    def test_a_completion_outranks_a_ranking(self):
+        """One side finished it while the other ranked it. `done` writes a history
+        row, so the completion is a fact and the ranking is an intention."""
+        top = self.a_repo()
+        tid = self.filed(top, "finished on one side")
+        self.commit(top, "base")
+
+        def theirs():
+            self.tm(top, "go", tid)
+            self.tm(top, "done", "--force")
+
+        said = self.diverge(top, theirs=theirs,
+                            ours=lambda: self.tm(top, "prioritise", tid))
+        self.assertIn(tid, self.section(top, "recent"), self.board(top))
+        self.assertNotIn(tid, self.section(top, "prioritised"))
+        self.assertIn("kept recent", said)
+
+    def test_two_in_progress_breaks_wip_one_and_it_says_which_it_kept(self):
+        """The one row the ontology leaves to judgement. A file cannot know whose
+        work is in the merge, so the branch being merged into keeps its task and
+        the incoming one goes back to the top of the queue — out loud."""
+        top = self.a_repo()
+        mine = self.filed(top, "the work in this merge", "-n")
+        yours = self.filed(top, "the other branch's work", "-n")
+        self.commit(top, "base")
+        said = self.diverge(top,
+                            theirs=lambda: self.tm(top, "go", yours),
+                            ours=lambda: self.tm(top, "go", mine))
+        self.assertEqual(self.section(top, "in progress"), [mine], self.board(top))
+        self.assertEqual(self.section(top, "prioritised")[0], yours,
+                         "the displaced task did not go to the top of the queue")
+        line = next(l for l in self.board(top).split("\n") if l.startswith(yours))
+        self.assertNotIn("@", line, "a task returned to the queue kept its assignee")
+        self.assertNotIn("since:", line, "it kept the anchor from being started")
+        self.assertIn("in progress on the other side", said)
+        self.assertEqual(self.tm(top, "check").returncode, 0, self.board(top))
+
+    def test_history_keeps_every_row_from_both_sides(self):
+        """Append-only. A dropped row is a completion nobody can find again."""
+        top = self.a_repo()
+        one = self.filed(top, "closed on theirs", "-n")
+        two = self.filed(top, "closed on ours", "-n")
+        self.commit(top, "base")
+
+        def close(tid):
+            self.tm(top, "go", tid)
+            self.tm(top, "done", "--force")
+
+        said = self.diverge(top, theirs=lambda: close(one), ours=lambda: close(two))
+        with open(os.path.join(self.install_root(top),
+                               "tasks", "_tooling", "history.tsv")) as fh:
+            rows = [l for l in fh.read().split("\n") if l.strip() and not l.startswith("#")]
+        self.assertEqual(len(rows), 2, rows)
+        self.assertEqual(rows, sorted(rows, key=lambda l: l.split("\t")[0]))
+        self.assertIn("history.tsv", said)
+
+    def test_a_conflict_outside_the_records_is_left_alone(self):
+        """What a conflict in somebody's source code means is not something this
+        knows, and resolving it would be the guard's whole point undone."""
+        top = self.a_repo()
+        self.tm(top, "add", "-n", "a task to make the board conflict too")
+        self.commit(top, "base")
+
+        def theirs():
+            with open(os.path.join(top, "src", "app.py"), "w") as fh:
+                fh.write("theirs = 1\n")
+            self.tm(top, "add", "filed on theirs")
+
+        def ours():
+            with open(os.path.join(top, "src", "app.py"), "w") as fh:
+                fh.write("ours = 2\n")
+            self.tm(top, "add", "filed on ours")
+
+        said = self.diverge(top, theirs=theirs, ours=ours)
+        self.assertIn("left alone", said)
+        self.assertIn("src/app.py", said)
+        with open(os.path.join(top, "src", "app.py")) as fh:
+            self.assertIn("<<<<<<<", fh.read(), "it resolved code it has no business in")
+
+    def test_it_writes_records_and_never_the_index(self):
+        """`DEC-005` keeps git in the agent's hands: every git call in `tm` is a
+        read, so staging and committing stay with whoever ran this."""
+        top = self.a_repo()
+        self.tm(top, "add", "-n", "the shared one")
+        self.commit(top, "base")
+        self.diverge(top,
+                     theirs=lambda: self.tm(top, "add", "filed on theirs"),
+                     ours=lambda: self.tm(top, "add", "filed on ours"))
+        # `git diff --cached` lists a conflicted path whatever anyone does — the
+        # index holds its three stages. The property is that the path is *still
+        # unmerged* afterwards, so finishing the merge is the caller's act.
+        unmerged = sh("git", "diff", "--name-only", "--diff-filter=U", cwd=top).stdout
+        self.assertIn("board.md", unmerged, "resolve marked the conflict resolved itself")
+        self.assertEqual(sh("git", "add", "-A", cwd=top).returncode, 0)
+        self.assertEqual(sh("git", "-c", "user.name=t", "-c", "user.email=t@t",
+                            "commit", "-qm", "merged", cwd=top).returncode, 0,
+                         "the resolution it wrote could not be committed")
+
+
 class TestPushState(Fixture):
     """`PLT-g9gv`. A non-coder cannot be asked to push, so the agent must — but
     a push is where a deploy starts, and no repo can prove its own push is

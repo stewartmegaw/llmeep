@@ -30,6 +30,7 @@ tm ontology [<path>|--none]   # where this repo's domain ontology lives
 tm feedback [<text>|-]        # note what llmeep got wrong; opt-in, never sent
 tm audience                   # how this user wants to be talked to
 tm handover                   # what this session holds that the records do not
+tm resolve                    # settle what a merge did to the records
 
 tm check                      # validate records (hooks and CI call this)
 tm check --context            # what an agent carries, measured
@@ -175,7 +176,9 @@ commits — what you say to the user is enforced by nobody.
 - **`tm add` files into the pool, not the queue.** A bare `tm go` will not pick it up. If the
   user says the thing they just filed is next, that is `tm add -n` or a following
   `tm prioritise` — say which you used.
-- **Resolving a board merge conflict** follows the table in the ontology, not a textual merge.
+- **A merge that touched the records is `tm resolve`**, never a textual fix — and worth running
+  even when git reported no conflict, because a clean merge of a board is not a correct one. It
+  writes the files and leaves the commit to you; read what it says it chose.
 - **You do not pass your own review.** `tm review` marks the commit only when the reviewers have
   nothing left; you may fix a point or answer it with `--reply`, which goes back to *them*. There
   is no local override, and pushing unreviewed needs `--no-verify`, which is recorded.
