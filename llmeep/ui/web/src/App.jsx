@@ -3,7 +3,7 @@ import {
   Alert, AppBar, Box, Button, Chip, CircularProgress, Container, Dialog,
   DialogContent, DialogTitle, Divider, IconButton, List, ListItem,
   ListItemButton, ListItemText, Paper, Stack, Tab, Tabs, TextField, Toolbar,
-  Typography,
+  Typography, useMediaQuery, useTheme,
 } from '@mui/material'
 import Read, { Doc, size } from './Read.jsx'
 import Pills from './Pills.jsx'
@@ -20,6 +20,16 @@ const SECTIONS = [
 ]
 
 const LEDGERS = ['platform', 'business']
+
+// The toolbar plus the tab row, which the app bar pins to the top. The
+// conversation pane on a wide screen is pinned under it and fills what is left,
+// so it needs the number.
+const HEADER = 120
+
+// Wide enough for two columns. Below it there is one, and the conversation is a
+// tab like everything else; at or above it the conversation is always there,
+// because a screen that can show both should not make anyone choose.
+const TWO_COLUMNS = 'md'
 
 export default function App() {
   const [board, setBoard] = React.useState(null)
@@ -42,8 +52,9 @@ export default function App() {
   const [docs, setDocs] = React.useState([])
   const [detail, setDetail] = React.useState(null)
   // How much room the composer is taking, so nothing ends up underneath it.
-  // Measured rather than guessed: it grows as the exchange does.
+  // Measured rather than guessed: a long message grows it.
   const [bottom, setBottom] = React.useState(0)
+
 
   // Fetched once and shared. The board says a task *has* a detail; the
   // catalogue is what knows how to open it.
@@ -76,10 +87,20 @@ export default function App() {
       .finally(() => setLoading(false))
   }, [])
 
+  const wide = useMediaQuery(useTheme().breakpoints.up(TWO_COLUMNS))
+  // Declared after `load`, which it calls when a turn changed something.
+  const conversation = useConversation(load)
+  // A tab that only exists on a phone leaves a dangling selection when the
+  // screen gets wider — a rotated tablet, a resized window — so the board takes
+  // over, which is where the app opens anyway.
+  React.useEffect(() => {
+    if (wide && tab === 'chat') setTab('board')
+  }, [wide, tab])
+
   React.useEffect(load, [load])
 
   return (
-    <Box sx={{ pb: `calc(${bottom}px + 24px)` }}>
+    <Box sx={{ pb: wide ? 0 : `calc(${bottom}px + 24px)` }}>
       <AppBar position="sticky" color="default" elevation={0}
               sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Toolbar sx={{ minHeight: 72 }}>
@@ -97,19 +118,21 @@ export default function App() {
                    onError={() => setMarkFailed(true)}
                    sx={{ height: 45, width: 'auto', display: 'block' }} />
             )}
-            {/* When the records last changed, not when this tab last asked. The
-                same answer for everyone looking at the same repo, which is the
-                question someone reading a board on a phone actually has
-                (`PLT-f4n6`). */}
+          </Box>
+          {/* Freshness sits with the control that changes it: reload above, and
+              under it what reloading got you. When the records last changed, not
+              when this tab last asked — the same answer for everyone looking at
+              the same repo (`PLT-f4n6`). */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+            {tab === 'board' && (
+              <IconButton onClick={load} aria-label="Reload the board" size="small">
+                {loading ? <CircularProgress size={18} /> : <span aria-hidden>↻</span>}
+              </IconButton>
+            )}
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
               {updated ? `updated ${ago(updated)}` : 'no records yet'}
             </Typography>
           </Box>
-          {tab === 'board' && (
-            <IconButton onClick={load} aria-label="Reload the board" size="small">
-              {loading ? <CircularProgress size={18} /> : <span aria-hidden>↻</span>}
-            </IconButton>
-          )}
         </Toolbar>
         {/* Two, not four. What is live and what is written down — everything
             else is a group inside the second, and a row of tabs a thumb has to
@@ -121,11 +144,27 @@ export default function App() {
               task from these screens too, so naming them for reading would be
               naming them for half of what they do. */}
           <Tab value="other" label="Other" />
+          {/* An icon and no word: it is the one tab whose content is a
+              conversation, and a label beside three others would squeeze all
+              four. On a wide screen the pane makes it unnecessary. */}
+          {!wide && canWrite && (
+            <Tab value="chat" aria-label="Conversation" sx={{ minWidth: 56, flex: '0 0 auto' }}
+                 label={<span aria-hidden style={{ fontSize: 18 }}>💬</span>} />
+          )}
         </Tabs>
 
       </AppBar>
 
+      <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
+      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
       <Container maxWidth="sm" sx={{ px: 2 }}>
+        {tab === 'chat' && (
+          <Box sx={{ mt: 2 }}>
+            <Transcript turns={conversation.turns} busy={conversation.busy}
+                        onClear={conversation.clear}
+                        empty="Ask anything — a thought, a transcript, a question." />
+          </Box>
+        )}
         {tab === 'other' && (
           <Pills sx={{ mt: 2 }} value={sub} onChange={setSub}
                  options={[
@@ -155,10 +194,19 @@ export default function App() {
                   docs={docs} onDetail={setDetail} />
         ))}
       </Container>
-      {/* On both tabs. The agent can promote a note or reword a task from
-          either, and a question it asked must not vanish because someone
-          looked something up while thinking about the answer. */}
-      {canWrite && <Say onDone={load} onHeight={setBottom} />}
+      </Box>
+      {/* Always there, never a tab. A screen with room for both should not make
+          anyone choose, and the answer to what you just asked stays visible
+          while you look something up on the left. */}
+      {wide && canWrite && <ConversationPane conversation={conversation} />}
+      </Box>
+      {/* On every tab, because the agent can promote a note or reword a task
+          from any of them. Focusing it is the same intent as tapping the
+          conversation tab, so it takes you there. */}
+      {!wide && canWrite && (
+        <BottomComposer conversation={conversation} onHeight={setBottom}
+                        onFocus={() => setTab('chat')} />
+      )}
       <DetailSheet head={detail} docs={docs} onClose={() => setDetail(null)} />
     </Box>
   )
@@ -202,30 +250,16 @@ function ago(iso) {
 // conversation this is, and losing it costs the talk and never a record.
 const SESSION = Math.random().toString(36).slice(2)
 
-function Say({ onDone, onHeight }) {
+// **The conversation is state, not a place.** It lives here so that the same
+// exchange is the one a phone shows in its fourth tab and a laptop shows in its
+// right-hand pane — and so that turning a tablet sideways does not lose it
+// (`PLT-nmeg`).
+function useConversation(onDone) {
   const [text, setText] = React.useState('')
   const [busy, setBusy] = React.useState(false)
   const [turns, setTurns] = React.useState([])
-  const box = React.useRef(null)
-  const tail = React.useRef(null)
 
-  // Fixed to the bottom, so the page has to be told how tall it is. A
-  // ResizeObserver rather than a constant, because the exchange above the input
-  // changes that height every time either side says something.
-  React.useEffect(() => {
-    if (!box.current || !onHeight) return
-    const watch = new ResizeObserver(([e]) => onHeight(e.contentRect.height))
-    watch.observe(box.current)
-    return () => watch.disconnect()
-  }, [onHeight])
-
-  // The newest turn, not the oldest. A reply you have to scroll to find is one
-  // you will assume never came.
-  React.useEffect(() => {
-    tail.current?.scrollIntoView({ block: 'end', behavior: 'smooth' })
-  }, [turns, busy])
-
-  function send() {
+  const send = React.useCallback(() => {
     if (!text.trim() || busy) return
     const mine = text
     setBusy(true)
@@ -248,60 +282,122 @@ function Say({ onDone, onHeight }) {
       })
       .catch((e) => setTurns((t) => [...t, { who: 'error', text: e.message }]))
       .finally(() => setBusy(false))
+  }, [text, busy, onDone])
+
+  return { text, setText, busy, turns, send, clear: () => setTurns([]) }
+}
+
+// The exchange. Scrolls itself to the newest turn, because a reply you have to
+// scroll to find is one you will assume never came.
+function Transcript({ turns, busy, onClear, empty }) {
+  const tail = React.useRef(null)
+  React.useEffect(() => {
+    tail.current?.scrollIntoView({ block: 'end', behavior: 'smooth' })
+  }, [turns, busy])
+
+  if (!turns.length && !busy) {
+    return (
+      <Typography color="text.secondary"
+                  sx={{ mt: 4, textAlign: 'center', px: 3, lineHeight: 1.5 }}>
+        {empty}
+      </Typography>
+    )
   }
+  return (
+    <>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 0.5 }}>
+        <Button size="small" onClick={onClear} sx={{ textTransform: 'none', minWidth: 0 }}>
+          Clear
+        </Button>
+      </Box>
+      {turns.map((t, i) => <Turn key={i} turn={t} />)}
+      {busy && (
+        <Box sx={{ textAlign: 'center', py: 1 }}>
+          <CircularProgress size={16} />
+        </Box>
+      )}
+      <Box ref={tail} />
+    </>
+  )
+}
+
+// One box for everything: a new task, a change to one, or a question. Which of
+// those it is, is the agent's to work out and not the person's to declare —
+// asking them to pick a verb first is asking them to learn the system before
+// they can use it, and this screen exists for people who should not have to.
+function Composer({ conversation, onFocus }) {
+  const { text, setText, busy, send } = conversation
+  return (
+    <Stack direction="row" spacing={1} alignItems="flex-end">
+      <TextField
+        fullWidth multiline maxRows={6} size="small"
+        placeholder="Hi"
+        value={text}
+        disabled={busy}
+        onFocus={onFocus}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          // Enter sends; shift+enter is a newline. On a phone the return key is
+          // the send button.
+          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
+        }}
+      />
+      <IconButton onClick={send} disabled={busy || !text.trim()}
+                  aria-label="Send" color="primary" sx={{ mb: 0.25 }}>
+        {busy ? <CircularProgress size={18} /> : <span aria-hidden>↑</span>}
+      </IconButton>
+    </Stack>
+  )
+}
+
+// On a narrow screen the composer is pinned to the bottom of the window and the
+// exchange it belongs to is a tab. Fixed, not sticky: sticky only pins once the
+// page is long enough to scroll, so on a short board the box drifted up into the
+// middle of nowhere — which is where this started.
+function BottomComposer({ conversation, onFocus, onHeight }) {
+  const box = React.useRef(null)
+  React.useEffect(() => {
+    if (!box.current || !onHeight) return
+    const watch = new ResizeObserver(([e]) => onHeight(e.contentRect.height))
+    watch.observe(box.current)
+    return () => watch.disconnect()
+  }, [onHeight])
 
   return (
-    <Paper
-      ref={box}
-      elevation={3}
-      square
-      sx={{
-        // Fixed, not sticky. Sticky only pins once the page is long enough to
-        // scroll, so on a short board the box drifted up into the middle of
-        // nowhere — which is where this started.
-        position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 1200,
-        pt: 1.5, borderTop: 1, borderColor: 'divider',
-        // Clear of the home indicator on a phone.
-        pb: 'calc(12px + env(safe-area-inset-bottom))',
-      }}
-    >
+    <Paper ref={box} elevation={3} square
+           sx={{
+             position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 1200,
+             pt: 1.5, borderTop: 1, borderColor: 'divider',
+             // Clear of the home indicator on a phone.
+             pb: 'calc(12px + env(safe-area-inset-bottom))',
+           }}>
       <Container maxWidth="sm" sx={{ px: 2 }}>
-        {turns.length > 0 && (
-          <Box sx={{ maxHeight: '45vh', overflowY: 'auto', mb: 1.5 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 0.5 }}>
-              <Button size="small" onClick={() => setTurns([])}
-                      sx={{ textTransform: 'none', minWidth: 0 }}>
-                Clear
-              </Button>
-            </Box>
-            {turns.map((t, i) => <Turn key={i} turn={t} />)}
-            {busy && (
-              <Box sx={{ textAlign: 'center', py: 1 }}>
-                <CircularProgress size={16} />
-              </Box>
-            )}
-            <Box ref={tail} />
-          </Box>
-        )}
-        <Stack direction="row" spacing={1} alignItems="flex-end">
-          <TextField
-            fullWidth multiline maxRows={6} size="small"
-            placeholder="Paste anything — a thought, a transcript, a question"
-            value={text}
-            disabled={busy}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              // Enter sends; shift+enter is a newline. On a phone the return
-              // key is the send button.
-              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
-            }}
-          />
-          <IconButton onClick={send} disabled={busy || !text.trim()}
-                      aria-label="Send" color="primary" sx={{ mb: 0.25 }}>
-            {busy ? <CircularProgress size={18} /> : <span aria-hidden>↑</span>}
-          </IconButton>
-        </Stack>
+        <Composer conversation={conversation} onFocus={onFocus} />
       </Container>
+    </Paper>
+  )
+}
+
+// On a wide screen it is a column of its own, pinned under the header and
+// filling the rest of the window: the exchange scrolls, the composer sits at the
+// bottom of it, and neither is ever more than a glance away.
+function ConversationPane({ conversation }) {
+  return (
+    <Paper variant="outlined" square
+           sx={{
+             width: 380, flexShrink: 0, position: 'sticky', top: HEADER,
+             height: `calc(100vh - ${HEADER}px)`,
+             display: 'flex', flexDirection: 'column',
+             borderTop: 0, borderRight: 0, borderBottom: 0,
+           }}>
+      <Box sx={{ flexGrow: 1, overflowY: 'auto', px: 2, pt: 1 }}>
+        <Transcript turns={conversation.turns} busy={conversation.busy}
+                    onClear={conversation.clear}
+                    empty="Ask anything — a thought, a transcript, a question." />
+      </Box>
+      <Box sx={{ px: 2, py: 1.5, borderTop: 1, borderColor: 'divider' }}>
+        <Composer conversation={conversation} />
+      </Box>
     </Paper>
   )
 }
@@ -358,7 +454,12 @@ function Task({ task, docs, onDetail, divider }) {
     <ListItem divider={divider} alignItems="flex-start" sx={{ py: 1.25 }}>
       <ListItemText
         primary={task.title}
-        primaryTypographyProps={{ sx: { lineHeight: 1.35 } }}
+        // `anywhere` breaks a word only when there is no other way to fit it, so
+        // ordinary titles wrap on spaces exactly as before. Without it a single
+        // long token — a path, a URL, a CamelCase run — overflowed the card and
+        // was cut mid-word at the right edge, on a page with no horizontal
+        // scroll to reach the rest (`PLT-25ew`).
+        primaryTypographyProps={{ sx: { lineHeight: 1.35, overflowWrap: 'anywhere' } }}
         secondary={
           <Box sx={{ mt: 0.75 }}>
             {task.detail && (
@@ -415,7 +516,9 @@ function Turn({ turn }) {
     <Alert severity={turn.who === 'error' ? 'error'
              : turn.note ? 'warning' : turn.changed ? 'success' : 'info'}
            icon={false} sx={{ mb: 1 }}>
-      <Typography sx={{ whiteSpace: 'pre-wrap' }}>{turn.text}</Typography>
+      <Typography sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+        {turn.text}
+      </Typography>
       {turn.note && (
         <Typography variant="body2" sx={{ mt: 1, opacity: 0.9 }}>{turn.note}</Typography>
       )}

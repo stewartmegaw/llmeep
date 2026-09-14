@@ -6,8 +6,15 @@ import { Box, Chip } from '@mui/material'
 // kind of record. Tabs say "these are different screens"; pills say "same
 // screen, less of it" — which is what both of these actually are.
 //
-// Scrolls sideways on its own rather than wrapping, so a row of five never
-// becomes two rows and pushes the content down a phone.
+// **Wraps rather than scrolling sideways.** It scrolled, with the scrollbar
+// hidden, so that a row of five never became two rows and pushed the content
+// down a phone. At 390px that put two of the five pills past the right edge with
+// nothing to say they were there and no way to reach them without a swipe —
+// reported by an adopter running it at exactly the width this app calls its
+// primary case (`PLT-25ew`).
+//
+// Wrapping is the conditional version of that original intent: one row wherever
+// the row fits, and a second only where it does not.
 export default function Pills({ options, value, selected, onChange, sx }) {
   // Two modes. `value` is one choice of several; `selected` is a set of
   // toggles, everything on to begin with, and you switch off what you do not
@@ -17,9 +24,7 @@ export default function Pills({ options, value, selected, onChange, sx }) {
   return (
     <Box
       sx={{
-        display: 'flex', gap: 0.75, overflowX: 'auto', pb: 0.5,
-        '&::-webkit-scrollbar': { display: 'none' },
-        scrollbarWidth: 'none',
+        display: 'flex', flexWrap: 'wrap', gap: 0.75, pb: 0.5,
         ...sx,
       }}
     >

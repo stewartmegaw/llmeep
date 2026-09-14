@@ -20,6 +20,8 @@ PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; us
 
 ## recent
 
+2026-09-14  PLT-25ew An adopter reports the board clipping at 390px: titles cut mid-word, filter pills off-screen with no way to reach them  @stewart
+2026-09-14  PLT-nmeg The conversation gets its own space: a fourth tab on a phone, a pane beside the tabs on anything wider  @stewart
 2026-09-14  PLT-zs4j The app header shows the road runner rather than the word llmeep  @stewart
 2026-09-13  PLT-ks8p A webhook endpoint so a push to the default branch reaches the app, resolving record conflicts and pushing the result  @stewart
 2026-09-13  PLT-f4n6 The app header should say when the records last changed, in small text under the title  @stewart
@@ -33,5 +35,3 @@ PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; us
 2026-09-12  PLT-umh3 Split the standup into its own skill; a report is as occasional as a meeting  @stewart
 2026-09-12  PLT-um7k check never notices a DEC- citation naming a decision that does not exist  @stewart
 2026-09-12  PLT-2cyh The tm skill is back over its 4,000-token budget; three verbs have been added since PLT-rsn4  @stewart
-2026-09-09  PLT-2xj3 Show the board on session start, and again after a context clear  @stewart
-2026-09-09  PLT-6egb A task id in prose must carry a title snippet; the rule exists and is almost never followed  @stewart

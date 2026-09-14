@@ -120,3 +120,5 @@
 2026-09-13	PLT-f4n6	platform	The app header should say when the records last changed, in small text under the title	stewart
 2026-09-13	PLT-ks8p	platform	A webhook endpoint so a push to the default branch reaches the app, resolving record conflicts and pushing the result	stewart
 2026-09-14	PLT-zs4j	platform	The app header shows the road runner rather than the word llmeep	stewart
+2026-09-14	PLT-nmeg	platform	The conversation gets its own space: a fourth tab on a phone, a pane beside the tabs on anything wider	stewart
+2026-09-14	PLT-25ew	platform	An adopter reports the board clipping at 390px: titles cut mid-word, filter pills off-screen with no way to reach them	stewart
