@@ -526,7 +526,30 @@ def read_doc(doc_id):
     up in it, so an id that is not on the list opens nothing."""
     entry, full = locate(doc_id)
     with open(full, errors="replace") as fh:
-        return {**entry, "text": without_frontmatter(fh.read())}
+        text = without_frontmatter(fh.read())
+    if entry["group"] == "Notes":
+        text = notes_as_paragraphs(text)
+    return {**entry, "text": text}
+
+
+def notes_as_paragraphs(text):
+    """One note, one paragraph.
+
+    The archive stores a date heading and then a line per note, which is the
+    right shape for a file read whole by a parser — and markdown folds
+    consecutive lines into a single paragraph, so on screen every note under a
+    date ran into the next one (`PLT-5ab6`).
+
+    **Rendered here rather than fixed in the file.** Presentation is a separate
+    concern from storage (principle 1), and a blank line between records would be
+    a change to what every agent reads whole so that one screen looks right.
+    """
+    out = []
+    for line in text.split("\n"):
+        if out and out[-1].strip() and line.startswith("NTE-"):
+            out.append("")
+        out.append(line)
+    return "\n".join(out)
 
 
 FRONTMATTER = re.compile(r"\A---\n.*?\n---\n", re.S)

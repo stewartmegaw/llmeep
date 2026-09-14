@@ -20,6 +20,7 @@ PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; us
 
 ## recent
 
+2026-09-14  PLT-5ab6 Notes run together in the app: within a date each note is a new line, which markdown renders as one paragraph  @stewart
 2026-09-14  PLT-avfj A domain ontology recorded as a folder shows nothing in the app; tm accepts a folder and the catalogue only takes a file  @stewart
 2026-09-14  PLT-25ew An adopter reports the board clipping at 390px: titles cut mid-word, filter pills off-screen with no way to reach them  @stewart
 2026-09-14  PLT-nmeg The conversation gets its own space: a fourth tab on a phone, a pane beside the tabs on anything wider  @stewart
@@ -34,4 +35,3 @@ PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; us
 2026-09-12  PLT-8fmt Move the notes render into nm, the way DEC-050 moved the board and standup renders  @stewart
 2026-09-12  PLT-jzhh The tool renders for the target: move both render contracts into tm, and cut the phrase table duplication  @stewart
 2026-09-12  PLT-umh3 Split the standup into its own skill; a report is as occasional as a meeting  @stewart
-2026-09-12  PLT-um7k check never notices a DEC- citation naming a decision that does not exist  @stewart

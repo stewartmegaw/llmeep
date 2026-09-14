@@ -1906,6 +1906,25 @@ else:
         groups = {d["group"] for d in self.run_driver(top, "catalogue")}
         self.assertEqual(groups, {"Notes", "Decisions", "Ontology"})
 
+    def test_each_note_is_its_own_paragraph(self):
+        """`PLT-5ab6`. The archive stores a date heading and then a line per
+        note, which is the right shape for a file a parser reads whole — and
+        markdown folds consecutive lines into one paragraph, so every note under
+        a date ran into the next one on screen. Rendered at serve time rather
+        than fixed in the file: presentation is separate from storage."""
+        top = self.adopted("note-spacing")
+        for text in ("they want SSO before they renew", "their review lands on the 15th"):
+            self.assertEqual(self.nm(top, "add", text).returncode, 0)
+        notes = next(d for d in self.run_driver(top, "catalogue") if d["group"] == "Notes")
+        text = self.run_driver(top, notes["id"])["ok"]["text"]
+
+        lines = text.split("\n")
+        ids = [i for i, l in enumerate(lines) if l.startswith("NTE-")]
+        self.assertEqual(len(ids), 2, text)
+        self.assertEqual(lines[ids[1] - 1], "",
+                         f"two notes with no blank line between them:\n{text}")
+        self.assertIn("they want SSO", text)
+
     def test_an_ontology_recorded_as_a_folder_lists_what_is_in_it(self):
         """`PLT-avfj`. `tm ontology` records any path that exists and the
         currency check watches a tree, so pointing at a folder is what the tool
