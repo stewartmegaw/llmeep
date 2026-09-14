@@ -24,6 +24,7 @@ const LEDGERS = ['platform', 'business']
 export default function App() {
   const [board, setBoard] = React.useState(null)
   const [updated, setUpdated] = React.useState(null)
+  const [markFailed, setMarkFailed] = React.useState(false)
   const [error, setError] = React.useState(null)
   const [loading, setLoading] = React.useState(true)
   const [canWrite, setCanWrite] = React.useState(false)
@@ -81,9 +82,21 @@ export default function App() {
     <Box sx={{ pb: `calc(${bottom}px + 24px)` }}>
       <AppBar position="sticky" color="default" elevation={0}
               sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Toolbar sx={{ minHeight: 52 }}>
+        <Toolbar sx={{ minHeight: 72 }}>
           <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600, lineHeight: 1.2 }}>llmeep</Typography>
+            {/* The road runner the README opens with. It is fetched from the
+                same third-party CDN that README links, so it is the one request
+                this app makes to anywhere it does not control — and where this
+                is meant to run, behind an ingress or a VPN, it may not arrive at
+                all. So it falls back to the wordmark rather than to a gap
+                (`PLT-zs4j`). */}
+            {markFailed ? (
+              <Typography variant="h6" sx={{ fontWeight: 600, lineHeight: 1.2 }}>llmeep</Typography>
+            ) : (
+              <Box component="img" src={MARK} alt="llmeep"
+                   onError={() => setMarkFailed(true)}
+                   sx={{ height: 45, width: 'auto', display: 'block' }} />
+            )}
             {/* When the records last changed, not when this tab last asked. The
                 same answer for everyone looking at the same repo, which is the
                 question someone reading a board on a phone actually has
@@ -155,6 +168,12 @@ export default function App() {
 // those it is, is the agent's to work out and not the person's to declare —
 // asking them to pick a verb first is asking them to learn the system before
 // they can use it, and this screen exists for people who should not have to.
+// The road runner from the README's first line, hotlinked exactly as the README
+// hotlinks it — nothing is vendored into the repo, so nothing copyrighted is
+// committed here and the two stay the same picture by construction.
+const MARK = 'https://static.wikia.nocookie.net/looneytunesshow/images/4/42/' +
+  'Road_Runner.svg/revision/latest/scale-to-width-down/268'
+
 // How long ago, in the coarsest unit that is still true. A board is read on a
 // phone, where "3 days ago" is the answer and a timestamp is a puzzle — and
 // where an exact clock time invites reading a sort key as a deadline, which

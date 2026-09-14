@@ -20,6 +20,7 @@ PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; us
 
 ## recent
 
+2026-09-14  PLT-zs4j The app header shows the road runner rather than the word llmeep  @stewart
 2026-09-13  PLT-ks8p A webhook endpoint so a push to the default branch reaches the app, resolving record conflicts and pushing the result  @stewart
 2026-09-13  PLT-f4n6 The app header should say when the records last changed, in small text under the title  @stewart
 2026-09-13  PLT-u7c3 Records must survive a merge whether git noticed or not: resolve from three sides, conflict or clean  @stewart
@@ -34,4 +35,3 @@ PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; us
 2026-09-12  PLT-2cyh The tm skill is back over its 4,000-token budget; three verbs have been added since PLT-rsn4  @stewart
 2026-09-09  PLT-2xj3 Show the board on session start, and again after a context clear  @stewart
 2026-09-09  PLT-6egb A task id in prose must carry a title snippet; the rule exists and is almost never followed  @stewart
-2026-09-09  PLT-yhjj Record why the repo-is-the-centre claim is an eighth principle rather than ontology guidance  @stewart
