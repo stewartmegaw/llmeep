@@ -1906,6 +1906,34 @@ else:
         groups = {d["group"] for d in self.run_driver(top, "catalogue")}
         self.assertEqual(groups, {"Notes", "Decisions", "Ontology"})
 
+    def test_an_ontology_recorded_as_a_folder_lists_what_is_in_it(self):
+        """`PLT-avfj`. `tm ontology` records any path that exists and the
+        currency check watches a tree, so pointing at a folder is what the tool
+        invites — and a folder of documents about entities is what an ontology of
+        any size actually is. This listed nothing for it, asking `isfile`, and
+        nobody saw that while the group was still padded with llmeep's own
+        documents. Reported by the adopter it happened to."""
+        top = self.adopted("folder-ontology")
+        theirs = os.path.join(top, "ontology")
+        os.makedirs(os.path.join(theirs, "entities"), exist_ok=True)
+        with open(os.path.join(theirs, "core.md"), "w") as fh:
+            fh.write("# Core ontology\n\nWhat cuts across everything.\n")
+        with open(os.path.join(theirs, "entities", "invoice.md"), "w") as fh:
+            fh.write("# Invoice\n\nA demand for payment.\n")
+        with open(os.path.join(theirs, "entities", "_template.md"), "w") as fh:
+            fh.write("# <EntityName>\n")
+        self.tm(top, "ontology", "ontology")
+
+        rows = [d for d in self.run_driver(top, "catalogue") if d["group"] == "Ontology"]
+        paths = [d["path"] for d in rows]
+        self.assertIn("ontology/core.md", paths, paths)
+        self.assertIn("ontology/entities/invoice.md", paths,
+                      "a nested entity was not listed; half an ontology is worse than none")
+        self.assertFalse([p for p in paths if "template" in p],
+                         f"a blank form was offered as a document: {paths}")
+        opened = self.run_driver(top, rows[0]["id"])
+        self.assertIn("ok", opened, opened)
+
     def test_llmeeps_own_model_is_not_this_repos_ontology(self):
         """`PLT-e7u9`, `DEC-052`. `adopt` installs llmeep's model into the repo
         (`DEC-032`), so every pattern in the Ontology group resolved to it: an

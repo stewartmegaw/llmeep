@@ -363,14 +363,37 @@ def catalogue():
     out.extend(details(root))
     # The adopter's own domain ontology, wherever they keep it (`DEC-031`). Not
     # a guess: `tm ontology` recorded the path and `.llmeep` carries it.
+    #
+    # **A folder is as valid as a file, and commoner.** `tm ontology` records any
+    # path that exists and the currency check watches a tree, so an adopter
+    # pointing at `ontology/` is doing what the tool invited — and this listed
+    # nothing at all for them, because it asked `isfile`. Nobody saw it while the
+    # group was padded with llmeep's own documents; `DEC-052` removed the padding
+    # and the tab went empty (`PLT-avfj`). Reported by the adopter it happened to.
     where = manifest_ontology()
     if where:
         full = os.path.join(REPO, where)
         if os.path.isfile(full):
-            row = entry(full, REPO, "Ontology")
-            row["path"] = where
-            out.append(row)
+            out.append(their_ontology(full))
+        elif os.path.isdir(full):
+            # Every file under it, nested ones included: an ontology of any size
+            # is a folder of documents about entities, and half of it is a worse
+            # answer than none.
+            for found in sorted(glob.glob(os.path.join(full, "**", "*"), recursive=True)):
+                name = os.path.basename(found)
+                if not os.path.isfile(found) or name.startswith(NOT_A_DOCUMENT) \
+                        or "template" in name:
+                    continue
+                out.append(their_ontology(found))
     return out
+
+
+def their_ontology(full):
+    """One row for a document of the adopter's own, pathed from the repo root so
+    a reader can find it without knowing where the install sits."""
+    row = entry(full, REPO, "Ontology")
+    row["path"] = os.path.relpath(full, REPO)
+    return row
 
 
 def details(root):
