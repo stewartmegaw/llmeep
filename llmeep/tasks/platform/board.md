@@ -20,6 +20,7 @@ PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; us
 
 ## recent
 
+2026-09-15  PLT-8rn6 Sending shows two spinners; the send button should just go disabled and leave the one above the input  @stewart
 2026-09-14  PLT-5ab6 Notes run together in the app: within a date each note is a new line, which markdown renders as one paragraph  @stewart
 2026-09-14  PLT-avfj A domain ontology recorded as a folder shows nothing in the app; tm accepts a folder and the catalogue only takes a file  @stewart
 2026-09-14  PLT-25ew An adopter reports the board clipping at 390px: titles cut mid-word, filter pills off-screen with no way to reach them  @stewart
@@ -34,4 +35,3 @@ PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; us
 2026-09-12  PLT-asy6 Move the feedback pass out of the tm skill and into post-commit, so every adopter gets the prompt  @stewart
 2026-09-12  PLT-8fmt Move the notes render into nm, the way DEC-050 moved the board and standup renders  @stewart
 2026-09-12  PLT-jzhh The tool renders for the target: move both render contracts into tm, and cut the phrase table duplication  @stewart
-2026-09-12  PLT-umh3 Split the standup into its own skill; a report is as occasional as a meeting  @stewart

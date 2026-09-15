@@ -124,3 +124,4 @@
 2026-09-14	PLT-25ew	platform	An adopter reports the board clipping at 390px: titles cut mid-word, filter pills off-screen with no way to reach them	stewart
 2026-09-14	PLT-avfj	platform	A domain ontology recorded as a folder shows nothing in the app; tm accepts a folder and the catalogue only takes a file	stewart
 2026-09-14	PLT-5ab6	platform	Notes run together in the app: within a date each note is a new line, which markdown renders as one paragraph	stewart
+2026-09-15	PLT-8rn6	platform	Sending shows two spinners; the send button should just go disabled and leave the one above the input	stewart

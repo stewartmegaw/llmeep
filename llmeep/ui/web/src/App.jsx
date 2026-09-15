@@ -342,9 +342,15 @@ function Composer({ conversation, onFocus }) {
           if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
         }}
       />
+      {/* Disabled, not spinning. One turn at a time is a real constraint — the
+          exchange is a conversation and the next message depends on the answer —
+          but two spinners for one wait says two things are happening. The one
+          above the input is where the answer will appear, so it is the one that
+          means anything; this button only has to stop being pressable
+          (`PLT-8rn6`). */}
       <IconButton onClick={send} disabled={busy || !text.trim()}
                   aria-label="Send" color="primary" sx={{ mb: 0.25 }}>
-        {busy ? <CircularProgress size={18} /> : <span aria-hidden>↑</span>}
+        <span aria-hidden>↑</span>
       </IconButton>
     </Stack>
   )
