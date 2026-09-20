@@ -35,6 +35,11 @@ TIMEOUT = 20
 
 LLM_TIMEOUT = 60
 
+# Seconds between the newlines that keep a turn's connection from idling out.
+# Well under the 60s that an AWS ALB and nginx both default to, and under half
+# of it so a single missed beat is not a timeout (`PLT-mrt8`).
+HEARTBEAT = 20
+
 
 def setting(name):
     """A setting, from the container's environment or from the repo's `.env`.
@@ -1087,10 +1092,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(400, {"error": "send {\"text\": \"...\"}"})
         if not text:
             return self.send_json(400, {"error": "nothing to act on"})
-        try:
-            self.send_json(200, act(text, session))
-        except Exception as exc:                       # noqa: BLE001 — reported, not raised
-            self.send_json(500, {"error": str(exc)})
+        self.send_turn(text, session)
 
     def query(self, key):
         if "?" not in self.path:
@@ -1127,6 +1129,67 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:                       # noqa: BLE001 — reported, not raised
             return self.send_json(500, {"error": str(exc)})
         self.send_json(200, body)
+
+    def send_turn(self, text, session):
+        """**A turn keeps its connection alive while it thinks.**
+
+        One HTTP request was held open for the whole turn with nothing written
+        until the answer, which hands every proxy in front of this app the right
+        to decide how long a turn may take. An AWS ALB idles out at 60s by
+        default and nginx's `proxy_read_timeout` is the same number, so a
+        two-minute turn is not an unusual deployment failing — it is the ordinary
+        one. Reported by an adopter whose load balancer returned its own HTML
+        error page to the browser while the container went on working, committed
+        and pushed eight seconds later (`PLT-mrt8`).
+
+        The headers and a newline go out immediately and another newline follows
+        every `HEARTBEAT` seconds, so no idle timer ever fires on a turn that is
+        still thinking. `JSON.parse` ignores leading whitespace, so the document
+        that eventually arrives parses exactly as it did before and no client has
+        to learn a new shape.
+
+        **The status is 200 before the work starts**, so a failure is reported in
+        the body rather than by a code — which is what the app already reads: it
+        renders `error` in the body as a failed turn. The alternative is holding
+        the headers back until the outcome is known, which is the thing this
+        exists to stop doing.
+        """
+        import threading
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
+        # nginx buffers a proxied response by default, which would hold the
+        # heartbeat and defeat the whole thing.
+        self.send_header("X-Accel-Buffering", "no")
+        self.end_headers()
+
+        done = {}
+
+        def work():
+            try:
+                done["body"] = act(text, session)
+            except Exception as exc:                   # noqa: BLE001 — reported, not raised
+                done["body"] = {"error": str(exc)}
+
+        turn = threading.Thread(target=work, daemon=True)
+        turn.start()
+        while True:
+            turn.join(HEARTBEAT)
+            if not turn.is_alive():
+                break
+            try:
+                self.wfile.write(b"\n")
+                self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError):
+                # Nobody is listening any more. The turn keeps going on its own
+                # thread, because it may be halfway through writing records —
+                # what is lost is the answer, never the work.
+                return
+        try:
+            self.wfile.write(json.dumps(done.get("body", {"error": "no answer"})).encode())
+            self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            pass
 
     def send_json(self, code, body):
         raw = json.dumps(body).encode()

@@ -88,8 +88,12 @@ export default function App() {
   }, [])
 
   const wide = useMediaQuery(useTheme().breakpoints.up(TWO_COLUMNS))
+  // A ref rather than the value: a turn reads it when it starts, and the state
+  // it closes over would be whatever it was when `send` was created.
+  const updatedAt = React.useRef(null)
+  React.useEffect(() => { updatedAt.current = updated }, [updated])
   // Declared after `load`, which it calls when a turn changed something.
-  const conversation = useConversation(load)
+  const conversation = useConversation(load, updatedAt)
   // A tab that only exists on a phone leaves a dangling selection when the
   // screen gets wider — a rotated tablet, a resized window — so the board takes
   // over, which is where the app opens anyway.
@@ -254,7 +258,7 @@ const SESSION = Math.random().toString(36).slice(2)
 // exchange is the one a phone shows in its fourth tab and a laptop shows in its
 // right-hand pane — and so that turning a tablet sideways does not lose it
 // (`PLT-nmeg`).
-function useConversation(onDone) {
+function useConversation(onDone, updatedAt) {
   const [text, setText] = React.useState('')
   const [busy, setBusy] = React.useState(false)
   const [turns, setTurns] = React.useState([])
@@ -265,12 +269,26 @@ function useConversation(onDone) {
     setBusy(true)
     setTurns((t) => [...t, { who: 'you', text: mine }])
     setText('')
+    // What the records said before this turn. If they have moved by the time it
+    // fails, the work landed and only the answer was lost.
+    const before = updatedAt?.current
     fetch(`${BASE}/api/intent`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: mine, session: SESSION }),
     })
-      .then((r) => r.json())
+      .then((r) => {
+        // **Checked before parsing.** Without this, a proxy's HTML error page
+        // reached the transcript as `Unexpected token '<'` — a message about a
+        // parser, shown to someone who was told they would never need a
+        // terminal (`PLT-mrt8`).
+        if (!r.ok) {
+          throw new Error(r.status === 504 || r.status === 502
+            ? `Something between your browser and llmeep gave up waiting (${r.status}).`
+            : `llmeep answered ${r.status} ${r.statusText || ''}`.trim())
+        }
+        return r.json()
+      })
       .then((d) => {
         setTurns((t) => [...t, d.error
           ? { who: 'error', text: d.error }
@@ -280,7 +298,20 @@ function useConversation(onDone) {
               note: d.note }])
         if (d.changed) onDone()
       })
-      .catch((e) => setTurns((t) => [...t, { who: 'error', text: e.message }]))
+      .catch(async (e) => {
+        // **The records are asked, not the request.** A turn that commits is not
+        // fire-and-forget: the work can land while the answer is lost, and a
+        // reader told only "error" retypes it and does the whole thing twice.
+        // The repo already knows what happened, which is the premise of all of
+        // this — so ask it (`PLT-mrt8`).
+        let landed = false
+        try {
+          const d = await fetch(`${BASE}/api/board`).then((r) => r.json())
+          landed = Boolean(before && d.updated && d.updated !== before)
+        } catch { /* the answer stands on its own */ }
+        onDone()
+        setTurns((t) => [...t, { who: 'error', text: e.message, landed }])
+      })
       .finally(() => setBusy(false))
   }, [text, busy, onDone])
 
@@ -527,6 +558,12 @@ function Turn({ turn }) {
       </Typography>
       {turn.note && (
         <Typography variant="body2" sx={{ mt: 1, opacity: 0.9 }}>{turn.note}</Typography>
+      )}
+      {turn.landed && (
+        <Typography variant="body2" sx={{ mt: 1, fontWeight: 600 }}>
+          The records changed while that was in flight, so the work landed — the board
+          above is current. Do not send it again.
+        </Typography>
       )}
       {turn.used?.length > 0 && (
         <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>

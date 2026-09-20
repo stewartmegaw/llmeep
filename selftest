@@ -2163,6 +2163,90 @@ else:
         self.assertIn("audience", self.run_driver(top, "tools"))
 
 
+class TestTurnHeartbeat(Fixture):
+    """`PLT-mrt8`. One HTTP request was held open for a whole turn with nothing
+    written until the answer, which hands every proxy in front of the app the
+    right to decide how long a turn may take. An AWS ALB idles out at 60s by
+    default and nginx's `proxy_read_timeout` is the same number, so a two-minute
+    turn is the ordinary deployment failing rather than an exotic one.
+
+    Reported by an adopter whose load balancer returned its own HTML error page
+    while the container went on working, committed and pushed."""
+
+    # `CRLF` as bytes rather than an escape: this driver is written out of a
+    # string literal, so a `\\r\\n` in it becomes a real line break in the file
+    # and the byte literal it was inside stops parsing.
+    DRIVER = """import json, os, socket, sys, threading, time
+sys.path.insert(0, os.path.join(sys.argv[1], "llmeep", "ui", "api"))
+import server
+from http.server import ThreadingHTTPServer
+
+CRLF = bytes([13, 10])
+NL = bytes([10])
+
+server.HEARTBEAT = 0.2
+def slow(text, session="default"):
+    time.sleep(0.9)
+    return {"answer": "took a while", "used": [], "commit": None, "changed": False}
+server.act = slow
+
+httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
+threading.Thread(target=httpd.serve_forever, daemon=True).start()
+port = httpd.server_address[1]
+
+s = socket.create_connection(("127.0.0.1", port), timeout=10)
+body = json.dumps({"text": "hello", "session": "t"}).encode()
+s.sendall(b"POST /api/intent HTTP/1.1" + CRLF + b"Host: x" + CRLF
+          + b"Content-Type: application/json" + CRLF
+          + b"Content-Length: " + str(len(body)).encode() + CRLF + CRLF + body)
+
+start, beats, headers_at, raw = time.time(), [], None, b""
+while True:
+    chunk = s.recv(4096)
+    if not chunk:
+        break
+    raw += chunk
+    if headers_at is None and CRLF + CRLF in raw:
+        headers_at = time.time() - start
+    beats.append(round(time.time() - start, 3))
+    if raw.rstrip().endswith(b"}"):
+        break
+head, _, payload = raw.partition(CRLF + CRLF)
+print(json.dumps({
+    "status": head.split(CRLF)[0].decode(),
+    "headers_at": headers_at,
+    "newlines_before_body": payload.count(NL),
+    "gaps": [round(b - a, 3) for a, b in zip(beats, beats[1:])],
+    "answer": json.loads(payload.decode()),
+}))
+"""
+
+    def test_bytes_flow_before_the_answer(self):
+        """The headers and a newline go out immediately, and another follows
+        every `HEARTBEAT` seconds — so no idle timer between here and the
+        browser ever fires on a turn that is still thinking."""
+        top = self.a_project(name="heartbeat")
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        script = self.path("drive_beat.py")
+        with open(script, "w") as fh:
+            fh.write(self.DRIVER)
+        env = dict(os.environ, LLMEEP_REPO=top, LLMEEP_AUTH_HANDLED="yes")
+        out = sh(sys.executable, script, self.working_copy(), cwd=top, env=env)
+        self.assertTrue(out.stdout.strip(), out.stderr)
+        seen = json.loads(out.stdout.strip().split("\n")[-1])
+
+        self.assertIn("200", seen["status"], seen)
+        self.assertLess(seen["headers_at"], 0.5,
+                        "the headers waited for the answer, which is the defect")
+        self.assertGreaterEqual(seen["newlines_before_body"], 2,
+                                f"nothing kept the connection warm: {seen}")
+        self.assertTrue(all(g < 0.5 for g in seen["gaps"]),
+                        f"a gap long enough for an idle timer: {seen['gaps']}")
+        self.assertEqual(seen["answer"]["answer"], "took a while",
+                         "the answer did not survive being streamed after the beats")
+
+
 class TestChromeGuard(Fixture):
     """`PLT-6yjz`. The web app may change the records and nothing else. That is
     the one property in it worth a test in CI rather than a promise in a README:
