@@ -370,18 +370,114 @@ def head_sha():
     return (git("rev-parse", "--short=7", "HEAD") or "").strip() or None
 
 
-def commits_since(sha):
+def commits_since(sha, who=None):
     """How many commits have landed since `sha`, or 0 if it cannot be counted.
+
+    **Counted for one author.** Every commit on HEAD used to count, so a
+    teammate's work arriving by pull inflated your task's number — true of this
+    count since it existed, and unnoticeable only while one person was pushing
+    (`PLT-cjgb`). `--author` takes a substring, and `whoami()` is the local part
+    of the git email, which is exactly what the author line contains.
 
     Fails to zero on purpose. A missing anchor means a rebase, a shallow clone
     or a repo with no commits yet, and none of those are worth an error in a
     number that only decorates a board line."""
     if not sha:
         return 0
+    args = ["rev-list", "--count", f"{sha}..HEAD"]
+    if who:
+        args += [f"--author={who}"]
     try:
-        return int((git("rev-list", "--count", f"{sha}..HEAD") or "").strip())
+        return int((git(*args) or "").strip())
     except ValueError:
         return 0
+
+
+# ------------------------------------------------------------- current task
+#
+# **What this checkout is working on, which is not a fact about the project.**
+# Several tasks can be in progress — three of yours and two of somebody else's
+# is an ordinary Tuesday — and the board records that. Which one *this working
+# tree* is on cannot live there: two clones share one board and have two HEADs,
+# so an anchor written to a committed line was only ever right for whoever wrote
+# it last (`PLT-cjgb`).
+#
+# So it lives beside the other per-checkout state `check` already keeps in
+# `.git/`: uncommitted, ungitignored-because-untracked, and gone when the clone
+# is.
+CURRENT = "tm-current"
+
+
+def current_task():
+    """`(id, anchor)` for this checkout, or `(None, None)`."""
+    path = _gitpath(REPO, CURRENT)
+    if not path or not os.path.exists(path):
+        return (None, None)
+    try:
+        with open(path) as fh:
+            parts = fh.read().split()
+    except OSError:
+        return (None, None)
+    return (parts[0], parts[1]) if len(parts) >= 2 else (None, None)
+
+
+def set_current(tid, anchor=None):
+    """Point this checkout at a task, or at nothing when `tid` is None."""
+    path = _gitpath(REPO, CURRENT)
+    if not path:
+        return
+    if tid is None:
+        if os.path.exists(path):
+            os.remove(path)
+        return
+    with open(path, "w") as fh:
+        fh.write(f"{tid} {anchor or head_sha()}\n")
+
+
+def bank_current():
+    """**Fold the work done since the anchor onto the task it was done for.**
+
+    Called whenever the pointer is about to move — switching, parking,
+    finishing. That is the whole of the bookkeeping: one fold per switch, rather
+    than a line on every commit naming its task.
+    """
+    tid, anchor = current_task()
+    if not tid:
+        return
+    landed = commits_since(anchor, whoami())
+    if not landed:
+        return
+    for ledger in LEDGERS:
+        board = Board(ledger)
+        task, bucket = board.find(tid)
+        if task and bucket is board.in_progress:
+            task.set_tag("commits", task.commits + landed)
+            board.save()
+            return
+
+
+def working_on(board, who):
+    """The task a bare `done`, `park` or `detail` means, and why.
+
+    Returns `(task, complaint)`. The pointer answers it when there is one; a
+    single task in progress answers it when there is not. With several running
+    and no pointer there is no answer, and picking the first line would close
+    something nobody was talking about — which is what the old single-slot
+    limit was quietly protecting against.
+    """
+    tid, _ = current_task()
+    if tid:
+        task, bucket = board.find(tid)
+        if task and bucket is board.in_progress:
+            return task, None
+    mine = [t for t in board.in_progress if t.assignee in (who, None)]
+    if len(mine) == 1:
+        return mine[0], None
+    if not mine:
+        return None, None
+    return None, ("several tasks are in progress here — name one, or `tm go <id>` to "
+                  "say which you are on:\n    "
+                  + "\n    ".join(f"{t.id}  {t.title}" for t in mine))
 
 
 def show_related(term):
@@ -762,20 +858,10 @@ def resolve_board(path, sides, said):
                               f"other — kept {name}")
         out[name][tid] = line
 
-    # WIP-1. Which branch's work is in the merge is not something a file can
-    # tell, so the branch being merged into keeps its task and the incoming one
-    # goes back to the top of the queue — said, not chosen quietly.
-    if len(out["in progress"]) > 1:
-        ours_first = list(parsed[1].get("in progress", []))
-        mine = ours_first[0].split()[0] if ours_first else None
-        for tid in list(out["in progress"]):
-            if tid == mine:
-                continue
-            line = out["in progress"].pop(tid)
-            out["prioritised"] = {tid: strip_progress_tags(line), **out["prioritised"]}
-            notes.append(f"{tid} was in progress on the other side — returned it to the "
-                         f"top of prioritised, unassigned. Swap them with `tm park` and "
-                         f"`tm go` if that is the work in this merge")
+    # Two branches with work under way used to break WIP-1, and the incoming
+    # task was evicted to the top of the queue. Several in progress is ordinary
+    # now (`PLT-cjgb`), so they simply both survive — which is also the truth:
+    # each was started by somebody who has not finished.
 
     # `recent` is a window, bounded here as `done` bounds it.
     window = sorted(out["recent"].items(), key=lambda kv: kv[1].split()[0], reverse=True)
@@ -823,14 +909,6 @@ def parse_board_text(text):
         if section in SECTIONS or section == "recent":
             out.setdefault(section, []).append(line)
     return out
-
-
-def strip_progress_tags(line):
-    """A task going back to the queue drops what belonged to it being started —
-    the assignee and the anchor. `commits:` stays: `park` keeps it, and it is the
-    only thing saying anyone ever picked the task up (`DEC-047`)."""
-    return " ".join(t for t in line.split()
-                    if not t.startswith("@") and not t.startswith("since:"))
 
 
 def resolve_history(path, sides, said):
@@ -1669,15 +1747,27 @@ def cmd_add(args):
 
 
 def cmd_go(args):
-    """WIP-1 is per person, not per board.
+    """**Start a task, or say which of yours you are on.**
 
-    A single global in-progress slot assumes a single worker. Once tasks carry an
-    assignee, two people each having one in progress is the normal case — so
-    the limit follows the assignee.
+    One in progress per person was the rule until `PLT-cjgb`. It was never
+    argued for — `DEC-001` listed it as a bullet on a premise of one developer —
+    and the only thing that depended on it was attributing commits by the window
+    between starting and parking. The pointer attributes them instead, so
+    running three unrelated things is now a matter of saying which one you are
+    on when you switch.
+
+    `go <id>` on something already in progress is that switch: it banks the work
+    done so far on whatever you were on and re-anchors here.
     """
     named, rest = take_flag(args, "-f")  # -f <name>: start on someone's behalf
     who = slug(named) if named else whoami()
     tid = rest[0] if rest else None
+    # **Before any board is read.** Banking writes the board, so doing it once a
+    # `Board` is in hand means saving a stale object over the number just
+    # written — which is exactly what happened the first time this ran: the
+    # switch away from a task with three commits behind it banked them and then
+    # wrote them back out as none.
+    bank_current()
 
     for ledger in LEDGERS:
         board = Board(ledger)
@@ -1686,15 +1776,25 @@ def cmd_go(args):
         # leaving it invisible to everyone — which would let a second task start
         # and quietly break WIP-1.
         mine = [t for t in board.in_progress if t.assignee in (who, None)]
-        if mine:
-            current = mine[0]
-            if tid and current.id.lower() != tid.lower():
-                raise Fail(
-                    f"{current.id} is already in progress — finish or park it first (WIP-1)"
-                )
+        if tid:
+            # Already running: this is a switch, not a start.
+            already, bucket = board.find(tid)
+            if already and bucket is board.in_progress:
+                if already.assignee is None and who:
+                    already.assign(who)
+                    board.save()
+                set_current(already.id)
+                return show_task(board, already, started=False)
+        elif mine:
+            # A bare `go` with work already under way reports it rather than
+            # starting something else. Which one is the pointer's answer.
+            current, _ = working_on(board, who)
+            current = current or mine[0]
             if current.assignee is None and who:
                 current.assign(who)
                 board.save()
+            if current_task()[0] != current.id:
+                set_current(current.id)
             return show_task(board, current, started=False)
     if tid:
         for ledger in LEDGERS:
@@ -1730,10 +1830,13 @@ def start(board, task, who=None):
     if blocker:
         raise Fail(f"{task.id} is blocked by {blocker} — finish that first")
     task.assign(who)
-    task.set_tag("since", head_sha())
+    # `since:` used to live here. It was per-checkout state on a committed line,
+    # which two clones could not both be right about (`PLT-cjgb`); the anchor is
+    # in `.git/` now. An old line carrying one keeps it until `park` folds it.
     (board.prioritised if task in board.prioritised else board.backlog).remove(task)
     board.in_progress.append(task)
     board.save()
+    set_current(task.id)
     show_task(board, task, started=True)
 
 
@@ -2031,7 +2134,11 @@ def cmd_status(args):
         boards.append(board)
         for task in board.in_progress:
             who = f" · @{task.assignee}" if task.assignee else ""
-            lines.append(f"  in progress  {task.id}  {task.title}")
+            # Which of several this checkout is on. A fresh session has no
+            # memory and the board cannot tell it — this is the one place that
+            # answers it without asking (`PLT-cjgb`).
+            here = "  ← you are here" if current_task()[0] == task.id else ""
+            lines.append(f"  in progress  {task.id}  {task.title}{here}")
             lines.append(f"               {ledger}{who}")
             if task.commits:
                 n = task.commits
@@ -2086,6 +2193,9 @@ def cmd_park(args):
     top = "-n" in args
     rest = [a for a in args if a != "-n"]
     tid = rest[0] if rest else None
+    # Bank before reading any board: the work belongs to whatever this checkout
+    # was on, including when that is the task about to be parked.
+    bank_current()
     for ledger in LEDGERS:
         board = Board(ledger)
         if tid:
@@ -2097,9 +2207,12 @@ def cmd_park(args):
         else:
             # A bare `park` is about the thing you are doing. It never reaches
             # for a ranked task, because "park it" said out loud in front of a
-            # board means the one in progress.
-            task, bucket = (board.in_progress[0], board.in_progress) \
-                if board.in_progress else (None, None)
+            # board means the one in progress — and which one that is, with
+            # several running, is what the pointer knows (`PLT-cjgb`).
+            task, complaint = working_on(board, whoami())
+            if complaint:
+                raise Fail(complaint)
+            bucket = board.in_progress if task else None
         if not task:
             continue
         if bucket is board.prioritised:
@@ -2120,9 +2233,14 @@ def cmd_park(args):
         # two to pick up — which is the whole question the board is asked
         # (`PLT-b8gk`). Accumulated, because a task can be parked and resumed
         # more than once.
-        done_here = commits_since(task.since)
+        # `bank_current()` above has already folded this checkout's work. A
+        # `since:` still on the line is a board written before the anchor moved
+        # into `.git/` — folded once here, and never written again.
+        done_here = commits_since(task.since, whoami()) if task.since else 0
         task.set_tag("commits", (task.commits + done_here) or None)
         task.set_tag("since", None)
+        if current_task()[0] == task.id:
+            set_current(None)
         task.unassign()  # parked means available; assign again with `go`
         # Back to the queue, not the pool. Something you started was decided
         # work; parking says "not now", not "never ranked this".
@@ -2138,11 +2256,16 @@ def cmd_done(args):
     force = "--force" in args
     rest = [a for a in args if a != "--force"]
     tid = rest[0] if rest else None
+    # The work lands on whatever this checkout was on before anything moves.
+    bank_current()
     for ledger in LEDGERS:
         board = Board(ledger)
         task, bucket = (board.find(tid) if tid else (None, None))
         if not tid and board.in_progress:
-            task, bucket = board.in_progress[0], board.in_progress
+            task, complaint = working_on(board, whoami())
+            if complaint:
+                raise Fail(complaint)
+            bucket = board.in_progress if task else None
         if not task:
             continue
         if bucket is board.recent:
@@ -2155,6 +2278,8 @@ def cmd_done(args):
             sys.stdout.flush()  # so the list lands above the error, not below
             raise Fail("not done — check them off, or pass --force")
         bucket.remove(task)
+        if current_task()[0] == task.id:
+            set_current(None)
         # A task completed straight from `open` was never assigned; the person
         # finishing it is the honest answer, and matches the commit author.
         finisher = task.assignee or whoami()
@@ -2287,9 +2412,12 @@ def cmd_detail(args):
                 raise Fail(f"{task.id} is already done — `tm go {task.id}` reopens it")
         else:
             # A bare `detail` is about the thing you are doing, the same reading
-            # `park` and `done` take.
-            task, bucket = (board.in_progress[0], board.in_progress) \
-                if board.in_progress else (None, None)
+            # `park` and `done` take — and the same answer when several are
+            # running (`PLT-cjgb`).
+            task, complaint = working_on(board, whoami())
+            if complaint:
+                raise Fail(complaint)
+            bucket = board.in_progress if task else None
         if not task:
             continue
 
@@ -2702,13 +2830,11 @@ def check_boards(rep):
         except Fail as exc:
             rep.error(str(exc))
             continue
-        seen_active = {}
-        for task in board.in_progress:
-            owner = task.assignee or "(unassigned)"
-            if owner in seen_active:
-                rep.error(f"{ledger}: {owner} has {seen_active[owner]} and {task.id} "
-                          "both in progress — WIP is 1 per person")
-            seen_active[owner] = task.id
+        # **Several in progress is no longer an error** (`PLT-cjgb`). One per
+        # person was a premise rather than a finding, and the only thing that
+        # rested on it — attributing commits to the window between starting and
+        # parking — is the pointer's job now. What is still wrong is the same
+        # task twice, which `check_boards` catches by id across every section.
         if len(board.recent) > WINDOW:
             rep.error(f"{ledger}: recent holds {len(board.recent)}, max is {WINDOW}")
         dates = [t.done_on for t in board.recent]
@@ -3519,13 +3645,29 @@ def check_trailer(rep, msg_path):
 
 
 def check_nudge(rep, root):
+    """**One line, about the task this checkout is on.**
+
+    It warned about every task in progress, which was one line while only one
+    could be. With three running it printed three on every commit — and a hook
+    that says three things nobody asked about is how people learn to skim past
+    the one that matters (`PLT-cjgb`).
+    """
+    current, _ = current_task()
     for ledger in LEDGERS:
         try:
             board = Board(ledger)
         except Fail:
             continue
-        for task in board.in_progress:
-            rep.warn(f"{task.id} still in progress — run `tm done {task.id}` if that finished it")
+        mine = [t for t in board.in_progress if t.assignee in (whoami(), None)]
+        task = next((t for t in mine if t.id == current), None)
+        if task is None and len(mine) == 1:
+            task = mine[0]
+        if task is None:
+            continue
+        rest = len(mine) - 1
+        also = f"; {rest} other{'s' if rest > 1 else ''} of yours also in progress" if rest else ""
+        rep.warn(f"{task.id} still in progress — run `tm done {task.id}` if that "
+                 f"finished it{also}")
 
 
 # `--no-verify` skips pre-commit and commit-msg but NOT post-commit. So the

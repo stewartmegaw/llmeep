@@ -1,15 +1,21 @@
 ---
 id: DEC-047
 title: A parked task carries a commit count, attributed by WIP-1 rather than by naming
-status: accepted
+status: superseded
 decided: 2026-08-31
 deciders: [stewart]
 supersedes: []
-superseded_by: []
+superseded_by: [DEC-057]
 relates_to: [DEC-004, DEC-036, DEC-030]
 ---
 
 # DEC-047 — A parked task carries a commit count, attributed by WIP-1 rather than by naming
+
+**Superseded by [`DEC-057`](DEC-057-several-tasks-run-at-once.md), 2026-09-21.** The
+count stays and so does the reason for it; what changed is how it is attributed. WIP-1
+was the mechanism here — one task in progress, so the window between starting and parking
+belonged to it — and a pointer in `.git/` does that job without forbidding a second task.
+
 
 ## Status
 

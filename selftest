@@ -1306,24 +1306,22 @@ class TestResolve(Fixture):
         self.assertNotIn(tid, self.section(top, "prioritised"))
         self.assertIn("kept recent", said)
 
-    def test_two_in_progress_breaks_wip_one_and_it_says_which_it_kept(self):
-        """The one row the ontology leaves to judgement. A file cannot know whose
-        work is in the merge, so the branch being merged into keeps its task and
-        the incoming one goes back to the top of the queue — out loud."""
+    def test_two_branches_with_work_under_way_both_keep_it(self):
+        """This asserted the opposite until `PLT-cjgb`: two tasks in progress
+        broke WIP-1, so the incoming one was evicted to the top of the queue and
+        the merge said so. Several in progress is ordinary now, and eviction
+        would be the merge un-starting work somebody is in the middle of."""
         top = self.a_repo()
-        mine = self.filed(top, "the work in this merge", "-n")
-        yours = self.filed(top, "the other branch's work", "-n")
+        mine = self.filed(top, "started here", "-n")
+        yours = self.filed(top, "started on the other branch", "-n")
         self.commit(top, "base")
-        said = self.diverge(top,
-                            theirs=lambda: self.tm(top, "go", yours),
-                            ours=lambda: self.tm(top, "go", mine))
-        self.assertEqual(self.section(top, "in progress"), [mine], self.board(top))
-        self.assertEqual(self.section(top, "prioritised")[0], yours,
-                         "the displaced task did not go to the top of the queue")
-        line = next(l for l in self.board(top).split("\n") if l.startswith(yours))
-        self.assertNotIn("@", line, "a task returned to the queue kept its assignee")
-        self.assertNotIn("since:", line, "it kept the anchor from being started")
-        self.assertIn("in progress on the other side", said)
+        self.diverge(top,
+                     theirs=lambda: self.tm(top, "go", yours),
+                     ours=lambda: self.tm(top, "go", mine))
+        self.assertEqual(sorted(self.section(top, "in progress")), sorted([mine, yours]),
+                         self.board(top))
+        self.assertNotIn(mine, self.section(top, "prioritised"))
+        self.assertNotIn(yours, self.section(top, "prioritised"))
         self.assertEqual(self.tm(top, "check").returncode, 0, self.board(top))
 
     def test_history_keeps_every_row_from_both_sides(self):
@@ -3615,6 +3613,132 @@ class TestOrdering(Fixture):
         self.assertEqual(self.tm(top, "check").returncode, 0)
 
 
+class TestConcurrentTasks(Fixture):
+    """`PLT-cjgb`, `DEC-057`. One task in progress per person was a premise, not
+    a finding — `DEC-001` listed it as a bullet on the assumption of a single
+    developer. The only thing that rested on it was attributing commits to the
+    window between starting and parking, and a pointer in `.git/` does that
+    without forbidding anything."""
+
+    def a_repo(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "commit", "-qm", "adopt", cwd=top)
+        return top
+
+    def started(self, top, title):
+        tid = self.tm(top, "add", "--id", "-n", title).stdout.strip()
+        out = self.tm(top, "go", tid)
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        return tid
+
+    def work(self, top, n):
+        for i in range(n):
+            with open(os.path.join(top, "src", "app.py"), "a") as fh:
+                fh.write(f"line {i}\n")
+            sh("git", "add", "-A", cwd=top)
+            sh("git", "commit", "-qm", f"work {i}", cwd=top)
+
+    def line(self, top, tid):
+        with open(os.path.join(self.install_root(top),
+                               "tasks", "platform", "board.md")) as fh:
+            return next(l for l in fh if l.startswith(tid))
+
+    def section(self, top, name):
+        with open(os.path.join(self.install_root(top),
+                               "tasks", "platform", "board.md")) as fh:
+            body = fh.read()
+        after = body.split(f"## {name}")[1]
+        chunk = after.split("## ")[0]
+        return [l.split()[0] for l in chunk.split("\n") if l.strip()]
+
+    def pointer(self, top):
+        path = os.path.join(top, ".git", "tm-current")
+        if not os.path.exists(path):
+            return None
+        with open(path) as fh:
+            return fh.read().split()[0]
+
+    def test_three_tasks_can_be_in_progress_at_once(self):
+        top = self.a_repo()
+        ids = [self.started(top, t) for t in ("first", "second", "third")]
+        self.assertEqual(sorted(self.section(top, "in progress")), sorted(ids))
+        self.assertEqual(self.tm(top, "check").returncode, 0)
+
+    def test_work_lands_on_whatever_you_said_you_were_on(self):
+        """The whole of the bookkeeping: one fold per switch, rather than a line
+        on every commit naming its task."""
+        top = self.a_repo()
+        one = self.started(top, "first")
+        two = self.started(top, "second")
+        self.work(top, 2)                      # on `two`, which `go` pointed at
+        self.tm(top, "go", one)                # switching banks those two
+        self.work(top, 3)
+        self.tm(top, "go", two)                # and this banks the three
+
+        self.assertIn("commits:2", self.line(top, two))
+        self.assertIn("commits:3", self.line(top, one))
+
+    def test_the_pointer_is_not_a_fact_about_the_project(self):
+        """Two clones share one board and have two HEADs, so the anchor cannot
+        live on a committed line — which is what `since:` was."""
+        top = self.a_repo()
+        tid = self.started(top, "first")
+        self.assertEqual(self.pointer(top), tid)
+        self.assertNotIn("since:", self.line(top, tid),
+                         "the anchor is still being written to the board")
+        self.assertEqual(sh("git", "status", "--porcelain", "--ignored",
+                            ".git", cwd=top).stdout.strip(), "",
+                         "the pointer turned up in the working tree")
+
+    def test_a_bare_verb_asks_which_when_it_cannot_know(self):
+        """The one thing the single slot was quietly protecting: `tm done` took
+        `in_progress[0]`, so with two running it would close, notify and record
+        a task nobody was talking about."""
+        top = self.a_repo()
+        one = self.started(top, "first")
+        two = self.started(top, "second")
+        os.remove(os.path.join(top, ".git", "tm-current"))
+
+        out = self.tm(top, "done")
+        self.assertNotEqual(out.returncode, 0, "it closed one of them anyway")
+        said = out.stdout + out.stderr
+        self.assertIn("several tasks are in progress", said)
+        self.assertIn(one, said)
+        self.assertIn(two, said)
+        self.assertEqual(sorted(self.section(top, "in progress")), sorted([one, two]))
+
+    def test_the_pointer_answers_it_when_there_is_one(self):
+        top = self.a_repo()
+        one = self.started(top, "first")
+        two = self.started(top, "second")
+        self.tm(top, "go", one)
+        out = self.tm(top, "done", "--force")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertIn(one, out.stdout)
+        self.assertEqual(self.section(top, "in progress"), [two])
+        self.assertIsNone(self.pointer(top), "finishing left the pointer behind")
+
+    def test_a_teammates_commits_are_not_your_work(self):
+        """`rev-list` counted every commit on HEAD, so anything arriving by pull
+        inflated your task. True since the count existed, and invisible only
+        while one person was pushing."""
+        top = self.a_repo()
+        tid = self.started(top, "first")
+        self.work(top, 1)
+        for i in range(3):
+            with open(os.path.join(top, "src", "app.py"), "a") as fh:
+                fh.write(f"theirs {i}\n")
+            sh("git", "add", "-A", cwd=top)
+            sh("git", "-c", "user.name=Someone Else", "-c", "user.email=someone@example.com",
+               "commit", "-qm", f"their work {i}", cwd=top)
+        self.tm(top, "park")
+        self.assertIn("commits:1", self.line(top, tid),
+                      f"somebody else's commits were counted: {self.line(top, tid)}")
+
+
 class TestPark(Fixture):
     """`DEC-036`. Demoting a ranked task was the one board transition with no
     verb, so it meant editing `board.md` — which for an agent is a lesson in
@@ -3759,12 +3883,17 @@ class TestParkedWorkIsVisible(Fixture):
         self.assertIn("picked up before", out)
         self.assertIn("2 commit", out)
 
-    def test_the_anchor_lives_only_while_the_task_is_in_progress(self):
-        """`since:` is plumbing. Left on a parked line it would be folded a
-        second time and double-count, so `check` says so."""
+    def test_the_anchor_is_not_written_to_the_board_at_all(self):
+        """`since:` was per-checkout state on a line every clone shares, so two
+        HEADs could not both be right about it. The anchor is in `.git/` since
+        `DEC-057`; a board written before that keeps its tag until `park` folds
+        it once, and `check` still says so if one turns up outside `in
+        progress`."""
         top = self.a_repo()
         tid = self.started(top)
-        self.assertIn("since:", self.line(top, tid))
+        self.assertNotIn("since:", self.line(top, tid))
+        with open(os.path.join(top, ".git", "tm-current")) as fh:
+            self.assertIn(tid, fh.read(), "the anchor went nowhere")
         self.tm(top, "park")
         self.assertNotIn("since:", self.line(top, tid))
 
@@ -3786,8 +3915,10 @@ class TestParkedWorkIsVisible(Fixture):
         board = os.path.join(self.install_root(top), "tasks", "platform", "board.md")
         with open(board) as fh:
             body = fh.read()
+        # A board written before `DEC-057`, with an anchor no longer reachable.
         with open(board, "w") as fh:
-            fh.write(re.sub(r"since:[0-9a-f]+", "since:0000000", body))
+            fh.write(body.replace("filed:", "since:0000000  filed:", 1))
+        os.remove(os.path.join(top, ".git", "tm-current"))
         out = self.tm(top, "park")
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
         self.assertNotIn("since:", self.line(top, tid))

@@ -19,6 +19,12 @@ relates_to: [PLT-001, PLT-002, PLT-003, PLT-004, PLT-005]
 > What changed: **assignees are back** (this document dropped them, on a premise that assumed a
 > single developer), and **WIP-1 is now one task in `doing` per person** rather than per board.
 > The skill list has also grown past the four named here — `park` was added by `PLT-rc4c`.
+>
+> **And WIP-1 is gone** ([`DEC-057`](DEC-057-several-tasks-run-at-once.md), 2026-09-21).
+> `doing` holds as many tasks as people have started. The bullet below was never argued for — it
+> followed from the same single-developer premise that dropped assignees — and the one thing that
+> depended on it, attributing commits to the window between starting and parking, is a pointer in
+> `.git/` now.
 
 ## Context
 

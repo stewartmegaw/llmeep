@@ -16,7 +16,7 @@ here and nowhere else in this file.
 ```sh
 tm add [-b] [-n] <title...>   # -b business ledger, -n prioritise it
 tm status                     # where things stand; starts nothing, writes nothing
-tm go [id]                    # show the current task, or start the next one
+tm go [id]                    # start one, switch to one, or show where you are
 tm prioritise <id> [-n]       # backlog → prioritised, -n for the top
 tm prioritise <id> --after <id>  # …or behind one already ranked
 tm park [id] [-n]             # step it back one section, unassigned
@@ -51,6 +51,7 @@ Speech that maps to a verb you would not guess from the list above. Everything e
 | --- | --- |
 | "what am I on" / "where were we" | `tm status` — reads, never starts. A `SessionStart` hook already ran it |
 | "what's next" / "start the next thing" | `tm go` — **starts** the top of the queue if nothing is running |
+| "I'm on X now" / two things at once | `tm go <id>` — several can be in progress; this says which one you are on, and banks the work done on the last (`DEC-057`) |
 | "park that" / "I'm blocked" / "deprioritise X" | `tm park [id]` — steps it back one section, unassigned |
 | "what is sam working on" | `grep @sam llmeep/tasks/*/board.md` |
 | "give this to sam" | `tm add -f sam <title>`, or `tm go <id> -f sam` |

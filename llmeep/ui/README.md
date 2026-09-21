@@ -163,9 +163,10 @@ it looks before it acts.
 
 **It cannot start a task.** Filing, ranking, parking, rewording and closing all say something
 true from a phone; starting is a claim to be working on something, and that happens at a
-terminal. A task started from here would sit in progress with nobody on it, block the next
-`tm go` under WIP-1, and take the credit for commits being written against something else —
-that count is attributed by the window, not by name (`DEC-047`).
+terminal. A task started from here would sit in progress with nobody on it, and there is no
+checkout for it to be the current task of — so the next stretch of work at a terminal would be
+banked onto it, which is the credit going to something nobody wrote
+([`DEC-057`](../decisions/DEC-057-several-tasks-run-at-once.md)).
 
 ## It can only ever change `llmeep/`
 

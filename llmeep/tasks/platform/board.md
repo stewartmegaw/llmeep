@@ -20,6 +20,7 @@ PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; us
 
 ## recent
 
+2026-09-21  PLT-cjgb Several tasks can run at once: a current-task pointer per checkout replaces the on-board anchor and WIP-1  @stewart
 2026-09-21  PLT-94kz The app stages tasks/ and notes/ whole, so a modified tool or ontology under _tooling lands in a records commit  @stewart
 2026-09-21  PLT-4spu Drag a task to order the queue, and drag it between backlog and prioritised  @stewart
 2026-09-21  PLT-naj8 The conversation pane: 20% wider on tablet, and answers rendered as markdown rather than flat text  @stewart
@@ -34,4 +35,3 @@ PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; us
 2026-09-14  PLT-nmeg The conversation gets its own space: a fourth tab on a phone, a pane beside the tabs on anything wider  @stewart
 2026-09-14  PLT-zs4j The app header shows the road runner rather than the word llmeep  @stewart
 2026-09-13  PLT-ks8p A webhook endpoint so a push to the default branch reaches the app, resolving record conflicts and pushing the result  @stewart
-2026-09-13  PLT-f4n6 The app header should say when the records last changed, in small text under the title  @stewart

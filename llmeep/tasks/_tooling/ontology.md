@@ -120,14 +120,20 @@ PLT-021  Audit the retry timeouts         filed:2026-07-11
   work behind it and one nobody has touched render identically, and the part-done one is the
   cheaper to finish (`PLT-b8gk`). Absent means none, and a task completed before the tag
   existed has none forever — the same rule as `filed:`.
-- **`since:b9b3829`** — where HEAD was when the task was last started. **Only ever on a line in
-  `in progress`**; `park` folds it into `commits:` and removes it, and `check` warns if it is
-  found anywhere else. Written by `go`, read by nobody but `park`.
+- **`since:b9b3829`** — **no longer written** (`DEC-057`). It was where HEAD was when the task
+  was last started, which is a fact about one working tree on a line every clone shares: two
+  checkouts have two HEADs and could not both be right about it. The anchor lives in
+  `.git/tm-current` now. A board written before this keeps its tag until `park` folds it once.
 
-  The count is attributable because of WIP-1: one task is in progress at a time, so what was
-  committed in that window was committed against it. Counting commits that *name* the task is
-  the obvious alternative and does not work — `closes <id>` is written once, at completion, so
-  it reports zero for exactly the unfinished tasks the count exists to tell apart.
+  The count is attributed by **the pointer**, not by the section (`DEC-057`). `.git/tm-current`
+  holds the task this checkout is on and where HEAD was when it became so; `go`, `park` and
+  `done` fold `rev-list <anchor>..HEAD --author=<you>` onto it before moving on. One fold per
+  switch.
+
+  Counting commits that *name* the task is the obvious alternative and does not work — `closes
+  <id>` is written once, at completion, so it reports zero for exactly the unfinished tasks the
+  count exists to tell apart. A dedicated `task:` trailer would work and costs a line on every
+  commit forever, where switching costs a word when you change what you are doing.
 
 ### Reordering is a hand edit
 
@@ -347,8 +353,10 @@ tm standup                        # what got finished this period; --send posts 
 tm standup --cron                 # the line to schedule, if you want it unattended
 ```
 
-**Defaults do the work.** `add` assumes `platform`, since most tasks are. `go` and `done`
-assume the current task, since WIP-1 means there is only ever one. Nothing that can be
+**Defaults do the work.** `add` assumes `platform`, since most tasks are. `go`, `done`, `park`
+and `detail` assume the task this checkout is on — the pointer's answer, not the first line in
+the section (`DEC-057`). With several running and no pointer they ask rather than guess, because
+closing the wrong one records a completion and tells a team about it. Nothing that can be
 inferred from state has to be typed.
 
 > **`add` files into the pool; `go` takes from the queue.** So `tm add X` followed by bare
@@ -391,8 +399,8 @@ That is the failure [principle 2](../../ontology/principles.md) exists to preven
 the verb set is how it gets taught (`DEC-036`).
 
 So the test used to be *"does the tool leave you any other way?"* and it is now *"is this a
-transition a person asks for out loud?"* Under the old test `park` qualified because WIP-1
-forced it, and demoting did not. Under the new one both qualify, and so does `drop`, which
+transition a person asks for out loud?"* Under the old test `park` qualified because the single
+in-progress slot forced it, and demoting did not. Under the new one both qualify, and so does `drop`, which
 carries a detail and a `blocked:` tag with it and cannot be done correctly by hand at all.
 
 `park` **steps a task back one section** — `in progress` → `prioritised` → `backlog`, and no
@@ -781,7 +789,7 @@ one.
 | `prioritised` lines | **Union both sides**, then see Ordering. A task prioritised on either branch stays prioritised; nobody's ranking decision is silently dropped. |
 | Ordering       | Only `prioritised` has one. No correct answer: keep the target branch's order; append the incoming branch's tasks below, preserving their relative order. Reprioritise afterwards if it matters. |
 | Same task, both sections | Someone prioritised it while someone else did not. **Keep `prioritised`** — an explicit ranking outranks the absence of one. |
-| `in progress`  | If both sides have one, that breaks WIP-1. Keep whichever one's work is in the merge; return the other to the top of `prioritised`. |
+| `in progress`  | **Union both sides.** Each was started by somebody who has not finished, and several in progress is ordinary (`DEC-057`). Evicting one would be the merge un-starting work someone is in the middle of. |
 | `recent`       | Union, sort by date descending, prune to 15.                                |
 | `history.tsv`  | Append-only, so both sides appended at EOF. Keep both lines, sort by date. Never drop one. |
 
