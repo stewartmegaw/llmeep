@@ -1851,6 +1851,8 @@ if what == "catalogue":
     print(json.dumps(server.catalogue()))
 elif what == "board":
     print(json.dumps({"updated": server.records_changed()}))
+elif what == "notes":
+    print(json.dumps(json.loads(server.nm("notes", "--json"))))
 elif what == "tools":
     print(json.dumps(sorted(server.TOOLS)))
 elif what.startswith("bytes:"):
@@ -1905,6 +1907,16 @@ else:
         self.tm(top, "ontology", "docs/domain.md")
         groups = {d["group"] for d in self.run_driver(top, "catalogue")}
         self.assertEqual(groups, {"Notes", "Decisions", "Ontology"})
+
+    def test_the_notes_screen_is_served_the_records(self):
+        """`PLT-pudy`. The screen lists notes and puts a verb on each, so it is
+        handed them as records rather than as a document to render."""
+        top = self.adopted("notes-endpoint")
+        self.nm(top, "add", "they want SSO before they renew")
+        seen = self.run_driver(top, "notes")
+        self.assertEqual(len(seen["notes"]), 1, seen)
+        self.assertEqual(seen["notes"][0]["text"], "they want SSO before they renew")
+        self.assertIn("waiting", seen)
 
     def test_each_note_is_its_own_paragraph(self):
         """`PLT-5ab6`. The archive stores a date heading and then a line per
@@ -3014,6 +3026,47 @@ class TestNotesRender(Fixture):
         last = self.rendered(top).rstrip().split("\n")[-1]
         self.assertTrue(last.startswith("*promote · drop · find"), last)
 
+    def test_the_json_form_is_for_an_interface(self):
+        """`PLT-pudy`, on `tm board --json`'s reasoning: a screen that puts a verb
+        on each note needs them as records, and parsing `notes.md` at the far end
+        would be a second implementation of the model.
+
+        **No display bound here.** `RENDER_LIST` is what a person is shown on a
+        phone; a screen decides for itself."""
+        top = self.a_repo()
+        for i in range(23):
+            self.captured(top, f"a thing worth remembering number {i}")
+        nid = self.captured(top, "the fixture loader needs replacing")
+        tid = re.search(r"PLT-\S+", self.nm(top, "promote", nid).stdout).group(0)
+        self.nm(top, "add", "--from", "acme-call", "they want SSO before they renew")
+        raw = os.path.join(self.install_root(top), "notes", "raw")
+        os.makedirs(raw, exist_ok=True)
+        with open(os.path.join(raw, "call.md"), "w") as fh:
+            fh.write("a summary worth reading twice\n")
+
+        out = self.nm(top, "notes", "--json")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        seen = json.loads(out.stdout)
+        self.assertEqual(seen["waiting"], 1, "the captures count did not travel")
+        self.assertEqual(len(seen["notes"]), 25,
+                         "the display bound was applied to an export")
+
+        promoted = next(n for n in seen["notes"] if n["id"] == nid)
+        self.assertEqual(promoted["task"], tid)
+        self.assertFalse(promoted["shipped"], "a live task was reported as shipped")
+        sourced = next(n for n in seen["notes"] if n["source"])
+        self.assertEqual(sourced["source"], "acme-call")
+
+        self.tm(top, "go", tid)
+        self.tm(top, "done", "--force")
+        after = json.loads(self.nm(top, "notes", "--json").stdout)
+        self.assertTrue(next(n for n in after["notes"] if n["id"] == nid)["shipped"],
+                        "a shipped task did not mark its note")
+
+    def test_json_and_chat_are_two_different_readers(self):
+        top = self.a_repo()
+        self.assertNotEqual(self.nm(top, "notes", "--json", "--chat").returncode, 0)
+
     def test_the_terminal_form_is_not_markdown(self):
         """`cat notes/notes.md` is still the file as stored; this is the window
         rendered for a shell, and markdown there is noise."""
@@ -3036,7 +3089,9 @@ class TestNotesRender(Fixture):
             self.assertEqual(fh.read(), before, "nm notes wrote to the archive")
 
     def test_it_refuses_arguments_it_does_not_know(self):
-        self.assertNotEqual(self.nm(self.a_repo(), "notes", "--json").returncode, 0)
+        # `--json` was the example here until it became a reader of its own
+        # (`PLT-pudy`), which is what a stale test looks like.
+        self.assertNotEqual(self.nm(self.a_repo(), "notes", "--yaml").returncode, 0)
 
     def test_the_skill_no_longer_carries_the_render(self):
         top = self.a_project()

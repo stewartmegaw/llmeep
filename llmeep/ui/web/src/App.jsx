@@ -54,6 +54,8 @@ export default function App() {
   const [asking, setAsking] = React.useState(null)
   const [acting, setActing] = React.useState(false)
   const [flash, setFlash] = React.useState(null)
+  // Bumped when a verb lands, so a list that is not the board reloads too.
+  const [notesAt, setNotesAt] = React.useState(0)
   const [detail, setDetail] = React.useState(null)
   // How much room the composer is taking, so nothing ends up underneath it.
   // Measured rather than guessed: a long message grows it.
@@ -107,6 +109,7 @@ export default function App() {
       const d = await r.json()
       if (d.error) throw new Error(d.error)
       load()
+      setNotesAt((n) => n + 1)
       // `note` is how a commit says it did not reach anybody else (`DEC-053`),
       // and is worth showing for a tap exactly as it is for a turn.
       if (d.note) setFlash(d.note)
@@ -214,7 +217,9 @@ export default function App() {
         {error && (
           <Typography color="error" sx={{ mt: 3, whiteSpace: 'pre-wrap' }}>{error}</Typography>
         )}
-        {tab === 'notes' && <Read base={BASE} docs={browsable} only="Notes" />}
+        {tab === 'notes' && (
+          <Notes base={BASE} onAsk={setAsking} busy={acting} reload={notesAt} />
+        )}
         {tab === 'other' && (
           <Read base={BASE} docs={browsable}
                 only={sub === 'decisions' ? 'Decisions' : 'Ontology'}
@@ -474,6 +479,111 @@ function ConversationPane({ conversation }) {
   )
 }
 
+// **The notes, as a list rather than a document.** The archive rendered as
+// markdown is something to read; a note is something to act on — it becomes a
+// task or it goes. The rows come from `nm notes --json`, so what is a note, what
+// it was promoted to and whether that shipped are all decided in one place
+// (`PLT-pudy`).
+function Notes({ base, onAsk, busy, reload }) {
+  const [state, setState] = React.useState(null)
+  const [error, setError] = React.useState(null)
+
+  React.useEffect(() => {
+    fetch(`${base}/api/notes`)
+      .then((r) => (r.ok ? r.json() : r.text().then((t) => Promise.reject(new Error(t)))))
+      .then((d) => { setState(d); setError(null) })
+      .catch((e) => setError(e.message))
+  }, [base, reload])
+
+  if (error) return <Typography color="error" sx={{ mt: 3 }}>{error}</Typography>
+  if (!state) return <Box sx={{ mt: 4, textAlign: 'center' }}><CircularProgress size={22} /></Box>
+  if (!state.notes.length && !state.waiting) {
+    return (
+      <Typography color="text.secondary" sx={{ mt: 4, textAlign: 'center', px: 3 }}>
+        Nothing captured yet.
+      </Typography>
+    )
+  }
+
+  const days = state.notes.reduce((acc, n) => {
+    (acc[n.on] = acc[n.on] || []).push(n)
+    return acc
+  }, {})
+
+  return (
+    <Box sx={{ mt: 2 }}>
+      {/* First, because it is the actionable part and it is invisible in the
+          archive: nothing in there says a file is sitting in `raw/`. */}
+      {state.waiting > 0 && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          {state.waiting} capture{state.waiting === 1 ? '' : 's'} waiting in raw/
+        </Typography>
+      )}
+      {Object.entries(days).map(([on, notes]) => (
+        <Box key={on} sx={{ mb: 2 }}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>{on}</Typography>
+          <List disablePadding sx={{ border: 1, borderColor: 'divider', borderRadius: 2 }}>
+            {notes.map((n, i) => (
+              <ListItem key={n.id} divider={i < notes.length - 1} alignItems="flex-start"
+                sx={{ py: 1.25 }}
+                secondaryAction={(
+                  <Stack direction="row" spacing={0.25}>
+                    {/* A note that is already a task has nowhere to be promoted
+                        to, and promoting it twice would file the same idea
+                        again under a second id. */}
+                    {!n.task && (
+                      <IconButton size="small" disabled={busy}
+                                  aria-label={`Promote ${n.id} to a task`}
+                                  onClick={() => onAsk({
+                                    tool: 'promote', args: { id: n.id }, verb: 'Make it a task',
+                                    title: n.text,
+                                    body: 'Filed as a task.',
+                                  })}>
+                        <span aria-hidden>→</span>
+                      </IconButton>
+                    )}
+                    <IconButton size="small" disabled={busy} aria-label={`Archive ${n.id}`}
+                                onClick={() => onAsk({
+                                  tool: 'unnote', args: { id: n.id }, verb: 'Archive it',
+                                  title: n.text,
+                                  body: 'Archived, not deleted.',
+                                })}>
+                      <span aria-hidden>✕</span>
+                    </IconButton>
+                  </Stack>
+                )}
+              >
+                <ListItemText
+                  primary={n.text}
+                  primaryTypographyProps={{ sx: { lineHeight: 1.35, overflowWrap: 'anywhere' } }}
+                  secondary={(n.task || n.source) && (
+                    <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 0.75 }}>
+                      {n.task && (
+                        // A tick means the task shipped, so the note is awaiting
+                        // removal rather than hidden — `nm prune` is what clears
+                        // it, because the task now carries the record.
+                        <Chip size="small" variant="outlined"
+                              color={n.shipped ? 'success' : 'default'}
+                              label={n.shipped ? `${n.task} ✓` : n.task}
+                              sx={{ fontFamily: 'ui-monospace, monospace' }} />
+                      )}
+                      {n.source && (
+                        <Chip size="small" variant="outlined" label={n.source}
+                              sx={{ opacity: 0.6 }} />
+                      )}
+                    </Stack>
+                  )}
+                  secondaryTypographyProps={{ component: 'div' }}
+                />
+              </ListItem>
+            ))}
+          </List>
+        </Box>
+      ))}
+    </Box>
+  )
+}
+
 // **Asked before it happens, never after.** Each of these writes a record and
 // two of them tell other people: `done` appends history and notifies, and a tap
 // that reaches a team channel is not one to make by accident.
@@ -558,8 +668,7 @@ function Task({ task, docs, onDetail, section, onAsk, busy, divider }) {
                       onClick={() => onAsk({
                         tool: 'done', args: { id: task.id }, verb: 'Mark done',
                         title: task.title,
-                        body: 'It moves to recent, a history row is written and the '
-                          + 'team channel is told, if one is configured. Not a tap to undo.',
+                        body: 'Done, and the team is told.',
                       })}>
             <span aria-hidden>✓</span>
           </IconButton>
@@ -568,13 +677,11 @@ function Task({ task, docs, onDetail, section, onAsk, busy, divider }) {
               only record that anyone had touched it, including the commit count
               that says how much is behind it (`DEC-047`). Park it or finish it. */}
           {section !== 'in_progress' && (
-            <IconButton size="small" disabled={busy} aria-label={`Drop ${task.id}`}
+            <IconButton size="small" disabled={busy} aria-label={`Archive ${task.id}`}
                         onClick={() => onAsk({
-                          tool: 'drop', args: { id: task.id }, verb: 'Drop it',
+                          tool: 'drop', args: { id: task.id }, verb: 'Archive it',
                           title: task.title,
-                          body: 'The line and its detail are removed and no history is '
-                            + 'written, as though it was never filed. Git keeps it; the '
-                            + 'board will not.',
+                          body: 'Archived, not deleted.',
                         })}>
               <span aria-hidden>✕</span>
             </IconButton>

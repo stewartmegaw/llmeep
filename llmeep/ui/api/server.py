@@ -270,6 +270,10 @@ def tm(*args):
     return run_record_tool("tm", list(args))
 
 
+def nm(*args):
+    return run_record_tool("nm", list(args))
+
+
 def explain(args, out):
     """Turn a `tm` failure into something a reader can act on.
 
@@ -1076,6 +1080,11 @@ class Handler(BaseHTTPRequestHandler):
             # they do and go stale at exactly the same moment.
             return self.send_json_from(
                 lambda: {**json.loads(tm("board", "--json")), "updated": records_changed()})
+        if path == "/api/notes":
+            # The window as data, so the screen can put a verb on each note
+            # rather than rendering the archive as a document nobody can act on
+            # (`PLT-pudy`).
+            return self.send_json_from(lambda: json.loads(nm("notes", "--json")))
         if path == "/api/status":
             return self.send_json_from(lambda: {"text": tm("status")})
         return self.send_static(path)

@@ -127,3 +127,4 @@
 2026-09-15	PLT-8rn6	platform	Sending shows two spinners; the send button should just go disabled and leave the one above the input	stewart
 2026-09-20	PLT-mrt8	platform	A turn that commits can look like a turn that failed: a proxy idle timeout kills the response while the work lands	stewart
 2026-09-21	PLT-7kk3	platform	A verb you already know should be a button: done and drop on a task, without a trip through the model	stewart
+2026-09-21	PLT-pudy	platform	Notes should be a list you can act on: promote one to a task or drop it, which needs nm to export them	stewart

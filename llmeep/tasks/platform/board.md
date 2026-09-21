@@ -17,9 +17,11 @@ PLT-6vgh Test tm review end to end: a real commit through both reviewer APIs  fi
 PLT-2gdj Periodically check connectors — Gmail, Google Docs — and turn what they find into captures  detail  filed:2026-09-07
 PLT-hrpu An agenda holds nothing the repo keeps — decide whether it should exist at all  detail  filed:2026-09-12
 PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; use typeable() so they stay typeable  filed:2026-09-12
+PLT-94kz The app stages tasks/ and notes/ whole, so a modified tool or ontology under _tooling lands in a records commit  filed:2026-09-21
 
 ## recent
 
+2026-09-21  PLT-pudy Notes should be a list you can act on: promote one to a task or drop it, which needs nm to export them  @stewart
 2026-09-21  PLT-7kk3 A verb you already know should be a button: done and drop on a task, without a trip through the model  @stewart
 2026-09-20  PLT-mrt8 A turn that commits can look like a turn that failed: a proxy idle timeout kills the response while the work lands  @stewart
 2026-09-15  PLT-8rn6 Sending shows two spinners; the send button should just go disabled and leave the one above the input  @stewart
@@ -34,4 +36,3 @@ PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; us
 2026-09-13  PLT-xxcu The app commits but never pushes, so records changed on a phone are not live for anyone else  @stewart
 2026-09-13  PLT-e7u9 An adopter's UI shows llmeep's own ontology in a tab; it should show theirs, or nothing  @stewart
 2026-09-12  PLT-buj6 Split the decisions guidance into its own skill; tm done asks the question that has no utterance behind it  @stewart
-2026-09-12  PLT-asy6 Move the feedback pass out of the tm skill and into post-commit, so every adopter gets the prompt  @stewart

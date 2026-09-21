@@ -9,6 +9,7 @@ Processing is: the agent reads a capture, calls `nm add` for what it keeps, then
 `nm drop` for the file. `nm` never parses a transcript.
 """
 
+import json
 import os
 import re
 import secrets
@@ -411,6 +412,28 @@ def render_notes_plain(sections, waiting, hidden):
     return "\n".join(out)
 
 
+def notes_export():
+    """The window as data, for something that is not a person.
+
+    Same reasoning as `tm board --json` (`PLT-6yjz`): an interface reaches into
+    the repo rather than holding state of its own, so it needs the notes in a
+    shape it can parse — and parsing `notes.md` at the far end would be a second
+    implementation of the model, drifting the first time a tag is added.
+
+    **No display bound here.** `RENDER_LIST` is what a person is shown on a
+    phone; an interface has its own screen and decides for itself (`PLT-pudy`).
+    """
+    archive = Archive()
+    archive.notes.sort(key=lambda n: n.on or "", reverse=True)
+    shipped = shipped_tasks()
+    return {
+        "notes": [{"id": n.id, "text": n.text, "on": n.on, "source": n.source,
+                   "task": n.task, "shipped": bool(n.task and n.task in shipped)}
+                  for n in archive.notes],
+        "waiting": len(capture_names()),
+    }
+
+
 def cmd_notes(args):
     """**The window, for the person on the other end of the conversation.**
     Bare it prints for a terminal; `--chat` renders markdown to pass on as it is,
@@ -421,8 +444,13 @@ def cmd_notes(args):
     """
     chat, all_of_it = "--chat" in args, "--all" in args
     keep_source = "--src" in args
-    if [a for a in args if a not in ("--chat", "--all", "--src")]:
-        raise Fail("usage: nm notes [--chat] [--all] [--src]")
+    if [a for a in args if a not in ("--chat", "--all", "--src", "--json")]:
+        raise Fail("usage: nm notes [--chat | --json] [--all] [--src]")
+    if "--json" in args:
+        if chat:
+            raise Fail("--json and --chat are two different readers")
+        print(json.dumps(notes_export(), indent=2))
+        return 0
     sections, waiting, hidden = notes_sections(
         limit=None if all_of_it else RENDER_LIST, keep_source=keep_source)
     render = render_notes if chat else render_notes_plain
@@ -629,6 +657,7 @@ USAGE = """nm — notes
   nm promote <NTE-id> [-b] [-n]     turn a note into a task
   nm prune [--yes]                  bound raw/ and the archive
   nm notes [--chat] [--all]         the window; --chat renders it to pass on as it is
+  nm notes --json                   the window as data, for an interface
   nm find <term>                    search every note ever captured
 
   nm check                          validate records; used by hooks and CI
