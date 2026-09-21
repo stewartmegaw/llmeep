@@ -2163,6 +2163,125 @@ else:
         self.assertIn("audience", self.run_driver(top, "tools"))
 
 
+class TestNamedVerbs(Fixture):
+    """`PLT-7kk3`. The text box is for when you do not know which verb it is; a
+    button is for when you do. Putting a model between a tap and `tm done` buys
+    a call, a wait and a chance of guessing — so a button reaches the tool table
+    directly. The table is still the boundary, and this adds no surface to it."""
+
+    DRIVER = """import json, os, sys
+sys.path.insert(0, os.path.join(sys.argv[1], "llmeep", "ui", "api"))
+import server
+try:
+    print(json.dumps({"ok": server.act_directly(sys.argv[2], json.loads(sys.argv[3]))}))
+except Exception as exc:
+    print(json.dumps({"error": str(exc)}))
+"""
+
+    def a_repo(self, name):
+        top = self.a_project(name=name)
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "commit", "-qm", "adopt", cwd=top)
+        return top
+
+    def do(self, top, tool, args):
+        script = self.path("drive_do.py")
+        with open(script, "w") as fh:
+            fh.write(self.DRIVER)
+        env = dict(os.environ, LLMEEP_REPO=top, LLMEEP_AUTH_HANDLED="yes")
+        out = sh(sys.executable, script, self.working_copy(), tool, json.dumps(args),
+                 cwd=top, env=env)
+        self.assertTrue(out.stdout.strip(), out.stderr)
+        return json.loads(out.stdout.strip().split("\n")[-1])
+
+    def board(self, top):
+        with open(os.path.join(self.install_root(top),
+                               "tasks", "platform", "board.md")) as fh:
+            return fh.read()
+
+    def test_a_named_verb_runs_commits_and_says_what_happened(self):
+        top = self.a_repo("named")
+        tid = self.tm(top, "add", "--id", "-n", "Ranked and ready to close").stdout.strip()
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "commit", "-qm", "file it", cwd=top)
+
+        result = self.do(top, "done", {"id": tid})
+        self.assertNotIn("error", result, result)
+        self.assertTrue(result["ok"]["changed"], result)
+        self.assertIsNotNone(result["ok"]["commit"])
+        self.assertNotIn(tid, self.board(top).split("## recent")[0],
+                         "the task is still in an open section")
+        with open(os.path.join(self.install_root(top),
+                               "tasks", "_tooling", "history.tsv")) as fh:
+            self.assertIn(tid, fh.read(), "closing it wrote no history")
+        self.assertIn("from the app", sh("git", "log", "-1", "--format=%s",
+                                         cwd=top).stdout)
+
+    def test_it_needs_no_model(self):
+        """The reason this is not a canned sentence through the turn endpoint: an
+        install with no key is read-only today, and a verb somebody named needs
+        nobody to interpret it."""
+        top = self.a_repo("no-key")
+        script = self.path("drive_nokey.py")
+        with open(script, "w") as fh:
+            fh.write(self.DRIVER)
+        env = dict(os.environ, LLMEEP_REPO=top, LLMEEP_AUTH_HANDLED="yes")
+        for key in ("CHROME_KEY", "CHROME_MODEL", "CHROME_BASE"):
+            env.pop(key, None)
+        tid = self.tm(top, "add", "--id", "nothing can interpret this").stdout.strip()
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "commit", "-qm", "file it", cwd=top)
+        out = sh(sys.executable, script, self.working_copy(), "drop",
+                 json.dumps({"id": tid}), cwd=top, env=env)
+        result = json.loads(out.stdout.strip().split("\n")[-1])
+        self.assertNotIn("error", result, result)
+        self.assertNotIn(tid, self.board(top), "drop left the task on the board")
+
+    def test_the_table_is_still_the_boundary(self):
+        """`go` is absent from the table on purpose — starting is a claim to be
+        working on something, and that happens at a terminal. A second way in
+        must not become a way around."""
+        top = self.a_repo("boundary")
+        head = sh("git", "rev-list", "--count", "HEAD", cwd=top).stdout.strip()
+        for tool, args in (("start", {"id": "PLT-0000"}), ("go", {"id": "PLT-0000"}),
+                           ("sh", {"id": "PLT-0000"})):
+            result = self.do(top, tool, args)
+            self.assertIn("error", result, f"{tool} was run")
+            self.assertIn("not a tool", result["error"])
+        self.assertEqual(sh("git", "rev-list", "--count", "HEAD", cwd=top).stdout.strip(),
+                         head, "a refused verb still made a commit")
+
+    def test_an_id_that_is_not_an_id_never_reaches_a_subprocess(self):
+        top = self.a_repo("ids")
+        result = self.do(top, "done", {"id": "../../etc/passwd"})
+        self.assertIn("error", result, result)
+        self.assertIn("record id", result["error"])
+
+    def test_reading_commits_nothing(self):
+        top = self.a_repo("reads")
+        head = sh("git", "rev-list", "--count", "HEAD", cwd=top).stdout.strip()
+        result = self.do(top, "board", {})
+        self.assertNotIn("error", result, result)
+        self.assertFalse(result["ok"]["changed"])
+        self.assertIsNone(result["ok"]["commit"])
+        self.assertEqual(sh("git", "rev-list", "--count", "HEAD", cwd=top).stdout.strip(),
+                         head)
+
+    def test_it_refuses_while_their_own_work_is_staged(self):
+        """The same guard a turn has: their index is theirs, and unstaging it to
+        make room is not this app's call."""
+        top = self.a_repo("staged")
+        tid = self.tm(top, "add", "--id", "a task").stdout.strip()
+        with open(os.path.join(top, "src", "scratch.py"), "w") as fh:
+            fh.write("half a thought\n")
+        sh("git", "add", "src/scratch.py", cwd=top)
+        result = self.do(top, "done", {"id": tid})
+        self.assertIn("error", result, result)
+        self.assertIn("staged outside the records", result["error"])
+
+
 class TestTurnHeartbeat(Fixture):
     """`PLT-mrt8`. One HTTP request was held open for a whole turn with nothing
     written until the answer, which hands every proxy in front of the app the

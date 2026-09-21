@@ -870,6 +870,30 @@ def records_changed():
     return out or None
 
 
+def act_directly(name, args):
+    """One named verb, run, committed and pushed — the same ending a turn has.
+
+    Reads are answered and nothing is committed for them, so tapping something
+    that only looks is free.
+    """
+    if name not in TOOLS:
+        raise RuntimeError(f"not a tool this app has: {name}")
+    if name not in READ_ONLY:
+        theirs = already_staged_elsewhere()
+        if theirs:
+            raise RuntimeError(
+                "you have changes staged outside the records — "
+                f"{', '.join(theirs[:3])}. Commit or unstage them first; this app "
+                "will not put them in a commit about your records.")
+    said = run_tool(name, dict(args))
+    if name in READ_ONLY:
+        return {"said": said, "changed": False, "commit": None, "pushed": False, "note": None}
+    sha = commit_used([name])
+    pushed, note = push_after_commit() if sha else (False, None)
+    return {"said": said, "changed": bool(sha), "commit": sha,
+            "pushed": pushed, "note": note}
+
+
 def push_after_commit():
     """Push what was just committed, and say what happened.
 
@@ -1081,6 +1105,25 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json_from(lambda: refresh(payload))
         if not AUTH_HANDLED:
             return self.send_text(503, refusal())
+        if path == "/api/do":
+            # **A verb somebody named, rather than one a model chose.** The text
+            # box is for when you do not know which verb it is; a button is for
+            # when you do, and putting a model between a tap and `tm done` buys
+            # nothing but a call, a wait and a chance of it guessing wrong
+            # (`PLT-7kk3`).
+            #
+            # The same table is still the boundary — `run_tool` validates the
+            # name and the id — so this adds no surface, only a second way to
+            # reach the surface that was already there. It needs no model, which
+            # is why an install with no key stops being read-only.
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+                sent = json.loads(self.rfile.read(length) or b"{}")
+                name = str(sent.get("tool", "")).strip()
+                args = sent.get("args") or {}
+            except Exception:                          # noqa: BLE001
+                return self.send_json(400, {"error": 'send {"tool": "...", "args": {…}}'})
+            return self.send_json_from(lambda: act_directly(name, args))
         if path != "/api/intent":
             return self.send_json(404, {"error": "nothing here"})
         try:

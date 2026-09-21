@@ -1,9 +1,9 @@
 import React from 'react'
 import {
   Alert, AppBar, Box, Button, Chip, CircularProgress, Container, Dialog,
-  DialogContent, DialogTitle, Divider, IconButton, List, ListItem,
-  ListItemButton, ListItemText, Paper, Stack, Tab, Tabs, TextField, Toolbar,
-  Typography, useMediaQuery, useTheme,
+  DialogActions, DialogContent, DialogTitle, Divider, IconButton, List, ListItem,
+  ListItemButton, ListItemText, Paper, Snackbar, Stack, Tab, Tabs, TextField,
+  Toolbar, Typography, useMediaQuery, useTheme,
 } from '@mui/material'
 import Read, { Doc, size } from './Read.jsx'
 import Pills from './Pills.jsx'
@@ -50,6 +50,10 @@ export default function App() {
     return next
   })
   const [docs, setDocs] = React.useState([])
+  // A verb the person named, waiting on their yes. `null` is nothing pending.
+  const [asking, setAsking] = React.useState(null)
+  const [acting, setActing] = React.useState(false)
+  const [flash, setFlash] = React.useState(null)
   const [detail, setDetail] = React.useState(null)
   // How much room the composer is taking, so nothing ends up underneath it.
   // Measured rather than guessed: a long message grows it.
@@ -88,6 +92,32 @@ export default function App() {
   }, [])
 
   const wide = useMediaQuery(useTheme().breakpoints.up(TWO_COLUMNS))
+  // **Named verbs go straight to the tool.** No model between a tap and
+  // `tm done`: it would cost a call, a wait and a chance of guessing, and the
+  // table this reaches is the same one a turn reaches (`PLT-7kk3`).
+  const runTool = React.useCallback(async (tool, args) => {
+    setActing(true)
+    try {
+      const r = await fetch(`${BASE}/api/do`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tool, args }),
+      })
+      if (!r.ok) throw new Error(`llmeep answered ${r.status}`)
+      const d = await r.json()
+      if (d.error) throw new Error(d.error)
+      load()
+      // `note` is how a commit says it did not reach anybody else (`DEC-053`),
+      // and is worth showing for a tap exactly as it is for a turn.
+      if (d.note) setFlash(d.note)
+    } catch (e) {
+      setFlash(e.message)
+    } finally {
+      setActing(false)
+      setAsking(null)
+    }
+  }, [load])
+
   // A ref rather than the value: a turn reads it when it starts, and the state
   // it closes over would be whatever it was when `send` was created.
   const updatedAt = React.useRef(null)
@@ -195,7 +225,7 @@ export default function App() {
         )}
         {tab === 'board' && board && Object.entries(board).map(([ledger, sections]) => (
           <Ledger key={ledger} name={ledger} sections={sections} off={off}
-                  docs={docs} onDetail={setDetail} />
+                  docs={docs} onDetail={setDetail} onAsk={setAsking} busy={acting} />
         ))}
       </Container>
       </Box>
@@ -212,6 +242,11 @@ export default function App() {
                         onFocus={() => setTab('chat')} />
       )}
       <DetailSheet head={detail} docs={docs} onClose={() => setDetail(null)} />
+      <Confirm asking={asking} busy={acting} onClose={() => setAsking(null)}
+               onYes={() => runTool(asking.tool, asking.args)} />
+      <Snackbar open={Boolean(flash)} onClose={() => setFlash(null)}
+                message={flash || ''} autoHideDuration={8000}
+                anchorOrigin={{ vertical: 'top', horizontal: 'center' }} />
     </Box>
   )
 }
@@ -439,9 +474,33 @@ function ConversationPane({ conversation }) {
   )
 }
 
+// **Asked before it happens, never after.** Each of these writes a record and
+// two of them tell other people: `done` appends history and notifies, and a tap
+// that reaches a team channel is not one to make by accident.
+function Confirm({ asking, busy, onClose, onYes }) {
+  return (
+    <Dialog open={Boolean(asking)} onClose={busy ? undefined : onClose} maxWidth="xs" fullWidth>
+      <DialogTitle sx={{ pb: 1 }}>{asking?.verb}</DialogTitle>
+      <DialogContent>
+        <Typography sx={{ fontWeight: 600, mb: 1, lineHeight: 1.35 }}>{asking?.title}</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.5 }}>
+          {asking?.body}
+        </Typography>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onClose} disabled={busy} sx={{ textTransform: 'none' }}>Cancel</Button>
+        <Button onClick={onYes} disabled={busy} variant="contained"
+                sx={{ textTransform: 'none' }}>
+          {busy ? <CircularProgress size={18} /> : asking?.verb}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
 // `off` holds the pills that have been switched off — a ledger name or a
 // section key. Empty means show everything, which is where it starts.
-function Ledger({ name, sections, off, docs, onDetail }) {
+function Ledger({ name, sections, off, docs, onDetail, onAsk, busy }) {
   if (off.has(name)) return null
   const live = SECTIONS.filter(([key]) => !off.has(key) && sections[key]?.length)
   if (!live.length) return null
@@ -456,6 +515,7 @@ function Ledger({ name, sections, off, docs, onDetail }) {
           <List disablePadding sx={{ border: 1, borderColor: 'divider', borderRadius: 2 }}>
             {sections[key].map((task, i) => (
               <Task key={task.id} task={task} docs={docs} onDetail={onDetail}
+                    section={key} onAsk={onAsk} busy={busy}
                     divider={i < sections[key].length - 1} />
             ))}
           </List>
@@ -481,14 +541,47 @@ function Clip(props) {
   )
 }
 
-function Task({ task, docs, onDetail, divider }) {
+function Task({ task, docs, onDetail, section, onAsk, busy, divider }) {
   // The board's `detail` is a path; the catalogue's id is what opens it.
   const head = task.detail && docs.find((d) => d.path === task.detail)
   // Everything openable for this task: the detail itself, plus whatever else
   // is in its folder. Never zero — the chip only exists when there is one.
   const items = head ? 1 + docs.filter((d) => d.parent === head.id).length : null
   return (
-    <ListItem divider={divider} alignItems="flex-start" sx={{ py: 1.25 }}>
+    <ListItem divider={divider} alignItems="flex-start" sx={{ py: 1.25 }}
+      secondaryAction={onAsk && (
+        <Stack direction="row" spacing={0.25}>
+          {/* `done` closes a task from any open section, so this is on all of
+              them — the board is a list of things that are not finished, and
+              saying one is finished is the commonest thing anyone does to it. */}
+          <IconButton size="small" disabled={busy} aria-label={`Mark ${task.id} done`}
+                      onClick={() => onAsk({
+                        tool: 'done', args: { id: task.id }, verb: 'Mark done',
+                        title: task.title,
+                        body: 'It moves to recent, a history row is written and the '
+                          + 'team channel is told, if one is configured. Not a tap to undo.',
+                      })}>
+            <span aria-hidden>✓</span>
+          </IconButton>
+          {/* **Not on work in progress.** `drop` writes no history — the task
+              was never filed — so dropping something started would erase the
+              only record that anyone had touched it, including the commit count
+              that says how much is behind it (`DEC-047`). Park it or finish it. */}
+          {section !== 'in_progress' && (
+            <IconButton size="small" disabled={busy} aria-label={`Drop ${task.id}`}
+                        onClick={() => onAsk({
+                          tool: 'drop', args: { id: task.id }, verb: 'Drop it',
+                          title: task.title,
+                          body: 'The line and its detail are removed and no history is '
+                            + 'written, as though it was never filed. Git keeps it; the '
+                            + 'board will not.',
+                        })}>
+              <span aria-hidden>✕</span>
+            </IconButton>
+          )}
+        </Stack>
+      )}
+    >
       <ListItemText
         primary={task.title}
         // `anywhere` breaks a word only when there is no other way to fit it, so
