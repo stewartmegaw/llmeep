@@ -17,10 +17,10 @@ PLT-6vgh Test tm review end to end: a real commit through both reviewer APIs  fi
 PLT-2gdj Periodically check connectors — Gmail, Google Docs — and turn what they find into captures  detail  filed:2026-09-07
 PLT-hrpu An agenda holds nothing the repo keeps — decide whether it should exist at all  detail  filed:2026-09-12
 PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; use typeable() so they stay typeable  filed:2026-09-12
-PLT-zs7t A read never syncs, so a second writer sees a confident stale board with no hint it is behind  filed:2026-09-21
 
 ## recent
 
+2026-09-21  PLT-zs7t A read never syncs, so a second writer sees a confident stale board with no hint it is behind  @stewart
 2026-09-21  PLT-f5e9 Dropping a promoted task leaves the note pointing at nothing, and nm check then blocks every commit in the repo  @stewart
 2026-09-21  PLT-cjgb Several tasks can run at once: a current-task pointer per checkout replaces the on-board anchor and WIP-1  @stewart
 2026-09-21  PLT-94kz The app stages tasks/ and notes/ whole, so a modified tool or ontology under _tooling lands in a records commit  @stewart
@@ -35,4 +35,3 @@ PLT-zs7t A read never syncs, so a second writer sees a confident stale board wit
 2026-09-14  PLT-avfj A domain ontology recorded as a folder shows nothing in the app; tm accepts a folder and the catalogue only takes a file  @stewart
 2026-09-14  PLT-25ew An adopter reports the board clipping at 390px: titles cut mid-word, filter pills off-screen with no way to reach them  @stewart
 2026-09-14  PLT-nmeg The conversation gets its own space: a fourth tab on a phone, a pane beside the tabs on anything wider  @stewart
-2026-09-14  PLT-zs4j The app header shows the road runner rather than the word llmeep  @stewart

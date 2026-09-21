@@ -178,6 +178,8 @@ commits — what you say to the user is enforced by nobody.
 - **`tm add` files into the pool, not the queue.** A bare `tm go` will not pick it up. If the
   user says the thing they just filed is next, that is `tm add -n` or a following
   `tm prioritise` — say which you used.
+- **A board read is fetched first**, so "N commit(s) on the remote you do not have" means what
+  is on screen is behind — `git pull` before acting on it. Silent when there is no remote.
 - **A merge that touched the records is `tm resolve`**, never a textual fix — and worth running
   even when git reported no conflict, because a clean merge of a board is not a correct one. It
   writes the files and leaves the commit to you; read what it says it chose.

@@ -15,6 +15,7 @@ import secrets
 import shutil
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -991,11 +992,69 @@ def cmd_resolve(args):
     print()
 
 
+# ------------------------------------------------------------------- syncing
+#
+# **A read of a private replica is not a read of the records.** Nothing here
+# consulted the remote, so a second writer saw a confident board off whatever
+# happened to be on disk — one adopter's checkout was eleven record commits
+# behind, and the only signal was a push rejected hours later, long after the
+# state had been read, reasoned about and reported to the person who asked
+# (`PLT-zs7t`).
+#
+# Principle 8 makes the repo the centre and an interface a door onto it;
+# principle 6 makes git the database. A door that reads a stale copy is neither.
+#
+# **Fetch, never pull.** This updates the remote-tracking refs and touches no
+# branch, no index and no working tree — so `DEC-005` still holds in substance:
+# what git does *to this repository* stays the caller's act, and merging is
+# `git pull` or `tm resolve`, both of which somebody asks for.
+SYNCED = "tm-fetched"
+SYNC_EVERY = 60          # seconds; a burst of commands costs one round trip
+SYNC_TIMEOUT = 5         # a slow remote must not hold up a board read
+
+
+def sync_upstream():
+    """Fetch if it has been a while, then say how far behind this branch is.
+
+    Silent about everything that is not the answer. No upstream, no network, a
+    remote that refuses — all of them return `None`, because working offline has
+    to keep working and a warning nobody can act on is noise.
+    """
+    upstream = git("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}").strip()
+    if not upstream:
+        return None
+    stamp = _gitpath(REPO, SYNCED)
+    now = time.time()
+    if stamp and os.path.exists(stamp) and now - os.path.getmtime(stamp) < SYNC_EVERY:
+        return behind_by(upstream)
+    try:
+        subprocess.run(["git", "fetch", "--quiet"], cwd=REPO, capture_output=True,
+                       text=True, timeout=SYNC_TIMEOUT)
+    except Exception:                                  # noqa: BLE001 — offline is normal
+        return behind_by(upstream)
+    if stamp:
+        try:
+            with open(stamp, "w") as fh:
+                fh.write(str(int(now)))
+        except OSError:
+            pass
+    return behind_by(upstream)
+
+
+def behind_by(upstream):
+    try:
+        return int((git("rev-list", "--count", f"HEAD..{upstream}") or "0").strip())
+    except ValueError:
+        return None
+
+
 def push_state():
     """`clear`, `records`, `code` or `no upstream`, and how many commits.
 
-    Reads and reports; it never pushes. Every git call in this file is a read,
-    and `DEC-005` keeps it that way — the agent acts on this, the tool does not.
+    Reads and reports; it never pushes. Every git call in this file is a read of
+    this repository — `sync_upstream` fetches, which writes remote-tracking refs
+    and touches no branch, index or working tree — and `DEC-005` keeps it that
+    way: the agent acts on this, the tool does not.
     """
     top = (git("rev-parse", "--show-toplevel") or "").strip()
     if not top:
@@ -4307,6 +4366,19 @@ def main():
     # corrupted value. `--json` is the same failure with a wider blast radius:
     # a banner ahead of the document makes the whole thing unparseable, which
     # is how `board --json` failed the first time it was run (`PLT-6yjz`).
+    # **Every command that touches a record, and never `check`.** A board read
+    # off a private replica is the defect this answers, but ranking against a
+    # stale order or closing what somebody else closed is worse than reading one
+    # — so the writes fetch too. `check` never does: it runs in every commit
+    # hook, and a network call there stops people committing on a plane
+    # (`PLT-zs7t`).
+    if argv[0] not in ("check", "audience", "feedback", "ontology", "review", "resolve"):
+        waiting = sync_upstream()
+        if waiting:
+            # stderr, so a document stays a document: `--json` and `--chat` are
+            # read by something that will not forgive a line of prose.
+            print(f"\n  ~ {waiting} commit(s) on the remote you do not have — `git pull` "
+                  f"before trusting this", file=sys.stderr)
     machine = ("--json" in argv) or ("--chat" in argv) or (argv[0] == "add" and "--id" in argv)
     kind = None if machine or argv[0] in ("check", "audience", "unpushed") else audience()
     if kind:
