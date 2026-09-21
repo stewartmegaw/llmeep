@@ -15,6 +15,7 @@ Run from the repo root:
 llmeep/notes/_tooling/nm add [--from <src>] <text...>   # capture; reads stdin for batch
 llmeep/notes/_tooling/nm drop <NTE-id | file>           # remove a note, or a processed capture
 llmeep/notes/_tooling/nm promote <NTE-id> [-b] [-n]     # note becomes a task, linked both ways
+llmeep/notes/_tooling/nm unpromote <NTE-id>            # undo that, keeping the note
 llmeep/notes/_tooling/nm prune [--yes]                  # bound raw/, drop shipped notes; dry without --yes
 llmeep/notes/_tooling/nm notes [--chat] [--all]         # the window, rendered to pass on as it is
 llmeep/notes/_tooling/nm find <term>                    # search every note ever captured
@@ -78,6 +79,7 @@ producing fifteen, you are transcribing rather than distilling.
 | pastes a transcript / "here are the notes from the call" | distil → `nm add --from <src>` → `nm promote` the actionable ones |
 | "note that down" / "remember that" | `nm add <text>` |
 | "that should be a task" | `nm promote <NTE-id>` |
+| "that task was dropped" / a note pointing at nothing | `nm unpromote <NTE-id>` — clears the pointer, keeps the note, and it can be promoted again |
 | "did we discuss X" / "what did they say about Y" | `nm find <term>` |
 | "what's in the inbox" | `ls llmeep/notes/raw/` |
 | "I've processed that file" | `nm drop <file>` |

@@ -2958,6 +2958,94 @@ class TestBoardExport(Fixture):
             self.assertEqual(fh.read(), before, "board --json wrote to the board")
 
 
+class TestOrphanedNote(Fixture):
+    """`PLT-f5e9`. Reported by an adopter whose repository could not commit
+    anything. `tm drop` on a promoted task leaves the note pointing at an id
+    that no longer exists — `drop` writes nothing anywhere by design
+    (`DEC-024`) — and `nm check` called that an error. `pre-commit` runs that
+    checker, so a drop performed days earlier in another checkout blocked every
+    commit in the repository, including ones touching no record at all.
+
+    The model and the checker disagreed outright: the notes ontology says a note
+    outlives the task it became, and the checker said that state was illegal."""
+
+    def a_repo(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "commit", "-qm", "adopt", cwd=top)
+        return top
+
+    def promoted(self, top):
+        out = self.nm(top, "add", "an idea worth doing")
+        nid = re.search(r"NTE-\S+", out.stdout).group(0)
+        tid = re.search(r"PLT-\S+", self.nm(top, "promote", nid).stdout).group(0)
+        return nid, tid
+
+    def test_a_dropped_task_does_not_stop_the_repo_committing(self):
+        top = self.a_repo()
+        nid, tid = self.promoted(top)
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "commit", "-qm", "promote", cwd=top)
+        self.assertEqual(self.tm(top, "drop", tid).returncode, 0)
+
+        out = self.nm(top, "check")
+        self.assertEqual(out.returncode, 0, "the checker still fails on a legal state")
+        self.assertIn("no longer exists", out.stdout)
+        self.assertIn(f"nm unpromote {nid}", out.stdout, "it does not name its own repair")
+
+        with open(os.path.join(top, "src", "app.py"), "a") as fh:
+            fh.write("nothing to do with records\n")
+        sh("git", "add", "-A", cwd=top)
+        commit = sh("git", "commit", "-m", "unrelated work", cwd=top)
+        self.assertEqual(commit.returncode, 0,
+                         f"an unrelated commit is still blocked:\n{commit.stdout}{commit.stderr}")
+
+    def test_unpromote_puts_the_note_back(self):
+        """The verb that was missing. Principle 2 names dangling references as
+        what hand-editing breaks, so a command that makes one and leaves none to
+        repair it is the machinery contradicting its own principle."""
+        top = self.a_repo()
+        nid, tid = self.promoted(top)
+        self.tm(top, "drop", tid)
+
+        out = self.nm(top, "unpromote", nid)
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertEqual(self.nm(top, "check").returncode, 0)
+        self.assertIn("✓ notes consistent", self.nm(top, "check").stdout)
+
+        with open(os.path.join(self.install_root(top), "notes", "notes.md")) as fh:
+            self.assertNotIn("task:", fh.read(), "the pointer survived")
+        with open(os.path.join(self.install_root(top),
+                               "notes", "_tooling", "history.tsv")) as fh:
+            rows = [l for l in fh if nid in l]
+        self.assertTrue(rows and tid not in rows[0], f"history still links it: {rows}")
+
+        # A note again, which is the honest state: somebody decided the idea was
+        # not work after all.
+        self.assertEqual(self.nm(top, "promote", nid).returncode, 0,
+                         "it cannot be promoted a second time")
+
+    def test_unpromote_refuses_what_was_never_promoted(self):
+        top = self.a_repo()
+        out = self.nm(top, "add", "just a thought")
+        nid = re.search(r"NTE-\S+", out.stdout).group(0)
+        refused = self.nm(top, "unpromote", nid)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn("nothing to undo", refused.stdout + refused.stderr)
+
+    def test_drop_names_the_note_it_orphans(self):
+        """So the pointer is not discovered by a blocked commit a week later.
+        `tm` reads `notes/` for this, the same way the standup does — the other
+        direction would tie two trees together that are meant to lift apart."""
+        top = self.a_repo()
+        nid, tid = self.promoted(top)
+        out = self.tm(top, "drop", tid)
+        self.assertIn(nid, out.stdout)
+        self.assertIn("nm unpromote", out.stdout)
+
+
 class TestNotesRender(Fixture):
     """`PLT-8fmt`, `DEC-050`. The notes render was a worked example and nine
     rules in the nm skill — the same fourth-renderer-in-prose the board and the

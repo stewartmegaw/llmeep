@@ -133,3 +133,4 @@
 2026-09-21	PLT-4spu	platform	Drag a task to order the queue, and drag it between backlog and prioritised	stewart
 2026-09-21	PLT-94kz	platform	The app stages tasks/ and notes/ whole, so a modified tool or ontology under _tooling lands in a records commit	stewart
 2026-09-21	PLT-cjgb	platform	Several tasks can run at once: a current-task pointer per checkout replaces the on-board anchor and WIP-1	stewart
+2026-09-21	PLT-f5e9	platform	Dropping a promoted task leaves the note pointing at nothing, and nm check then blocks every commit in the repo	stewart

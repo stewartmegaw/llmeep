@@ -106,6 +106,13 @@ existed. Once the task has a permanent row of its own, the note is a second reco
 and git keeps the deleted row like any other (`git log -S <id>`). `nm prune` does the removing;
 see [`DEC-023`](https://github.com/stewartmegaw/llmeep/blob/main/decisions/DEC-023-a-shipped-note-is-removed-outright.md).
 
+**Dropping that task leaves the pointer behind, and that is legal.** `drop` writes nothing
+anywhere (`DEC-024`), so the id on the note stops resolving — which `check` used to call an
+error, and `pre-commit` turned into a repository that could not commit at all (`PLT-f5e9`).
+It warns now and names the repair: **`nm unpromote <id>`** clears the pointer and keeps the
+note, which can then be promoted again. `tm drop` says which note it orphaned, because a
+dangling reference found by a blocked commit a week later is the worst way to learn of it.
+
 ## Archive and history
 
 Exactly the split taskman uses, for the same reason.

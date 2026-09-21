@@ -458,6 +458,38 @@ def cmd_notes(args):
     return 0
 
 
+def cmd_unpromote(args):
+    """**Undo a promotion, keeping the note.**
+
+    The gap an adopter found by hitting it: `drop` on a promoted task leaves the
+    note pointing at something that no longer exists, and the only ways out were
+    destroying the note with its history row or editing a record by hand — which
+    principle 2 names as the thing that breaks references. A command that makes
+    a dangling pointer and leaves none to repair it is the machinery
+    contradicting its own principle, so the missing verb is the defect
+    (`PLT-f5e9`).
+
+    The note goes back to being a note. It can be promoted again, which is the
+    honest state: somebody decided the idea was not work after all.
+    """
+    if not args:
+        raise Fail("usage: nm unpromote <NTE-id>")
+    nid = args[0]
+    archive = Archive()
+    note = archive.find(nid)
+    if not note:
+        raise Fail(f"no note {nid}")
+    if not note.task:
+        raise Fail(f"{note.id} is not a task — nothing to undo")
+    was = note.task
+    note.tags = [t for t in note.tags if not t.startswith("task:")]
+    archive.save()
+    history_relink(note.id, "")   # the column is cleared, not removed
+    print(f"\n  {note.id}  {note.text}")
+    print(f"  no longer {was} — a note again, and promotable\n")
+    return 0
+
+
 def cmd_promote(args):
     """A note becomes a task. The note stays until that task ships — a task can
     be parked or dropped, and until it lands the note is the only record the
@@ -638,7 +670,19 @@ def cmd_check(args):
             errors.append(f"{note.id}: note is {len(note.text)} characters, "
                           f"the cap is {TEXT_MAX}")
         if note.task and note.task not in known_tasks:
-            errors.append(f"{note.id} points at {note.task}, which does not exist")
+            # **A warning, not an error** (`PLT-f5e9`). The model says a note
+            # outlives the task it became — "a task can be parked or dropped,
+            # and the note is the only record the idea existed" — and `drop`
+            # writes nothing anywhere (`DEC-024`), so the id it leaves behind
+            # points at nothing by design. The checker called that an error, and
+            # because `pre-commit` runs it, a drop performed days earlier in
+            # another checkout blocked *every* commit in the repository.
+            #
+            # Named with its repair rather than merely tolerated: a pointer to
+            # nothing never ships, so `prune` never clears it and the note sits
+            # there looking promoted for good.
+            warnings.append(f"{note.id} points at {note.task}, which no longer exists "
+                            f"— `nm unpromote {note.id}` to put it back")
     for w in warnings:
         print(f"  ~ {w}")
     for e in errors:
@@ -655,6 +699,7 @@ USAGE = """nm — notes
   nm add [--from <src>] <text...>   capture to the archive; reads stdin for batch
   nm drop <NTE-id | file>           remove a note, or a processed capture
   nm promote <NTE-id> [-b] [-n]     turn a note into a task
+  nm unpromote <NTE-id>             undo that, keeping the note
   nm prune [--yes]                  bound raw/ and the archive
   nm notes [--chat] [--all]         the window; --chat renders it to pass on as it is
   nm notes --json                   the window as data, for an interface
@@ -672,6 +717,7 @@ def main():
         print(USAGE)
         return 0
     commands = {"add": cmd_add, "drop": cmd_drop, "promote": cmd_promote,
+                "unpromote": cmd_unpromote,
                 "prune": cmd_prune, "find": cmd_find, "check": cmd_check,
                 "notes": cmd_notes}
     cmd = commands.get(argv[0])

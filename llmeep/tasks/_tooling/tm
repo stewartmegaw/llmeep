@@ -2564,10 +2564,37 @@ def cmd_drop(args):
             shutil.rmtree(detail) if os.path.isdir(detail) else os.remove(detail)
         print(f"  dropped {task.id}  {task.title}")
         if detail:
-            print(f"  and its detail {os.path.relpath(detail, os.getcwd())}")
+            print(f"  and its detail {typeable(detail)}")
+        orphan = note_pointing_at(task.id)
+        if orphan:
+            # **Said, not done.** The note is the other subsystem's record, and
+            # `nm` reads this ledger rather than the other way round — closing
+            # that loop would tie two trees together that are meant to lift
+            # apart (`DEC-022`). What this owes is the sentence that stops the
+            # pointer being discovered by a blocked commit (`PLT-f5e9`).
+            print(f"  {orphan} was promoted from a note — `nm unpromote {orphan}` "
+                  f"puts it back")
         print(f"  git keeps it — `git log -S {task.id}`")
         return
     raise Fail(f"no task {tid} on either board — `tm find {tid}` if it was completed")
+
+
+def note_pointing_at(tid):
+    """The note this task was promoted from, if the notes subsystem is here.
+
+    Reads `notes/` directly and shrugs when it is absent, exactly as the standup
+    does (`DEC-022`). One grep of a file that is already bounded."""
+    archive = os.path.join(REPO, "notes", "notes.md")
+    if not os.path.exists(archive):
+        return None
+    try:
+        with open(archive) as fh:
+            for line in fh:
+                if f"task:{tid}" in line:
+                    return line.split()[0]
+    except OSError:
+        return None
+    return None
 
 
 def cmd_find(args):
