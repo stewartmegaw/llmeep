@@ -2564,6 +2564,31 @@ print(json.dumps(out))
         self.assertNotIn("error", result, result)
         self.assertEqual(self.committed_files(top), ["tasks/platform/board.md"])
 
+    def test_llmeeps_own_machinery_stays_out_of_a_records_commit(self):
+        """`PLT-94kz`. `tasks/` and `notes/` hold the boards and the archive *and*
+        `tm`, `nm`, the ontologies, the hooks and the blueprints — all installed
+        by `adopt` and named in the manifest. Staging the trees whole swept a
+        modified tool into a commit that says it is about records: a message that
+        lies about a change nobody reviewed.
+
+        Unstaged rather than refused. An adopter who ran `--update` and then
+        tapped a button has done nothing wrong, and their update is still there
+        to commit when they mean to."""
+        top = self.adopted("machinery")
+        tool = os.path.join(self.install_root(top), "notes", "_tooling", "nm")
+        with open(tool, "a") as fh:
+            fh.write("\n# an adopter's local tweak\n")
+
+        result = self.drive(top, self.FILE_ONE)
+        self.assertNotIn("error", result, result)
+        self.assertEqual(self.committed_files(top), ["llmeep/tasks/platform/board.md"],
+                         "llmeep's own machinery was committed as a record")
+
+        staged = sh("git", "diff", "--cached", "--name-only", cwd=top).stdout
+        self.assertNotIn("_tooling/nm", staged, "their change was left staged")
+        dirty = sh("git", "status", "--porcelain", cwd=top).stdout
+        self.assertIn("_tooling/nm", dirty, "their change was reverted rather than unstaged")
+
     def test_their_uncommitted_work_is_exactly_as_they_left_it(self):
         top = self.adopted("untouched")
         self.theirs_dirty(top)

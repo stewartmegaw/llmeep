@@ -17,10 +17,10 @@ PLT-6vgh Test tm review end to end: a real commit through both reviewer APIs  fi
 PLT-2gdj Periodically check connectors — Gmail, Google Docs — and turn what they find into captures  detail  filed:2026-09-07
 PLT-hrpu An agenda holds nothing the repo keeps — decide whether it should exist at all  detail  filed:2026-09-12
 PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; use typeable() so they stay typeable  filed:2026-09-12
-PLT-94kz The app stages tasks/ and notes/ whole, so a modified tool or ontology under _tooling lands in a records commit  filed:2026-09-21
 
 ## recent
 
+2026-09-21  PLT-94kz The app stages tasks/ and notes/ whole, so a modified tool or ontology under _tooling lands in a records commit  @stewart
 2026-09-21  PLT-4spu Drag a task to order the queue, and drag it between backlog and prioritised  @stewart
 2026-09-21  PLT-naj8 The conversation pane: 20% wider on tablet, and answers rendered as markdown rather than flat text  @stewart
 2026-09-21  PLT-mv62 Ordering the queue needs a verb: prioritise --after, so a position can be asked for rather than hand-edited  @stewart
@@ -35,4 +35,3 @@ PLT-94kz The app stages tasks/ and notes/ whole, so a modified tool or ontology 
 2026-09-14  PLT-zs4j The app header shows the road runner rather than the word llmeep  @stewart
 2026-09-13  PLT-ks8p A webhook endpoint so a push to the default branch reaches the app, resolving record conflicts and pushing the result  @stewart
 2026-09-13  PLT-f4n6 The app header should say when the records last changed, in small text under the title  @stewart
-2026-09-13  PLT-u7c3 Records must survive a merge whether git noticed or not: resolve from three sides, conflict or clean  @stewart

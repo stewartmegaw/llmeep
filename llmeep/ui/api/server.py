@@ -1013,6 +1013,30 @@ def commit(message, closes=None):
     """
     allowed = writable_paths()
     git("add", "--", *allowed)
+    # **`_tooling/` is inside the record trees and is not a record.** `tasks/`
+    # and `notes/` hold the boards and the archive *and* `tm`, `nm`, the
+    # ontologies, the hooks and the blueprints — all of it installed by `adopt`
+    # and listed in the manifest. Staging the trees whole therefore swept a
+    # modified tool into a commit that says it is about records, which is a
+    # commit message that lies and a change nobody reviewed (`PLT-94kz`).
+    #
+    # Unstaged rather than refused: an adopter running `--update` and then
+    # tapping a button has done nothing wrong, and their update is still there
+    # to commit deliberately.
+    ours = llmeep_files()
+    folder = records_folder()
+
+    def manifest_key(path):
+        """What the manifest calls this path. Its keys are relative to the
+        install, and a flat install has no folder to strip."""
+        return path[len(folder) + 1:] if folder and path.startswith(folder + "/") else path
+
+    machinery = [p for p in staged_paths() if manifest_key(p) in ours]
+    if machinery:
+        # `reset HEAD --`, not `restore --staged`: this runs against whatever git
+        # an adopter has, and `restore` arrived in 2.23. Found by the one here
+        # being older than that.
+        git("reset", "-q", "HEAD", "--", *machinery)
     staged = staged_paths()
     if not staged:
         return None
