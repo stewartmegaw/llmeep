@@ -6,6 +6,7 @@ import {
   Toolbar, Typography, useMediaQuery, useTheme,
 } from '@mui/material'
 import Read, { Doc, size } from './Read.jsx'
+import Markdown from './Markdown.jsx'
 import Pills from './Pills.jsx'
 
 // Where this is mounted. The server injects it; a dev server has none.
@@ -462,7 +463,7 @@ function ConversationPane({ conversation }) {
   return (
     <Paper variant="outlined" square
            sx={{
-             width: 380, flexShrink: 0, position: 'sticky', top: HEADER,
+             width: 456, flexShrink: 0, position: 'sticky', top: HEADER,
              height: `calc(100vh - ${HEADER}px)`,
              display: 'flex', flexDirection: 'column',
              borderTop: 0, borderRight: 0, borderBottom: 0,
@@ -753,9 +754,21 @@ function Turn({ turn }) {
     <Alert severity={turn.who === 'error' ? 'error'
              : turn.note ? 'warning' : turn.changed ? 'success' : 'info'}
            icon={false} sx={{ mb: 1 }}>
-      <Typography sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-        {turn.text}
-      </Typography>
+      {/* **The agent writes markdown, because everything it reads is markdown.**
+          Flat text put `**bold**` and `- a list` on the screen as typed, and
+          folded every line break into a space — the same defect the notes had,
+          one layer along. What a person typed stays flat: they did not mean
+          `*` to be emphasis (`PLT-naj8`). */}
+      {turn.who === 'llmeep' ? (
+        <Box sx={{ '& > :first-of-type': { mt: 0 }, '& > :last-child': { mb: 0 },
+                   overflowWrap: 'anywhere' }}>
+          <Markdown text={turn.text} />
+        </Box>
+      ) : (
+        <Typography sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+          {turn.text}
+        </Typography>
+      )}
       {turn.note && (
         <Typography variant="body2" sx={{ mt: 1, opacity: 0.9 }}>{turn.note}</Typography>
       )}

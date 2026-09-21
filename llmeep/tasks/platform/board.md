@@ -5,7 +5,6 @@
 
 ## prioritised
 
-PLT-naj8 The conversation pane: 20% wider on tablet, and answers rendered as markdown rather than flat text  filed:2026-09-21
 PLT-6yjz A mobile-first web UI for llmeep: add by prompt, edit and delete tasks, read details, drop notes  detail  commits:9  filed:2026-09-07
 
 ## backlog
@@ -23,6 +22,7 @@ PLT-4spu Drag a task to order the queue, and drag it between backlog and priorit
 
 ## recent
 
+2026-09-21  PLT-naj8 The conversation pane: 20% wider on tablet, and answers rendered as markdown rather than flat text  @stewart
 2026-09-21  PLT-mv62 Ordering the queue needs a verb: prioritise --after, so a position can be asked for rather than hand-edited  @stewart
 2026-09-21  PLT-pudy Notes should be a list you can act on: promote one to a task or drop it, which needs nm to export them  @stewart
 2026-09-21  PLT-7kk3 A verb you already know should be a button: done and drop on a task, without a trip through the model  @stewart
@@ -37,4 +37,3 @@ PLT-4spu Drag a task to order the queue, and drag it between backlog and priorit
 2026-09-13  PLT-f4n6 The app header should say when the records last changed, in small text under the title  @stewart
 2026-09-13  PLT-u7c3 Records must survive a merge whether git noticed or not: resolve from three sides, conflict or clean  @stewart
 2026-09-13  PLT-xxcu The app commits but never pushes, so records changed on a phone are not live for anyone else  @stewart
-2026-09-13  PLT-e7u9 An adopter's UI shows llmeep's own ontology in a tab; it should show theirs, or nothing  @stewart
