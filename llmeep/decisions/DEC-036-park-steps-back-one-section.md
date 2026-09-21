@@ -1,15 +1,21 @@
 ---
 id: DEC-036
 title: Every board transition has a verb, and park is the one that steps back
-status: accepted
+status: superseded
 decided: 2026-08-17
 deciders: [stew]
 supersedes: []
-superseded_by: []
+superseded_by: [DEC-056]
 relates_to: [DEC-001, DEC-024, DEC-027]
 ---
 
 # DEC-036 — Every board transition has a verb, and `park` is the one that steps back
+
+**Superseded by [`DEC-056`](DEC-056-the-order-of-the-queue-is-askable.md), 2026-09-21**,
+which keeps all of this except one sentence: reordering *within* `prioritised` is no longer
+a hand edit, because an interface has no hands to edit a file with. Everything below about
+transitions having verbs, and about `park` stepping back one rung read off the record,
+still holds.
 
 ## Context
 

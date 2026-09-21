@@ -18,6 +18,7 @@ tm add [-b] [-n] <title...>   # -b business ledger, -n prioritise it
 tm status                     # where things stand; starts nothing, writes nothing
 tm go [id]                    # show the current task, or start the next one
 tm prioritise <id> [-n]       # backlog → prioritised, -n for the top
+tm prioritise <id> --after <id>  # …or behind one already ranked
 tm park [id] [-n]             # step it back one section, unassigned
 tm done [id] [--force]        # complete it
 tm retitle <id> <title...>    # reword one, keeping its id and its place
@@ -170,9 +171,9 @@ commits — what you say to the user is enforced by nobody.
 - **Run `done` before committing**, and put `closes <id>` in the message when acceptance is met.
   Board, history and code land together, and that trailer is the only record linking the two.
 - **Never write to `board.md` yourself.** Every move between sections has a verb — `add`,
-  `prioritise`, `go`, `park`, `done`, `drop` — so reaching for the file means you have the wrong
-  verb, not that the tool is missing one (`DEC-036`). Reordering *within* `prioritised` is the
-  one exception, and it is a hand edit by design.
+  `prioritise`, `go`, `park`, `done`, `drop` — and so does the order of the queue:
+  `prioritise <id> --after <id>`, or `-n` for the top (`DEC-056`). Reaching for the file means you
+  have the wrong verb, not that the tool is missing one.
 - **`tm add` files into the pool, not the queue.** A bare `tm go` will not pick it up. If the
   user says the thing they just filed is next, that is `tm add -n` or a following
   `tm prioritise` — say which you used.

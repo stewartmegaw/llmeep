@@ -1762,7 +1762,8 @@ def show_task(board, task, started):
 
 
 def cmd_prioritise(args):
-    """backlog → prioritised, at the bottom of the queue (`-n` for the top).
+    """Rank a task, and say where: bottom by default, `-n` for the top, or
+    `--after <id>` for the place behind one already ranked.
 
     By the reordering exemption this could be a hand edit — moving a line
     between two open sections breaks no invariant, and `go <id>` already starts
@@ -1771,12 +1772,24 @@ def cmd_prioritise(args):
     a week's filings by hand is where a stray line ends up in `recent` with no
     date, which `check` catches but only after the fact.
 
+    **`--after` makes the order itself askable** (`DEC-056`). It was a hand edit
+    by design, which held while the only hands were at a terminal — an interface
+    cannot hand-edit `board.md` without becoming a second implementation of the
+    model, and telling it to is the one thing `DEC-036` refuses to teach.
+
+    **Positioned by neighbour, never by index.** *Third* is a fact about a list
+    somebody else may have just changed; *after `PLT-9puy`* is a fact about two
+    tasks, and survives the queue moving under it.
+
     Hand editing stays entirely valid. This writes the same file the same way.
     """
+    after, args = take_flag(args, "--after")
     top = "-n" in args
     rest = [a for a in args if a != "-n"]
     if not rest:
-        raise Fail("usage: tm prioritise <id> [-n]")
+        raise Fail("usage: tm prioritise <id> [-n | --after <id>]")
+    if after and top:
+        raise Fail("-n and --after are two different places")
     for tid in rest:
         moved = False
         for ledger in LEDGERS:
@@ -1784,16 +1797,33 @@ def cmd_prioritise(args):
             task, bucket = board.find(tid)
             if not task:
                 continue
-            if bucket is board.prioritised:
-                raise Fail(f"{task.id} is already prioritised")
-            if bucket is not board.backlog:
+            placed = top or after
+            if bucket is board.prioritised and not placed:
+                raise Fail(f"{task.id} is already prioritised — "
+                           "`-n` or `--after <id>` to move it")
+            if bucket not in (board.backlog, board.prioritised):
                 raise Fail(f"{task.id} is not in the backlog — "
                            "it is in progress or completed")
-            board.backlog.remove(task)
-            board.prioritised.insert(0, task) if top else board.prioritised.append(task)
+            neighbour = None
+            if after:
+                neighbour, _ = board.find(after)
+                if not neighbour or neighbour not in board.prioritised:
+                    raise Fail(f"nothing ranked as {after} to sit behind")
+                if neighbour is task:
+                    raise Fail(f"{task.id} cannot go after itself")
+            bucket.remove(task)
+            if neighbour is not None:
+                board.prioritised.insert(board.prioritised.index(neighbour) + 1, task)
+            elif top:
+                board.prioritised.insert(0, task)
+            else:
+                board.prioritised.append(task)
             board.save()
+            where = (f"after {neighbour.id}" if neighbour is not None
+                     else "top" if top else "bottom")
             print(f"  {task.id}  {task.title}")
-            print(f"  {ledger} · {'top' if top else 'bottom'} of prioritised")
+            print(f"  {ledger} · {where} of prioritised" if neighbour is None
+                  else f"  {ledger} · {where}")
             blocker = board.is_blocked(task)
             if blocker:
                 # Worth ranking anyway — you are saying it is next once the
@@ -3856,7 +3886,8 @@ USAGE = """tm — taskman
   tm board --chat [--recent]    the board rendered to pass on as it is
   tm unpushed [--json]          what is unpushed, and whether it may go out
   tm go [id] [-f who]           show your current task, or start the next one
-  tm prioritise <id> [-n]       backlog → prioritised (-n puts it on top)
+  tm prioritise <id>            backlog → prioritised; -n for the top,
+         [-n | --after <id>]    --after to sit behind one already ranked
   tm park [id] [-n]             step it back one section (-n for the top of prioritised)
   tm done [id] [--force]        complete it, then commit with "closes <id>"
   tm retitle <id> <title...>    reword a task, keeping its id and its place

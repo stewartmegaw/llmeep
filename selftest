@@ -3455,6 +3455,115 @@ class TestStatus(Fixture):
         self.assertIn("Migrate the config loader", context)
 
 
+class TestOrdering(Fixture):
+    """`PLT-mv62`, `DEC-056`. `prioritised` is the only ordered section and its
+    position *is* the priority, so changing that order is a decision somebody
+    makes — and it had no verb. That was fine while every hand was at a
+    terminal; an interface cannot hand-edit `board.md` without becoming a second
+    implementation of the model."""
+
+    def a_repo(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        return top
+
+    def queued(self, top, *titles):
+        """Ranked in the order given, which `-n` alone cannot express."""
+        ids = []
+        for title in titles:
+            tid = self.tm(top, "add", "--id", title).stdout.strip()
+            self.tm(top, "prioritise", tid)
+            ids.append(tid)
+        return ids
+
+    def order(self, top):
+        with open(os.path.join(self.install_root(top),
+                               "tasks", "platform", "board.md")) as fh:
+            body = fh.read()
+        queue = body.split("## prioritised")[1].split("## backlog")[0]
+        return [l.split()[0] for l in queue.split("\n") if l.strip()]
+
+    def test_a_task_can_be_put_behind_another(self):
+        top = self.a_repo()
+        one, two, three = self.queued(top, "first", "second", "third")
+        self.assertEqual(self.order(top), [one, two, three])
+
+        out = self.tm(top, "prioritise", three, "--after", one)
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertEqual(self.order(top), [one, three, two])
+        self.assertIn(f"after {one}", out.stdout)
+
+    def test_a_ranked_task_can_be_moved(self):
+        """Repositioning is the whole point, so being ranked already is not a
+        refusal when a place is named."""
+        top = self.a_repo()
+        one, two, three = self.queued(top, "first", "second", "third")
+        self.assertEqual(self.tm(top, "prioritise", three, "-n").returncode, 0)
+        self.assertEqual(self.order(top), [three, one, two])
+
+    def test_a_pooled_task_lands_where_it_is_told(self):
+        """One move, not two: an interface dropping a backlog task into the
+        middle of the queue says where in the same breath."""
+        top = self.a_repo()
+        one, two = self.queued(top, "first", "second")
+        pooled = self.tm(top, "add", "--id", "from the pool").stdout.strip()
+        self.assertEqual(self.tm(top, "prioritise", pooled, "--after", one).returncode, 0)
+        self.assertEqual(self.order(top), [one, pooled, two])
+
+    def test_without_a_place_a_ranked_task_is_still_refused(self):
+        """The old error, kept: a bare `prioritise` on something already ranked
+        asked for nothing, and silently moving it to the bottom would be a
+        reordering nobody requested."""
+        top = self.a_repo()
+        one, _ = self.queued(top, "first", "second")
+        out = self.tm(top, "prioritise", one)
+        self.assertNotEqual(out.returncode, 0)
+        self.assertIn("already prioritised", out.stdout + out.stderr)
+        self.assertIn("--after", out.stdout + out.stderr, "it does not say what would move it")
+
+    def test_a_neighbour_has_to_be_in_the_queue(self):
+        top = self.a_repo()
+        one, _ = self.queued(top, "first", "second")
+        pooled = self.tm(top, "add", "--id", "in the pool").stdout.strip()
+        out = self.tm(top, "prioritise", one, "--after", pooled)
+        self.assertNotEqual(out.returncode, 0)
+        self.assertIn("nothing ranked", out.stdout + out.stderr)
+
+    def test_it_cannot_go_after_itself(self):
+        top = self.a_repo()
+        one, _ = self.queued(top, "first", "second")
+        out = self.tm(top, "prioritise", one, "--after", one)
+        self.assertNotEqual(out.returncode, 0)
+        self.assertIn("after itself", out.stdout + out.stderr)
+
+    def test_two_places_at_once_is_refused(self):
+        top = self.a_repo()
+        one, two = self.queued(top, "first", "second")
+        out = self.tm(top, "prioritise", two, "-n", "--after", one)
+        self.assertNotEqual(out.returncode, 0)
+        self.assertIn("two different places", out.stdout + out.stderr)
+
+    def test_work_in_progress_is_not_reordered(self):
+        """`prioritised` is a queue of things nobody has started. Ranking what is
+        already under way would leave it in two sections or take it out of one
+        somebody is standing in."""
+        top = self.a_repo()
+        one, _ = self.queued(top, "first", "second")
+        started = self.tm(top, "add", "--id", "under way").stdout.strip()
+        self.tm(top, "go", started)
+        out = self.tm(top, "prioritise", started, "--after", one)
+        self.assertNotEqual(out.returncode, 0)
+        self.assertIn("in progress", out.stdout + out.stderr)
+
+    def test_the_board_still_validates(self):
+        top = self.a_repo()
+        one, two, three = self.queued(top, "first", "second", "third")
+        self.tm(top, "prioritise", three, "--after", one)
+        self.tm(top, "prioritise", two, "-n")
+        self.assertEqual(self.tm(top, "check").returncode, 0)
+
+
 class TestPark(Fixture):
     """`DEC-036`. Demoting a ranked task was the one board transition with no
     verb, so it meant editing `board.md` — which for an agent is a lesson in
