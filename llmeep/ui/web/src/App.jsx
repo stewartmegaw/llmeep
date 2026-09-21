@@ -57,6 +57,8 @@ export default function App() {
   const [flash, setFlash] = React.useState(null)
   // Bumped when a verb lands, so a list that is not the board reloads too.
   const [notesAt, setNotesAt] = React.useState(0)
+  // What is being dragged and where it is hovering: `{ id, from, over, where }`.
+  const [drag, setDrag] = React.useState(null)
   const [detail, setDetail] = React.useState(null)
   // How much room the composer is taking, so nothing ends up underneath it.
   // Measured rather than guessed: a long message grows it.
@@ -121,6 +123,21 @@ export default function App() {
       setAsking(null)
     }
   }, [load])
+
+  // **A drop resolves to a verb, never to a file.** Where a task landed is a
+  // question about its neighbours, which is exactly what `prioritise --after`
+  // takes (`DEC-056`) — so the app never has to know what `board.md` looks like.
+  const dropped = React.useCallback((move) => {
+    setDrag(null)
+    // **Only the queue can be dropped into**, because it is the only section
+    // with an order: the pool has none by definition (`DEC-027`) and moving
+    // between sections is what the arrows are for. Dragging what cannot be
+    // ordered is a gesture that has to be explained afterwards.
+    if (!move || move.section !== 'prioritised') return
+    if (move.after === null) return runTool('prioritise', { id: move.id, top: true })
+    if (move.after === move.id) return
+    runTool('prioritise', { id: move.id, after: move.after })
+  }, [runTool])
 
   // A ref rather than the value: a turn reads it when it starts, and the state
   // it closes over would be whatever it was when `send` was created.
@@ -231,7 +248,8 @@ export default function App() {
         )}
         {tab === 'board' && board && Object.entries(board).map(([ledger, sections]) => (
           <Ledger key={ledger} name={ledger} sections={sections} off={off}
-                  docs={docs} onDetail={setDetail} onAsk={setAsking} busy={acting} />
+                  docs={docs} onDetail={setDetail} onAsk={setAsking} onAct={runTool}
+                  busy={acting} drag={drag} onDrag={setDrag} onDrop={dropped} />
         ))}
       </Container>
       </Box>
@@ -611,7 +629,7 @@ function Confirm({ asking, busy, onClose, onYes }) {
 
 // `off` holds the pills that have been switched off — a ledger name or a
 // section key. Empty means show everything, which is where it starts.
-function Ledger({ name, sections, off, docs, onDetail, onAsk, busy }) {
+function Ledger({ name, sections, off, docs, onDetail, onAsk, onAct, busy, drag, onDrag, onDrop }) {
   if (off.has(name)) return null
   const live = SECTIONS.filter(([key]) => !off.has(key) && sections[key]?.length)
   if (!live.length) return null
@@ -623,10 +641,12 @@ function Ledger({ name, sections, off, docs, onDetail, onAsk, busy }) {
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
             {label} ({sections[key].length})
           </Typography>
-          <List disablePadding sx={{ border: 1, borderColor: 'divider', borderRadius: 2 }}>
+          <List data-section={key} data-ledger={name} disablePadding
+                sx={{ border: 1, borderColor: 'divider', borderRadius: 2 }}>
             {sections[key].map((task, i) => (
               <Task key={task.id} task={task} docs={docs} onDetail={onDetail}
-                    section={key} onAsk={onAsk} busy={busy}
+                    section={key} onAsk={onAsk} onAct={onAct} busy={busy}
+                    drag={drag} onDrag={onDrag} onDrop={onDrop}
                     divider={i < sections[key].length - 1} />
             ))}
           </List>
@@ -634,6 +654,28 @@ function Ledger({ name, sections, off, docs, onDetail, onAsk, busy }) {
       ))}
     </Box>
   )
+}
+
+// Where a pointer is, in board terms: which section it is over, which task, and
+// whether it is above or below that task's middle.
+//
+// **Read off the page rather than tracked.** `elementFromPoint` asks the browser
+// what is under the finger, which is the same question the finger is asking —
+// and it needs no registry of rows to keep in step with a list that reloads
+// under it (`PLT-4spu`).
+function whereIsThePointer(x, y) {
+  const el = document.elementFromPoint(x, y)
+  if (!el) return null
+  const list = el.closest('[data-section]')
+  if (!list) return null
+  const row = el.closest('[data-task-id]')
+  if (!row) return { section: list.dataset.section, task: null, below: true }
+  const box = row.getBoundingClientRect()
+  return {
+    section: list.dataset.section,
+    task: row.dataset.taskId,
+    below: y > box.top + box.height / 2,
+  }
 }
 
 // The title is the handle, not the id. `PLT-6yjz` is four random characters
@@ -652,16 +694,94 @@ function Clip(props) {
   )
 }
 
-function Task({ task, docs, onDetail, section, onAsk, busy, divider }) {
+function Task({ task, docs, onDetail, section, onAsk, onAct, busy, drag, onDrag, onDrop, divider }) {
+  // **Pointer events, not HTML5 drag.** `dragstart` never fires on touch, and
+  // this screen is a phone first. Dragging begins on the handle only, so a drag
+  // never competes with scrolling the board with a thumb (`PLT-4spu`).
+  const grab = (e) => {
+    if (busy || !onDrag) return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    onDrag({ id: task.id, from: section, over: null })
+  }
+  const move = (e) => {
+    if (!drag || drag.id !== task.id) return
+    const over = whereIsThePointer(e.clientX, e.clientY)
+    onDrag({ ...drag, over })
+  }
+  const let_go = (e) => {
+    if (!drag || drag.id !== task.id) return onDrop(null)
+    e.currentTarget.releasePointerCapture?.(e.pointerId)
+    const over = drag.over
+    if (!over) return onDrop(null)
+    // The id this one should sit behind: the task it was dropped below, or the
+    // one above the task it was dropped onto. `null` means the top.
+    let after = null
+    if (over.task) {
+      if (over.below) {
+        after = over.task
+      } else {
+        const list = document.querySelector(`[data-section="${over.section}"]`)
+        const ids = [...list.querySelectorAll('[data-task-id]')]
+          .map((n) => n.dataset.taskId).filter((id) => id !== task.id)
+        const at = ids.indexOf(over.task)
+        after = at > 0 ? ids[at - 1] : null
+      }
+    } else if (over.section === 'prioritised') {
+      // Dropped on the empty part of a section: the end of it.
+      const list = document.querySelector('[data-section="prioritised"]')
+      const ids = [...list.querySelectorAll('[data-task-id]')]
+        .map((n) => n.dataset.taskId).filter((id) => id !== task.id)
+      after = ids.length ? ids[ids.length - 1] : null
+    }
+    if (after === task.id) after = null
+    onDrop({ id: task.id, from: section, section: over.section, after })
+  }
+
+  const held = drag?.id === task.id
+  const line = drag && drag.over?.task === task.id && drag.id !== task.id
+    ? (drag.over.below ? 'bottom' : 'top') : null
+
   // The board's `detail` is a path; the catalogue's id is what opens it.
   const head = task.detail && docs.find((d) => d.path === task.detail)
   // Everything openable for this task: the detail itself, plus whatever else
   // is in its folder. Never zero — the chip only exists when there is one.
   const items = head ? 1 + docs.filter((d) => d.parent === head.id).length : null
   return (
-    <ListItem divider={divider} alignItems="flex-start" sx={{ py: 1.25 }}
+    <ListItem divider={divider} alignItems="flex-start" data-task-id={task.id}
+      sx={{ py: 1.25, opacity: held ? 0.4 : 1,
+            ...(line && { [`border${line === 'top' ? 'Top' : 'Bottom'}`]: 2,
+                          borderColor: 'primary.main' }) }}
       secondaryAction={onAsk && (
-        <Stack direction="row" spacing={0.25}>
+        <Stack direction="row" spacing={0.25} alignItems="center">
+          {/* **Only the queue.** Dragging is for arranging an order, and the
+              queue is the only section that has one — the pool is unordered by
+              definition (`DEC-027`) and work in progress is neither. */}
+          {onDrag && section === 'prioritised' && (
+            <Box component="span" aria-label={`Move ${task.id}`} role="button"
+                 onPointerDown={grab} onPointerMove={move}
+                 onPointerUp={let_go} onPointerCancel={let_go}
+                 sx={{ cursor: 'grab', px: 0.75, py: 0.5, color: 'text.disabled',
+                       touchAction: 'none', userSelect: 'none', fontSize: 18,
+                       lineHeight: 1 }}>
+              <span aria-hidden>⠿</span>
+            </Box>
+          )}
+          {/* **A section is a click, not a drag.** Up ranks it, down returns it
+              to the pool — one tap each, on a phone, without holding anything.
+              Neither asks first: both are cheap, and the other button undoes
+              it. */}
+          {onAsk && section === 'backlog' && (
+            <IconButton size="small" disabled={busy} aria-label={`Prioritise ${task.id}`}
+                        onClick={() => onAct('prioritise', { id: task.id })}>
+              <span aria-hidden>↑</span>
+            </IconButton>
+          )}
+          {onAsk && section === 'prioritised' && (
+            <IconButton size="small" disabled={busy} aria-label={`Return ${task.id} to the backlog`}
+                        onClick={() => onAct('park', { id: task.id })}>
+              <span aria-hidden>↓</span>
+            </IconButton>
+          )}
           {/* `done` closes a task from any open section, so this is on all of
               them — the board is a list of things that are not finished, and
               saying one is finished is the commonest thing anyone does to it. */}

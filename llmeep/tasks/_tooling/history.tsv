@@ -130,3 +130,4 @@
 2026-09-21	PLT-pudy	platform	Notes should be a list you can act on: promote one to a task or drop it, which needs nm to export them	stewart
 2026-09-21	PLT-mv62	platform	Ordering the queue needs a verb: prioritise --after, so a position can be asked for rather than hand-edited	stewart
 2026-09-21	PLT-naj8	platform	The conversation pane: 20% wider on tablet, and answers rendered as markdown rather than flat text	stewart
+2026-09-21	PLT-4spu	platform	Drag a task to order the queue, and drag it between backlog and prioritised	stewart

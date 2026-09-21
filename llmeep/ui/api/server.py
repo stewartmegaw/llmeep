@@ -123,7 +123,8 @@ TOOLS = {
                              + (["-n"] if a.get("prioritise") else []) + [a["title"]], None),
     "retitle":    lambda a: ("tm", ["retitle", a["id"], a["title"]], None),
     "prioritise": lambda a: ("tm", ["prioritise", a["id"]]
-                             + (["-n"] if a.get("top") else []), None),
+                             + (["-n"] if a.get("top") else [])
+                             + (["--after", a["after"]] if a.get("after") else []), None),
     "park":       lambda a: ("tm", ["park", a["id"]], None),
     "done":       lambda a: ("tm", ["done", a["id"]], None),
     "drop":       lambda a: ("tm", ["drop", a["id"]], None),
@@ -693,11 +694,12 @@ def run_tool(name, args):
     reaches a subprocess that never sees a shell."""
     if name not in TOOLS:
         raise RuntimeError(f"not a tool this app has: {name}")
-    if "id" in args:
-        tid = str(args["id"]).strip()
-        if not ID_RE.match(tid):
-            raise RuntimeError(f"{name} needs a record id and got {tid!r}")
-        args["id"] = tid
+    for key in ("id", "after"):
+        if key in args and args[key] is not None:
+            tid = str(args[key]).strip()
+            if not ID_RE.match(tid):
+                raise RuntimeError(f"{name} needs a record id and got {tid!r}")
+            args[key] = tid
     for key in ("title", "term", "source"):
         if key in args:
             args[key] = str(args[key]).strip()

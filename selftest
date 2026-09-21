@@ -2265,6 +2265,32 @@ except Exception as exc:
         self.assertEqual(sh("git", "rev-list", "--count", "HEAD", cwd=top).stdout.strip(),
                          head, "a refused verb still made a commit")
 
+    def test_a_place_in_the_queue_is_an_id_too(self):
+        """A drop says *behind this one*, so `after` reaches a subprocess the
+        same way `id` does and is checked the same way (`PLT-4spu`)."""
+        top = self.a_repo("placing")
+        one = self.tm(top, "add", "--id", "first").stdout.strip()
+        two = self.tm(top, "add", "--id", "second").stdout.strip()
+        self.tm(top, "prioritise", one)
+        self.tm(top, "prioritise", two)
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "commit", "-qm", "queue", cwd=top)
+
+        # No place named is still a refusal, and the app never sends it: a drop
+        # at the top of the queue sends `top`, not a bare call.
+        result = self.do(top, "prioritise", {"id": two, "after": None})
+        self.assertIn("error", result, result)
+        self.assertIn("already prioritised", result["error"])
+        self.assertNotIn("error", self.do(top, "prioritise", {"id": two, "top": True}))
+
+        result = self.do(top, "prioritise", {"id": two, "after": one})
+        self.assertNotIn("error", result, result)
+        self.assertTrue(result["ok"]["changed"])
+
+        bad = self.do(top, "prioritise", {"id": two, "after": "../../etc/passwd"})
+        self.assertIn("error", bad)
+        self.assertIn("record id", bad["error"])
+
     def test_an_id_that_is_not_an_id_never_reaches_a_subprocess(self):
         top = self.a_repo("ids")
         result = self.do(top, "done", {"id": "../../etc/passwd"})
