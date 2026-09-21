@@ -32,6 +32,13 @@ const HEADER = 120
 // because a screen that can show both should not make anyone choose.
 const TWO_COLUMNS = 'md'
 
+// **A button sized by its content is an oval.** These are glyphs rather than
+// icons — ✓, ✕, ↑, ↓, ↻ — and a glyph is narrower than it is tall, so the
+// ripple and the hover circle came out 25 wide by 34 high with a 50% radius.
+// Squared here rather than per button, because there are seven of them and the
+// eighth would be the one that got missed (`PLT-4spu`).
+const GLYPH = { width: 34, height: 34 }
+
 export default function App() {
   const [board, setBoard] = React.useState(null)
   const [updated, setUpdated] = React.useState(null)
@@ -180,7 +187,8 @@ export default function App() {
               the same repo (`PLT-f4n6`). */}
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
             {tab === 'board' && (
-              <IconButton onClick={load} aria-label="Reload the board" size="small">
+              <IconButton onClick={load} aria-label="Reload the board" size="small"
+                        sx={GLYPH}>
                 {loading ? <CircularProgress size={18} /> : <span aria-hidden>↻</span>}
               </IconButton>
             )}
@@ -439,7 +447,7 @@ function Composer({ conversation, onFocus }) {
           means anything; this button only has to stop being pressable
           (`PLT-8rn6`). */}
       <IconButton onClick={send} disabled={busy || !text.trim()}
-                  aria-label="Send" color="primary" sx={{ mb: 0.25 }}>
+                  aria-label="Send" color="primary" sx={{ ...GLYPH, mb: 0.25 }}>
         <span aria-hidden>↑</span>
       </IconButton>
     </Stack>
@@ -551,7 +559,7 @@ function Notes({ base, onAsk, busy, reload }) {
                         to, and promoting it twice would file the same idea
                         again under a second id. */}
                     {!n.task && (
-                      <IconButton size="small" disabled={busy}
+                      <IconButton size="small" disabled={busy} sx={GLYPH}
                                   aria-label={`Promote ${n.id} to a task`}
                                   onClick={() => onAsk({
                                     tool: 'promote', args: { id: n.id }, verb: 'Make it a task',
@@ -561,7 +569,8 @@ function Notes({ base, onAsk, busy, reload }) {
                         <span aria-hidden>→</span>
                       </IconButton>
                     )}
-                    <IconButton size="small" disabled={busy} aria-label={`Archive ${n.id}`}
+                    <IconButton size="small" disabled={busy} sx={GLYPH}
+                                aria-label={`Archive ${n.id}`}
                                 onClick={() => onAsk({
                                   tool: 'unnote', args: { id: n.id }, verb: 'Archive it',
                                   title: n.text,
@@ -760,9 +769,10 @@ function Task({ task, docs, onDetail, section, onAsk, onAct, busy, drag, onDrag,
             <Box component="span" aria-label={`Move ${task.id}`} role="button"
                  onPointerDown={grab} onPointerMove={move}
                  onPointerUp={let_go} onPointerCancel={let_go}
-                 sx={{ cursor: 'grab', px: 0.75, py: 0.5, color: 'text.disabled',
-                       touchAction: 'none', userSelect: 'none', fontSize: 18,
-                       lineHeight: 1 }}>
+                 sx={{ ...GLYPH, cursor: 'grab', color: 'text.disabled',
+                       display: 'inline-flex', alignItems: 'center',
+                       justifyContent: 'center', touchAction: 'none',
+                       userSelect: 'none', fontSize: 18, lineHeight: 1 }}>
               <span aria-hidden>⠿</span>
             </Box>
           )}
@@ -771,13 +781,15 @@ function Task({ task, docs, onDetail, section, onAsk, onAct, busy, drag, onDrag,
               Neither asks first: both are cheap, and the other button undoes
               it. */}
           {onAsk && section === 'backlog' && (
-            <IconButton size="small" disabled={busy} aria-label={`Prioritise ${task.id}`}
+            <IconButton size="small" disabled={busy} sx={GLYPH}
+                        aria-label={`Prioritise ${task.id}`}
                         onClick={() => onAct('prioritise', { id: task.id })}>
               <span aria-hidden>↑</span>
             </IconButton>
           )}
           {onAsk && section === 'prioritised' && (
-            <IconButton size="small" disabled={busy} aria-label={`Return ${task.id} to the backlog`}
+            <IconButton size="small" disabled={busy} sx={GLYPH}
+                        aria-label={`Return ${task.id} to the backlog`}
                         onClick={() => onAct('park', { id: task.id })}>
               <span aria-hidden>↓</span>
             </IconButton>
@@ -785,7 +797,8 @@ function Task({ task, docs, onDetail, section, onAsk, onAct, busy, drag, onDrag,
           {/* `done` closes a task from any open section, so this is on all of
               them — the board is a list of things that are not finished, and
               saying one is finished is the commonest thing anyone does to it. */}
-          <IconButton size="small" disabled={busy} aria-label={`Mark ${task.id} done`}
+          <IconButton size="small" disabled={busy} sx={GLYPH}
+                      aria-label={`Mark ${task.id} done`}
                       onClick={() => onAsk({
                         tool: 'done', args: { id: task.id }, verb: 'Mark done',
                         title: task.title,
@@ -798,7 +811,8 @@ function Task({ task, docs, onDetail, section, onAsk, onAct, busy, drag, onDrag,
               only record that anyone had touched it, including the commit count
               that says how much is behind it (`DEC-047`). Park it or finish it. */}
           {section !== 'in_progress' && (
-            <IconButton size="small" disabled={busy} aria-label={`Archive ${task.id}`}
+            <IconButton size="small" disabled={busy} sx={GLYPH}
+                        aria-label={`Archive ${task.id}`}
                         onClick={() => onAsk({
                           tool: 'drop', args: { id: task.id }, verb: 'Archive it',
                           title: task.title,
