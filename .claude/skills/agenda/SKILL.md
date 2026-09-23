@@ -42,11 +42,16 @@ nothing should reach the meeting they have not seen.
 has to be done is a task. Never file unasked — turning every unknown into a record buries the
 few that matter.
 
-`--send` posts it under a dated heading, body as written — never unasked. A later `tm agenda`
-says `sent <date>`, and `edited since` if it moved on.
+`--send` posts it under a dated heading, body as written — never unasked. Sending rolls the draft
+aside under today's date and the next `tm agenda` starts clean, so a live draft has never been
+sent and there is no state to report beyond its size.
 
-**The app has it too** — a pill in *Other*, with an ✕ on each line (`PLT-6v3m`). `tm agenda
---set -` replaces the draft from stdin and `--json` reads it back, which is how the app writes
-what you say there. The tool still never parses an agenda: it stores the text, and dropping a
-line is text editing.
+**A ✓ after the bullet or the number means the meeting got through that line.** Put one there
+when they say so, take it off when they say otherwise. `--send` strips them, so ticking is safe
+at any point and the room never receives a half-ticked agenda (`PLT-6fbp`).
+
+**The app has it too** — a pill in *Other*, with a checkbox and an ✕ on each line (`PLT-6v3m`).
+`tm agenda --set -` replaces the draft from stdin and `--json` reads it back, which is how the
+app writes what you say there. The tool still never parses an agenda: it stores the text, and
+both ticking a line and dropping one are text editing.
 

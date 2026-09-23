@@ -1658,6 +1658,23 @@ AGENDA_ROLLED_RE = re.compile(r"^agenda-(\d{4}-\d{2}-\d{2})(?:-(\d+))?\.md$")
 # Telegram, so markdown here is noise in the one place this is meant to be read.
 AGENDA_SCAFFOLD = "Next Steps\n\n"
 
+# A line the meeting has worked through, marked where it reads: after the bullet
+# or the section number, not in front of them, so the shape of the agenda still
+# scans down the left edge.
+#
+# **Ticks are working state and never leave the machine.** `--send` posts the
+# agenda before the meeting and `strip_ticks` takes them out on the way, so what
+# the room receives is the clean agenda whatever has been ticked since
+# (`PLT-6fbp`). Nothing here parses an agenda: a tick is a character on a line,
+# added and removed by whoever is editing the text, the same way a line is
+# dropped (`PLT-ehd6`).
+TICK = "\u2713"
+TICKED_RE = re.compile(r"^(\s*(?:\d+\.|-)?\s*)" + TICK + r"\s*")
+
+
+def strip_ticks(body):
+    return "\n".join(TICKED_RE.sub(r"\1", l) for l in body.split("\n"))
+
 
 def agenda_path():
     return os.path.join(REPO, AGENDA)
@@ -1793,7 +1810,7 @@ def agenda_send():
     if not body or body == AGENDA_SCAFFOLD.strip():
         raise Fail(f"nothing on the agenda — {os.path.relpath(path, os.getcwd())} "
                    "holds no sections.\n  Say what belongs on it first.")
-    sections = [(f"Agenda — {date.today().isoformat()}", body.split("\n"))]
+    sections = [(f"Agenda — {date.today().isoformat()}", strip_ticks(body).split("\n"))]
     print()
     for line in render_plain(sections).split("\n"):
         print(f"  {line}".rstrip())

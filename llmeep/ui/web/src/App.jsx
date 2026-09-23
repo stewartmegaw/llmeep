@@ -1,6 +1,6 @@
 import React from 'react'
 import {
-  Alert, AppBar, Box, Button, Chip, CircularProgress, Container, Dialog,
+  Alert, AppBar, Box, Button, Checkbox, Chip, CircularProgress, Container, Dialog,
   DialogActions, DialogContent, DialogTitle, Divider, IconButton, List, ListItem,
   ListItemButton, ListItemText, Paper, Snackbar, Stack, Tab, Tabs, TextField,
   Toolbar, Typography, useMediaQuery, useTheme,
@@ -627,6 +627,14 @@ function Notes({ base, onAsk, busy, reload }) {
 // the file and `--send` posts what is in it, so there is no format for the two
 // ends to disagree about (`PLT-ehd6`). Removing one is text editing: drop the
 // line, hand back the rest. Nothing here knows what a section is.
+const TICK = '\u2713'
+// The marker as `tm` writes and strips it: after a bullet or a section number.
+const TICKED = /^(\s*(?:\d+\.|-)?\s*)\u2713\s*/
+const ticked = (l) => TICKED.test(l)
+// A ticked line reads as struck-through text, so the marker itself would be
+// said twice — once as a character and once as the styling.
+const bare = (l) => l.replace(TICKED, '$1')
+
 function Agenda({ base, busy, reload, onSet }) {
   const [state, setState] = React.useState(null)
   const [error, setError] = React.useState(null)
@@ -654,13 +662,21 @@ function Agenda({ base, busy, reload, onSet }) {
   // `Next Steps` is the last thing on every agenda and not a line to remove.
   const fixed = (l) => l.trim() === 'Next Steps'
   const drop = (i) => onSet(lines.filter((_, n) => n !== i).join('\n'))
+  // Ticking is the same text editing dropping a line is: the marker goes after
+  // the bullet or the section number, so the shape still scans down the left
+  // edge, and `--send` strips it on the way out.
+  const toggle = (i) => onSet(lines.map((l, n) => (
+    n !== i ? l
+      : ticked(l) ? l.replace(TICKED, '$1')
+        : l.replace(/^(\s*(?:\d+\.|-)?\s*)/, `$1${TICK} `)
+  )).join('\n'))
 
   return (
     <Box sx={{ mt: 2 }}>
       <List disablePadding sx={{ border: 1, borderColor: 'divider', borderRadius: 2 }}>
         {lines.map((line, i) => (line.trim() ? (
           <ListItem key={i} divider={i < lines.length - 1} alignItems="flex-start"
-            sx={{ py: 0.75 }}
+            sx={{ py: 0.75, pl: 0.5 }}
             secondaryAction={!fixed(line) && (
               <IconButton size="small" disabled={busy} sx={GLYPH}
                           aria-label={`Remove line ${i + 1}`} onClick={() => drop(i)}>
@@ -668,16 +684,23 @@ function Agenda({ base, busy, reload, onSet }) {
               </IconButton>
             )}
           >
+            {fixed(line) ? <Box sx={{ width: 38 }} /> : (
+              <Checkbox size="small" checked={ticked(line)} disabled={busy}
+                        onChange={() => toggle(i)} sx={{ mr: 0.5, p: 0.75 }}
+                        inputProps={{ 'aria-label': `Worked through ${bare(line)}` }} />
+            )}
             <ListItemText
-              primary={line}
+              primary={bare(line)}
               primaryTypographyProps={{ sx: {
+                mt: 0.75,
                 lineHeight: 1.4, overflowWrap: 'anywhere',
                 // A numbered line is a heading and a hyphen is a bullet: the
                 // agenda's whole shape, because it is going to a chat message
                 // where markdown renders as itself.
                 fontWeight: /^\s*\d+\./.test(line) ? 600 : 400,
                 pl: /^\s*-/.test(line) ? 2 : 0,
-                color: fixed(line) ? 'text.secondary' : 'text.primary',
+                color: fixed(line) || ticked(line) ? 'text.secondary' : 'text.primary',
+                textDecoration: ticked(line) ? 'line-through' : 'none',
               } }}
             />
           </ListItem>

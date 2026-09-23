@@ -1784,6 +1784,43 @@ class TestAgenda(Fixture):
                         "an agenda that never reached a channel was rolled away")
         self.assertEqual([f for f in os.listdir(notes) if f.startswith("agenda-")], [])
 
+    def test_a_tick_never_reaches_the_room(self):
+        """`PLT-6fbp`. Ticking is how a meeting works through the agenda, so it
+        happens after the send — but `--send` posts the file verbatim, and an
+        agenda already half-ticked would go out looking like a record of a
+        meeting that has not happened."""
+        top = self.a_repo()
+        self.tm(top, "agenda")
+        with open(self.draft(top), "w") as fh:
+            fh.write("1. \u2713 A topic\n\n- \u2713 who would pay for it\n"
+                     "- still open\n\nNext Steps\n")
+        out = self.tm(top, "agenda", "--send").stdout
+        self.assertNotIn("\u2713", out, "a tick went out with the agenda")
+        self.assertIn("A topic", out)
+        self.assertIn("who would pay for it", out)
+        self.assertIn("still open", out)
+
+    def test_the_draft_keeps_its_ticks(self):
+        """Stripping is on the way out only. The file is the working copy the
+        meeting is ticking, and a failed send must not quietly clear it."""
+        top = self.a_repo()          # quietened: NOTIFY=none
+        self.tm(top, "agenda")
+        with open(self.draft(top), "w") as fh:
+            fh.write("- \u2713 who would pay for it\n\nNext Steps\n")
+        self.tm(top, "agenda", "--send")
+        with open(self.draft(top)) as fh:
+            self.assertIn("\u2713", fh.read())
+
+    def test_a_ticked_draft_is_still_a_draft(self):
+        """Ticks are characters on a line, not state the tool tracks, so nothing
+        about them changes whether there is an agenda to send."""
+        top = self.a_repo()
+        self.tm(top, "agenda")
+        with open(self.draft(top), "w") as fh:
+            fh.write("- \u2713 the only line\n\nNext Steps\n")
+        out = self.tm(top, "agenda", "--json").stdout
+        self.assertIn("\u2713", json.loads(out)["text"])
+
     def test_no_marker_file_is_left_beside_the_draft(self):
         """`agenda.sent` was two files saying one thing. The roll replaced it,
         and a live `agenda.md` is unsent by construction."""

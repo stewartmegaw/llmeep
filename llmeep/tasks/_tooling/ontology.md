@@ -900,6 +900,11 @@ pasted in carrying its own formatting is stripped on the way.
 **A section is a topic, not a record.** A task or note id appears in a bullet when it is
 relevant, and often nothing does.
 
+**A ✓ after the bullet or the section number means the meeting worked through it** — added and
+removed by whoever is editing the text, like any other character on the line. `--send` strips
+them on the way out, because the agenda is posted *before* the meeting and one going out
+half-ticked would read as a record of a meeting that has not happened (`PLT-6fbp`).
+
 **Everything is reshaped into that form.** Pasted prose that already had its own formatting, a
 task id handed over on its own, a note plus a passing thought — all of it comes out as a heading
 with bullets under it. Nothing is passed through verbatim, because an agenda read aloud in a
