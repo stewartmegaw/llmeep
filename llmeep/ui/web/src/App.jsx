@@ -46,6 +46,8 @@ export default function App() {
   const [error, setError] = React.useState(null)
   const [loading, setLoading] = React.useState(true)
   const [canWrite, setCanWrite] = React.useState(false)
+  // The title being typed for a new agenda, or null when nobody is typing one.
+  const [naming, setNaming] = React.useState(null)
   const [tab, setTab] = React.useState('board')
   const [sub, setSub] = React.useState('decisions')
   // Everything on to begin with, and you switch off what you do not want. There
@@ -140,16 +142,28 @@ export default function App() {
   // blank lines in front of it. Nothing else knows where it should sit: a
   // section is a judgement, so an unsorted bullet at the end is honest about
   // having been added by a tap rather than written into a topic.
-  const ontoAgenda = React.useCallback(async (line) => {
+  //
+  // **Read at the moment of the tap, never from what is held above.** The list
+  // up there is for naming the agendas; writing to one has to start from what
+  // is in the file now, or two taps a second apart both build on the same text
+  // and the first line quietly loses.
+  const ontoAgenda = React.useCallback(async (name, line) => {
     try {
       const r = await fetch(`${BASE}/api/agenda`)
       if (!r.ok) throw new Error(`llmeep answered ${r.status}`)
-      const lines = ((await r.json()).text || '').split('\n')
+      const all = (await r.json()).agendas || []
+      const it = all.find((a) => a.name === name)
+      if (!it) throw new Error('that agenda is gone')
+      const lines = (it.text || '').split('\n')
       let at = lines.findIndex((l) => l.trim() === 'Next Steps')
       if (at < 0) at = lines.length
       while (at > 0 && !lines[at - 1].trim()) at--
+      // **Never above the title's own blank line.** On an agenda with nothing
+      // on it yet, backing up over the blanks runs all the way into line 1 and
+      // the first bullet lands against the title.
+      at = Math.max(at, 2)
       const kept = [...lines.slice(0, at), line, '', ...lines.slice(at)]
-      runTool('agenda', { text: kept.join('\n').replace(/\n{3,}/g, '\n\n') })
+      runTool('agenda', { name, text: kept.join('\n').replace(/\n{3,}/g, '\n\n') })
     } catch (e) {
       setFlash(e.message)
     }
@@ -176,6 +190,38 @@ export default function App() {
   React.useEffect(() => { updatedAt.current = updated }, [updated])
   // Declared after `load`, which it calls when a turn changed something.
   const conversation = useConversation(load, updatedAt)
+
+  // **Creating one hands over to the conversation.** `tm agenda "<title>"` is
+  // one deterministic step and this app calls verbs directly everywhere else
+  // (`DEC-051`), but a new agenda is the one case where the next thing wanted
+  // is not the file — it is an agent that knows the meeting is a board call and
+  // can say "you parked the pricing question three weeks ago". That is
+  // judgement, and no query produces it (principle 7).
+  //
+  // **The composer is filled rather than sent.** The agent's first question
+  // would be what the meeting is, so asking for that here saves the round trip
+  // — a title is the cheapest context there is, and on a phone it is the
+  // expensive one to go back for.
+  // Held here as well as in the pane, because the board's menu offers them and
+  // a menu cannot wait for a fetch to know what it contains.
+  const [agendas, setAgendas] = React.useState([])
+  React.useEffect(() => {
+    fetch(`${BASE}/api/agenda`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status))))
+      .then((d) => setAgendas(d.agendas || []))
+      .catch(() => setAgendas([]))
+  }, [notesAt])
+
+  //
+  // **With no agent configured there is nowhere to hand off to**, so the button
+  // asks for the title itself and calls the verb. A screen that silently does
+  // nothing is worse than one that does the plain thing.
+  const startAgenda = React.useCallback(() => {
+    if (!canWrite) return setNaming('')
+    setTab('chat')
+    conversation.setText('New agenda: ')
+  }, [conversation, canWrite])
+
   // A tab that only exists on a phone leaves a dangling selection when the
   // screen gets wider — a rotated tablet, a resized window — so the board takes
   // over, which is where the app opens anyway.
@@ -273,7 +319,9 @@ export default function App() {
         )}
         {tab === 'other' && sub === 'agenda' && (
           <Agenda base={BASE} busy={acting} reload={notesAt}
-                  onSet={(text) => runTool('agenda', { text })} />
+                  onSet={(name, text) => runTool('agenda', { name, text })}
+                  onPublish={(a) => runTool('publish', { name: a.name })}
+                  onCreate={startAgenda} />
         )}
         {tab === 'other' && sub !== 'agenda' && (
           <Read base={BASE} docs={browsable}
@@ -286,7 +334,7 @@ export default function App() {
         {tab === 'board' && board && Object.entries(board).map(([ledger, sections]) => (
           <Ledger key={ledger} name={ledger} sections={sections} off={off}
                   docs={docs} onDetail={setDetail} onAsk={setAsking} onAct={runTool}
-                  onAgenda={ontoAgenda}
+                  onAgenda={ontoAgenda} agendas={agendas}
                   busy={acting} drag={drag} onDrag={setDrag} onDrop={dropped} />
         ))}
       </Container>
@@ -304,6 +352,30 @@ export default function App() {
                         onFocus={() => setTab('chat')} />
       )}
       <DetailSheet head={detail} docs={docs} onClose={() => setDetail(null)} />
+      <Dialog open={naming !== null} onClose={() => setNaming(null)} fullWidth
+              maxWidth="xs">
+        <DialogTitle>New agenda</DialogTitle>
+        <DialogContent>
+          <TextField autoFocus fullWidth variant="standard" value={naming || ''}
+                     placeholder="Monday board call"
+                     onChange={(e) => setNaming(e.target.value)}
+                     onKeyDown={(e) => {
+                       if (e.key === 'Enter' && naming?.trim()) {
+                         runTool('agenda', { title: naming.trim() })
+                         setNaming(null)
+                       }
+                     }} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setNaming(null)} sx={{ textTransform: 'none' }}>
+            Cancel
+          </Button>
+          <Button disabled={!naming?.trim() || acting} sx={{ textTransform: 'none' }}
+                  onClick={() => { runTool('agenda', { title: naming.trim() }); setNaming(null) }}>
+            Start it
+          </Button>
+        </DialogActions>
+      </Dialog>
       <Confirm asking={asking} busy={acting} onClose={() => setAsking(null)}
                onYes={() => runTool(asking.tool, asking.args)} />
       <Snackbar open={Boolean(flash)} onClose={() => setFlash(null)}
@@ -660,9 +732,10 @@ const ticked = (l) => TICKED.test(l)
 // said twice — once as a character and once as the styling.
 const bare = (l) => l.replace(TICKED, '$1')
 
-function Agenda({ base, busy, reload, onSet }) {
+function Agenda({ base, busy, reload, onSet, onCreate, onPublish }) {
   const [state, setState] = React.useState(null)
   const [error, setError] = React.useState(null)
+  const [open, setOpen] = React.useState(null)
 
   React.useEffect(() => {
     fetch(`${base}/api/agenda`)
@@ -674,37 +747,82 @@ function Agenda({ base, busy, reload, onSet }) {
   if (error) return <Typography color="error" sx={{ mt: 3 }}>{error}</Typography>
   if (!state) return <Box sx={{ mt: 4, textAlign: 'center' }}><CircularProgress size={22} /></Box>
 
-  const lines = (state.text || '').split('\n')
-  const written = lines.filter((l) => l.trim()).length
-  if (!written) {
+  const all = state.agendas || []
+  // **The newest by default**, because the meeting you are in is almost always
+  // the one most recently made. `open` only ever holds a deliberate choice.
+  const showing = all.find((a) => a.name === open) || all[0]
+
+  const start = (
+    <Button variant="outlined" size="small" disabled={busy} onClick={onCreate}
+            sx={{ textTransform: 'none' }}>
+      New agenda
+    </Button>
+  )
+
+  if (!showing) {
     return (
-      <Typography color="text.secondary" sx={{ mt: 4, textAlign: 'center', px: 3, lineHeight: 1.5 }}>
-        Nothing on the agenda yet — say what the meeting has to get through.
-      </Typography>
+      <Box sx={{ mt: 4, textAlign: 'center', px: 3 }}>
+        <Typography color="text.secondary" sx={{ mb: 2, lineHeight: 1.5 }}>
+          No agenda yet — start one and say what the meeting has to get through.
+        </Typography>
+        {start}
+      </Box>
     )
   }
 
-  // `Next Steps` is the last thing on every agenda and not a line to remove.
+  const lines = (showing.text || '').split('\n')
+  // The first line is the title and is shown as the heading, not as a line of
+  // the agenda — it is the one line that is not on it.
+  const body = lines.slice(1)
+  const at = (i) => i + 1
   const fixed = (l) => l.trim() === 'Next Steps'
-  const drop = (i) => onSet(lines.filter((_, n) => n !== i).join('\n'))
+  const put = (kept) => onSet(showing.name, [lines[0], ...kept].join('\n'))
+  const drop = (i) => put(body.filter((_, n) => n !== i))
   // Ticking is the same text editing dropping a line is: the marker goes after
   // the bullet or the section number, so the shape still scans down the left
   // edge, and `--send` strips it on the way out.
-  const toggle = (i) => onSet(lines.map((l, n) => (
+  const toggle = (i) => put(body.map((l, n) => (
     n !== i ? l
       : ticked(l) ? l.replace(TICKED, '$1')
         : l.replace(/^(\s*(?:\d+\.|-)?\s*)/, `$1${TICK} `)
-  )).join('\n'))
+  )))
 
   return (
     <Box sx={{ mt: 2 }}>
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}
+             useFlexGap flexWrap="wrap">
+        {all.map((a) => (
+          <Chip key={a.name} size="small" label={a.title || a.name}
+                onClick={() => setOpen(a.name)}
+                color={a.name === showing.name ? 'primary' : 'default'}
+                variant={a.name === showing.name ? 'filled' : 'outlined'} />
+        ))}
+        {start}
+      </Stack>
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+        <Typography variant="subtitle2" sx={{ flexGrow: 1 }}>
+          {showing.date}
+        </Typography>
+        {/* **Private is worth saying on the screen**, because the difference
+            between the two is who can read it next year, and nothing else on
+            the card shows it. */}
+        {showing.private && (
+          <Chip size="small" variant="outlined" label="this machine only" />
+        )}
+        {showing.private && onPublish && (
+          <Button size="small" disabled={busy} sx={{ textTransform: 'none' }}
+                  onClick={() => onPublish(showing)}>
+            Share it
+          </Button>
+        )}
+      </Stack>
       <List disablePadding sx={{ border: 1, borderColor: 'divider', borderRadius: 2 }}>
-        {lines.map((line, i) => (line.trim() ? (
-          <ListItem key={i} divider={i < lines.length - 1} alignItems="flex-start"
+        {body.map((line, i) => (line.trim() ? (
+          <ListItem key={i} divider={i < body.length - 1} alignItems="flex-start"
             sx={{ py: 0.75, pl: 0.5 }}
             secondaryAction={!fixed(line) && (
               <IconButton size="small" disabled={busy} sx={GLYPH}
-                          aria-label={`Remove line ${i + 1}`} onClick={() => drop(i)}>
+                          aria-label={`Remove line ${at(i)}`} onClick={() => drop(i)}>
                 <span aria-hidden>✕</span>
               </IconButton>
             )}
@@ -733,9 +851,10 @@ function Agenda({ base, busy, reload, onSet }) {
       </List>
       <Typography variant="caption" color="text.secondary"
                   sx={{ display: 'block', mt: 1.5, lineHeight: 1.5 }}>
-        {state.last_sent ? `Last sent ${state.last_sent}. ` : ''}
-        Say what belongs here and it gets written. Local and gitignored — it is a
-        draft for a meeting, not a record.
+        Say what belongs here and it gets written.{' '}
+        {showing.private
+          ? 'This one is local and gitignored — sharing it puts it in the repo for good.'
+          : 'In the repo, so it is still here next year.'}
       </Typography>
     </Box>
   )
@@ -767,7 +886,7 @@ function Confirm({ asking, busy, onClose, onYes }) {
 
 // `off` holds the pills that have been switched off — a ledger name or a
 // section key. Empty means show everything, which is where it starts.
-function Ledger({ name, sections, off, docs, onDetail, onAsk, onAct, onAgenda, busy, drag, onDrag, onDrop }) {
+function Ledger({ name, sections, off, docs, onDetail, onAsk, onAct, onAgenda, agendas, busy, drag, onDrag, onDrop }) {
   if (off.has(name)) return null
   const live = SECTIONS.filter(([key]) => !off.has(key) && sections[key]?.length)
   if (!live.length) return null
@@ -784,7 +903,7 @@ function Ledger({ name, sections, off, docs, onDetail, onAsk, onAct, onAgenda, b
             {sections[key].map((task, i) => (
               <Task key={task.id} task={task} docs={docs} onDetail={onDetail}
                     section={key} onAsk={onAsk} onAct={onAct} busy={busy}
-                    onAgenda={onAgenda}
+                    onAgenda={onAgenda} agendas={agendas}
                     drag={drag} onDrag={onDrag} onDrop={onDrop}
                     divider={i < sections[key].length - 1} />
             ))}
@@ -833,13 +952,16 @@ function Clip(props) {
   )
 }
 
-function Task({ task, docs, onDetail, section, onAsk, onAct, onAgenda, busy, drag, onDrag, onDrop, divider }) {
+function Task({ task, docs, onDetail, section, onAsk, onAct, onAgenda, agendas, busy, drag, onDrag, onDrop, divider }) {
   // **One button instead of four.** Every action but the drag handle lives
   // behind it: four glyphs in a row on a phone are four small targets nobody
   // can tell apart, and the row grew every time the board learned a verb. A
   // menu also has room for words, so `↑` stops having to mean "prioritise".
   const [menu, setMenu] = React.useState(null)
-  const pick = (go) => () => { setMenu(null); go() }
+  // The second menu: which agenda. Only when there is a choice to make — with
+  // one open, asking which would be a question with a single answer.
+  const [which, setWhich] = React.useState(null)
+  const pick = (go) => () => { setMenu(null); setWhich(null); go() }
   // **Pointer events, not HTML5 drag.** `dragstart` never fires on touch, and
   // this screen is a phone first. Dragging begins on the handle only, so a drag
   // never competes with scrolling the board with a thumb (`PLT-4spu`).
@@ -936,9 +1058,15 @@ function Task({ task, docs, onDetail, section, onAsk, onAct, onAgenda, busy, dra
             )}
             {/* An id and a title, because an agenda is read aloud and `PLT-5m8z`
                 on its own tells the room nothing. */}
-            {onAgenda && (
-              <MenuItem onClick={pick(() => onAgenda(`- ${task.id} — ${task.title}`))}>
+            {onAgenda && agendas?.length === 1 && (
+              <MenuItem onClick={pick(() =>
+                onAgenda(agendas[0].name, `- ${task.id} — ${task.title}`))}>
                 Add to the agenda
+              </MenuItem>
+            )}
+            {onAgenda && agendas?.length > 1 && (
+              <MenuItem onClick={(e) => setWhich(e.currentTarget)}>
+                Add to an agenda…
               </MenuItem>
             )}
             {/* `done` closes a task from any open section, so this is on all of
@@ -964,6 +1092,16 @@ function Task({ task, docs, onDetail, section, onAsk, onAct, onAgenda, busy, dra
                 Archive it
               </MenuItem>
             )}
+          </Menu>
+          <Menu anchorEl={which} open={Boolean(which)} onClose={() => setWhich(null)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
+            {(agendas || []).map((a) => (
+              <MenuItem key={a.name} onClick={pick(() =>
+                onAgenda(a.name, `- ${task.id} — ${task.title}`))}>
+                {a.title || a.name}{a.private ? '  (private)' : ''}
+              </MenuItem>
+            ))}
           </Menu>
         </Stack>
       )}

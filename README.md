@@ -44,7 +44,7 @@ lines. There is deliberately no separate path for a new project: llmeep used to 
 by cloning it and deleting its `.git`, and one way in is fewer things to keep honest
 ([`DEC-035`](llmeep/decisions/DEC-035-adopt-is-the-only-way-in.md)).
 
-Your own `tasks/`, `notes/`, `decisions/` or `ontology/` are safe: everything llmeep ships
+Your own `tasks/`, `notes/`, `decisions/`, `ontology/` or `agendas/` are safe: everything llmeep ships
 lives under `llmeep/`, which `--into ops` renames if that name is taken too.
 [More on adopting](#adopting-into-a-repo-that-already-exists).
 

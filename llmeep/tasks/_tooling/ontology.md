@@ -867,12 +867,33 @@ everything, an agenda looks forward and covers only what cannot move without peo
 Most of a standup is exactly what an agenda leaves out, because it is going fine.
 
 ```sh
-tm agenda           # candidates, and the state of the draft
-tm agenda --send    # post the draft under a dated heading
+tm agenda                      # which agendas are open
+tm agenda "Monday board call"  # start one, on this machine only
+tm agenda monday --send        # post it, ticks stripped
+tm agenda monday --publish     # move it into the repo, for everyone
 ```
 
-**The tool creates the file; the user decides what goes on it.** `tm agenda` writes
-`.notes/agenda.md` and says so. It lists nothing — no candidates, no suggestions, no summary of
+**An agenda is a record, and there are two trees for them.** A shared one is
+`llmeep/agendas/<date>-<slug>.md`, committed and still there next year; a private one is the
+same file under `.notes/agendas/`, local to one machine. The first line is the title, the
+filename is the date and the title's slug, and a directory listing is the history.
+
+**The default follows the door you came in by.** `tm agenda` in a terminal writes a private one,
+because a terminal is one person's machine and a half-formed agenda there is thinking. The app
+writes a shared one, because the app is the team's surface. `--publish` moves a private agenda
+into the repo and **nothing moves it back**: git history is not easy to un-say, and meeting
+agendas name people (`PLT-49p8`).
+
+**Several are open at once**, because next Monday's board call and tomorrow's 1:1 are different
+files. A verb with one agenda open means that one; with several it asks, because guessing sends
+the wrong agenda to a room.
+
+**Sending does not end an agenda.** It used to: one fixed filename, rolled aside under its date
+on the way out. That is why there was only ever one, and why what a meeting got through was
+never written down anywhere.
+
+**The tool creates the file; the user decides what goes on it.** `tm agenda` writes the file and
+says so. It lists nothing — no candidates, no suggestions, no summary of
 what is outstanding.
 
 It listed until `PLT-s9e7`, and using it showed that was two mistakes. It answered a question
@@ -881,10 +902,12 @@ agenda is not in the records at all**: strategy, trade-offs, open questions, wha
 said out loud. `tasks`, `notes` and `tm why` already look things up, each better at it than a
 merged list, and what belongs on an agenda is a judgement none of them can make (principle 7).
 
-The shape is numbered sections of prose bullets, `Next Steps` last, written by the agent as the
-conversation goes:
+The shape is a title, then numbered sections of prose bullets, `Next Steps` last, written by the
+agent as the conversation goes:
 
 ```
+Monday board call
+
 1. Injury Database – Value?
 
 - What's the value proposition of the injury database component

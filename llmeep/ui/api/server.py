@@ -140,20 +140,40 @@ TOOLS = {
                              + (["-n"] if a.get("prioritise") else []), None),
     "unnote":     lambda a: ("nm", ["drop", a["id"]], None),
 
-    # The agenda. Read with no text, replaced with it — the tool stores bytes
-    # and never parses them, so this adds a writer rather than a format
-    # (`PLT-6v3m`). It is gitignored, so a turn that only touches the agenda
-    # commits nothing, which is right: it is a draft for a meeting, not a
-    # record of anything.
-    "agenda":     lambda a: ("tm", ["agenda", "--set", "-"], a["text"]) if a.get("text")
-                  is not None else ("tm", ["agenda", "--json"], None),
+    # The agenda. Read with no name and no text, replaced when text comes with
+    # it — the tool stores bytes and never parses them, so this adds a writer
+    # rather than a format (`PLT-6v3m`).
+    #
+    # **What this app makes is shared**, because the app is the team's surface
+    # while a terminal is one person's machine (`PLT-49p8`). `tm agenda` on its
+    # own defaults the other way.
+    "agenda":     lambda a: ("tm", ["agenda", a["name"], "--set", "-"], a["text"])
+                  if a.get("text") is not None else
+                  ("tm", ["agenda", a["title"], "--shared"], None) if a.get("title")
+                  else ("tm", ["agenda", "--json"], None),
+    "publish":    lambda a: ("tm", ["agenda", a["name"], "--publish"], None),
 }
 
 # Tools that change nothing, so a turn using only these commits nothing.
 READ_ONLY = {"board", "audience", "notes", "find", "why"}
-# Writes a file that is gitignored, so there is nothing to commit either way —
-# but it is not a *read*, and saying so keeps the one list honest.
-NO_COMMIT = {"agenda"}
+# An agenda used to be gitignored whatever happened to it, so a turn that only
+# touched one committed nothing. It is a record now and a shared one lives in
+# the repo (`PLT-49p8`), so writing one commits like anything else — and a
+# private agenda simply has nothing for the commit to pick up.
+NO_COMMIT = set()
+
+
+def only_looks(name, args):
+    """Whether this call changes nothing, so nothing is committed for it.
+
+    **Two of these are a tool, not a name.** `agenda` reads the agendas back when
+    it is given neither text nor a title, and that read has to stay as free as
+    any other — without this it would take the commit path, and a reader with
+    anything staged would be refused the *read* with a message about commits.
+    """
+    if name in READ_ONLY or name in NO_COMMIT:
+        return True
+    return name == "agenda" and not args.get("text") and not args.get("title")
 
 # A turn is bounded. An agent that cannot finish in this many steps is looping,
 # and the person is holding a phone.
@@ -207,7 +227,9 @@ They may not be a developer, and they are reading this on a phone.
 TOOL_ARGS = {
     "board": "{}", "audience": "{}",
     "notes": '{"term": "..."}  (empty term lists everything)',
-    "agenda": '{"text": "..."}  the whole draft; omit text to read it back',
+    "agenda": '{"name": "...", "text": "..."}  replaces that agenda; '
+              '{"title": "..."} starts one; omit both to read them all back',
+    "publish": '{"name": "..."}  move a private agenda into the repo, for everyone',
     "find": '{"term": "..."}', "why": '{"term": "..."}',
     "add": '{"title": "...", "ledger": "platform|business", "prioritise": bool}',
     "retitle": '{"id": "...", "title": "..."}',
@@ -679,7 +701,7 @@ def act(text, session="default"):
         name = str(step.get("tool", "")).strip()
         args = step.get("args") or {}
         log.append({"role": "assistant", "content": json.dumps(step)})
-        if name not in READ_ONLY and not changed:
+        if not only_looks(name, args) and not changed:
             # Checked once, before the first thing that writes — so a turn that
             # only reads is never blocked, and one that would write stops with
             # the tree exactly as it found it.
@@ -698,7 +720,7 @@ def act(text, session="default"):
             log.append({"role": "user", "content": f"That failed: {exc}"})
             continue
         used.append(name)
-        changed = changed or name not in READ_ONLY
+        changed = changed or not only_looks(name, args)
         log.append({"role": "user", "content": f"{name} said:\n{result[:4000]}"})
 
     return {"answer": "I got stuck going round in circles — try asking for one "
@@ -718,7 +740,7 @@ def run_tool(name, args):
             if not ID_RE.match(tid):
                 raise RuntimeError(f"{name} needs a record id and got {tid!r}")
             args[key] = tid
-    for key in ("title", "term", "source"):
+    for key in ("title", "term", "source", "name"):
         if key in args:
             args[key] = str(args[key]).strip()
     if name == "agenda" and args.get("text") is not None:
@@ -906,7 +928,8 @@ def act_directly(name, args):
     """
     if name not in TOOLS:
         raise RuntimeError(f"not a tool this app has: {name}")
-    if name not in READ_ONLY and name not in NO_COMMIT:
+    looking = only_looks(name, args)
+    if not looking:
         theirs = already_staged_elsewhere()
         if theirs:
             raise RuntimeError(
@@ -914,7 +937,7 @@ def act_directly(name, args):
                 f"{', '.join(theirs[:3])}. Commit or unstage them first; this app "
                 "will not put them in a commit about your records.")
     said = run_tool(name, dict(args))
-    if name in READ_ONLY or name in NO_COMMIT:
+    if looking:
         return {"said": said, "changed": False, "commit": None, "pushed": False, "note": None}
     sha = commit_used([name])
     pushed, note = push_after_commit() if sha else (False, None)
@@ -998,12 +1021,16 @@ def strip_fence(text):
 # The only trees this app may write, relative to the install. Not the whole
 # install: `decisions/` is written by an agent that reasoned about a change, and
 # `.claude/` is the adapter. A text box on a phone has business in neither.
-WRITABLE = ("tasks", "notes")
+#
+# `agendas/` is here because this app is where a meeting is worked through —
+# ticking items off as the room gets to them is the app's own gesture, and an
+# agenda it cannot stage is one whose ticks never reach anybody (`PLT-49p8`).
+WRITABLE = ("tasks", "notes", "agendas")
 
 # Every tree that holds a record, which is what "last updated" is about — the
 # same four `tm` calls records. Wider than WRITABLE on purpose: this app reads
 # decisions and an ontology it may not write.
-READ_TREES = ("tasks", "notes", "decisions", "ontology")
+READ_TREES = ("tasks", "notes", "decisions", "ontology", "agendas")
 
 
 def writable_paths():

@@ -10,7 +10,7 @@ Run it from the repo you want to adopt into:
     git clone --depth 1 <llmeep> /tmp/llmeep
     cd my-project && /tmp/llmeep/adopt
 
-`tasks`, `notes` and `decisions` are ordinary words, so a repo may well have
+`tasks`, `notes`, `decisions` and `agendas` are ordinary words, so a repo may well have
 one already. Everything llmeep owns therefore goes in a single directory —
 `llmeep/` unless you say otherwise:
 
@@ -42,7 +42,7 @@ DEFAULT_URL = "https://github.com/stewartmegaw/llmeep.git"
 
 # The record trees. `platform/` is deliberately absent: an adopting repo already
 # has its code, and it stays where it is.
-TREES = ["tasks", "notes", "decisions", "ontology", "ui"]
+TREES = ["tasks", "notes", "decisions", "ontology", "agendas", "ui"]
 
 # Of those, the ones that live under the install folder — which since `DEC-032`
 # is all of them. `ontology/` used to sit at the repo root on the grounds that
@@ -50,7 +50,7 @@ TREES = ["tasks", "notes", "decisions", "ontology", "ui"]
 # principles, the core model and the domain guidance are all llmeep's, managed,
 # and overwritten by `--update`. Claiming a repo-root `ontology/` to hold them
 # put 464 lines of our documentation under a name that reads as the project's.
-NESTED = ["tasks", "notes", "decisions", "ontology", "ui"]
+NESTED = ["tasks", "notes", "decisions", "ontology", "agendas", "ui"]
 
 # Never copied: an adopter regenerates both, and the second is derived from the
 # first. See `managed`.
@@ -255,7 +255,7 @@ def managed(src):
                     os.path.join(dirpath, n), root)).replace(os.sep, "/"))
     out += ["ontology/principles.md", "ontology/core.md",
             "ontology/domain-ontology.md", "ontology/domain-template.md",
-            "decisions/_template.md", ".env.example"]
+            "decisions/_template.md", "agendas/README.md", ".env.example"]
     return sorted(p for p in out if os.path.isfile(src_of(p, src)))
 
 

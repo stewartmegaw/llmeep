@@ -12,11 +12,21 @@ was paying for it (`PLT-2cyh`).
 
 **Run `llmeep/tasks/_tooling/tm audience` first and write the way it says.**
 
-`llmeep/tasks/_tooling/tm agenda` creates the draft and says so. **Then stop** — no listing, no suggestions. They have
-`tasks`, `notes` and `tm why` for looking things up.
+`llmeep/tasks/_tooling/tm agenda "<what the meeting is>"` creates it and says where. **Then
+stop** — no listing, no suggestions. They have `tasks`, `notes` and `tm why` for looking things
+up. Bare `tm agenda` says which are open; several can be, so every other verb takes the name.
 
-**You write `llmeep/.notes/agenda.md`** as they talk, and **everything is reshaped into this
-form** — pasted prose, a task id, a note plus a passing thought. Nothing goes in verbatim.
+**An agenda is a record.** `tm agenda "<title>"` writes a private one under
+`llmeep/.notes/agendas/`, local to this machine. The app writes shared ones into
+`llmeep/agendas/`, which is committed. `tm agenda <name> --publish` moves a private one there
+and nothing moves it back — git history is not easy to un-say, and agendas name people
+(`PLT-49p8`). **Ask before publishing.**
+
+**You write the file** as they talk, and **everything is reshaped into this form** — pasted
+prose, a task id, a note plus a passing thought. Nothing goes in verbatim. The **first line is
+the title**; sections go under it.
+
+    Monday board call
 
     1. Injury Database – Value?
 
@@ -42,16 +52,17 @@ nothing should reach the meeting they have not seen.
 has to be done is a task. Never file unasked — turning every unknown into a record buries the
 few that matter.
 
-`--send` posts it under a dated heading, body as written — never unasked. Sending rolls the draft
-aside under today's date and the next `tm agenda` starts clean, so a live draft has never been
-sent and there is no state to report beyond its size.
+`tm agenda <name> --send` posts it under its title and today's date, body as written — never
+unasked. **Sending does not end an agenda**: the file stays where it is, so a room can be sent
+one in advance and then worked through it.
 
 **A ✓ after the bullet or the number means the meeting got through that line.** Put one there
 when they say so, take it off when they say otherwise. `--send` strips them, so ticking is safe
 at any point and the room never receives a half-ticked agenda (`PLT-6fbp`).
 
-**The app has it too** — a pill in *Other*, with a checkbox and an ✕ on each line (`PLT-6v3m`).
-`tm agenda --set -` replaces the draft from stdin and `--json` reads it back, which is how the
-app writes what you say there. The tool still never parses an agenda: it stores the text, and
+**The app has it too** — a pill in *Other*, a chip per agenda, with a checkbox and an ✕ on each
+line (`PLT-6v3m`). `tm agenda <name> --set -` replaces one from stdin and `--json` reads them
+all back, which is how the app writes what you say there. The tool still never parses an
+agenda: it stores the text, and
 both ticking a line and dropping one are text editing.
 

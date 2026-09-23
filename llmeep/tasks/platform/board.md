@@ -18,9 +18,11 @@ PLT-2gdj Periodically check connectors — Gmail, Google Docs — and turn what 
 PLT-hrpu An agenda holds nothing the repo keeps — decide whether it should exist at all  detail  filed:2026-09-12
 PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; use typeable() so they stay typeable  filed:2026-09-12
 PLT-uqet The agenda tab lists past agendas and hands a new one to the agent  detail  filed:2026-09-23
+PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
 
 ## recent
 
+2026-09-23  PLT-49p8 An agenda is a record: private on this machine, shared in the repo  @stewart
 2026-09-23  PLT-5m8z A task's board buttons collapse into a menu that can also put it on the agenda  @stewart
 2026-09-23  PLT-6fbp An agenda item can be ticked off as the meeting works through it  @stewart
 2026-09-23  PLT-jrtf A title ending in the word detail is read back as the detail tag, and check then refuses the commit  @stewart
@@ -35,4 +37,3 @@ PLT-uqet The agenda tab lists past agendas and hands a new one to the agent  det
 2026-09-21  PLT-pudy Notes should be a list you can act on: promote one to a task or drop it, which needs nm to export them  @stewart
 2026-09-21  PLT-7kk3 A verb you already know should be a button: done and drop on a task, without a trip through the model  @stewart
 2026-09-20  PLT-mrt8 A turn that commits can look like a turn that failed: a proxy idle timeout kills the response while the work lands  @stewart
-2026-09-15  PLT-8rn6 Sending shows two spinners; the send button should just go disabled and leave the one above the input  @stewart

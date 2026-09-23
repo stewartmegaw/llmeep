@@ -28,6 +28,7 @@ here, and a slow hook gets bypassed, taking `check` with it.
 """
 
 import base64
+import datetime
 import json
 import os
 import re
@@ -36,6 +37,9 @@ import subprocess
 import sys
 import tempfile
 import unittest
+
+# The date the records will carry, for tests that assert on a filename.
+TODAY = datetime.date.today().isoformat()
 
 REPO = os.path.dirname(os.path.abspath(__file__))
 
@@ -57,10 +61,11 @@ PRE_DEC028 = "v26"
 PRE_FEEDBACK = "v33"
 
 
-def sh(*args, cwd=None, env=None, check=False):
+def sh(*args, cwd=None, env=None, check=False, stdin=None):
     e = dict(os.environ, **(env or {}))
     e.setdefault("NOTIFY", "none")      # belt and braces; every repo also gets a .env
-    out = subprocess.run(args, cwd=cwd, capture_output=True, text=True, env=e)
+    out = subprocess.run(args, cwd=cwd, capture_output=True, text=True, env=e,
+                         input=stdin)
     if check and out.returncode != 0:
         raise AssertionError(f"{' '.join(args)} failed in {cwd}:\n{out.stdout}\n{out.stderr}")
     return out
@@ -190,9 +195,9 @@ class Fixture(unittest.TestCase):
 
     # -------------------------------------------------------------- assertions
 
-    def tm(self, top, *args):
+    def tm(self, top, *args, stdin=None):
         return sh(os.path.join(self.install_root(top), "tasks", "_tooling", "tm"),
-                  *args, cwd=top)
+                  *args, cwd=top, stdin=stdin)
 
     def nm(self, top, *args):
         return sh(os.path.join(self.install_root(top), "notes", "_tooling", "nm"),
@@ -893,15 +898,29 @@ class TestHandover(Fixture):
             fh.write("they want SSO before they renew\n")
         self.assertIn("notes/raw", self.out(top))
 
-    def test_the_bare_agenda_scaffold_is_not_a_draft(self):
-        """`tm agenda` writes a scaffold whether or not anyone then works on
-        it. Treating that as loose would flag every repo that ever ran it."""
+    def test_a_bare_agenda_scaffold_is_not_a_draft(self):
+        """An agenda holds its title and `Next Steps` from the moment it is
+        made. Treating that as loose would flag every repo that ever ran it."""
         top = self.install()
-        self.tm(top, "agenda")
-        self.assertNotIn("agenda draft", self.out(top))
-        with open(os.path.join(self.install_root(top), ".notes", "agenda.md"), "w") as fh:
-            fh.write("1. Injury Database - Value?\n\n- who would pay for it\n")
-        self.assertIn("agenda draft", self.out(top))
+        self.tm(top, "agenda", "Monday board call")
+        self.assertNotIn("private agenda", self.out(top))
+        folder = os.path.join(self.install_root(top), ".notes", "agendas")
+        path = os.path.join(folder, sorted(os.listdir(folder))[0])
+        with open(path, "w") as fh:
+            fh.write("Monday board call\n\n1. Injury Database\n\n- who would pay\n")
+        self.assertIn("private agenda", self.out(top))
+
+    def test_a_shared_agenda_is_not_a_handover_concern(self):
+        """It is in the repo and survives a clone, so it is not something a
+        handover has to carry (`PLT-49p8`)."""
+        top = self.install()
+        self.tm(top, "agenda", "Monday board call", "--shared")
+        folder = os.path.join(self.install_root(top), "agendas")
+        path = os.path.join(folder, [n for n in sorted(os.listdir(folder))
+                                     if n != "README.md"][0])
+        with open(path, "w") as fh:
+            fh.write("Monday board call\n\n1. Injury Database\n\n- who would pay\n")
+        self.assertNotIn("agenda", self.out(top))
 
     def test_done_answers_for_after_the_commit_it_just_asked_for(self):
         """`done` writes the board and history a line before saying this, so
@@ -1695,7 +1714,8 @@ class TestAudience(Fixture):
 
 class TestAgenda(Fixture):
     """An agenda is what a meeting has to get through — forward-looking, and
-    only what cannot move without people in a room."""
+    only what cannot move without people in a room. Since `PLT-49p8` it is also
+    a record: a file in a tree, shared in the repo or private to one machine."""
 
     def a_repo(self):
         top = self.a_project()
@@ -1703,181 +1723,257 @@ class TestAgenda(Fixture):
         self.quieten(top)
         return top
 
-    def draft(self, top):
-        return os.path.join(self.install_root(top), ".notes", "agenda.md")
+    def shared(self, top, name):
+        return os.path.join(self.install_root(top), "agendas", name + ".md")
 
-    def test_it_creates_the_draft_and_lists_nothing(self):
-        """`PLT-s9e7`. Listing framed the meeting around the slice a board
-        happens to notice, and most of an agenda is not in the records at all."""
+    def private(self, top, name):
+        return os.path.join(self.install_root(top), ".notes", "agendas", name + ".md")
+
+    def only(self, top, private=True):
+        """The one agenda's path, whichever tree it is in."""
+        folder = os.path.join(self.install_root(top),
+                              *((".notes", "agendas") if private else ("agendas",)))
+        names = [n for n in sorted(os.listdir(folder)) if n != "README.md"]
+        self.assertEqual(len(names), 1, f"{names} in {folder}")
+        return os.path.join(folder, names[0])
+
+    def write(self, top, body, private=True):
+        with open(self.only(top, private), "w") as fh:
+            fh.write(body)
+
+    # ------------------------------------------------------- making one
+
+    def test_a_terminal_makes_a_private_one(self):
+        """The default follows the door you came in by: a terminal is one
+        person's machine, and a half-formed agenda there is thinking."""
         top = self.a_repo()
-        blocker = self.tm(top, "add", "--id", "the blocker").stdout.strip()
-        waiting = self.tm(top, "add", "--id", "the waiter").stdout.strip()
-        path = os.path.join(self.install_root(top), "tasks", "platform", "board.md")
-        with open(path) as fh:
-            body = fh.read()
-        with open(path, "w") as fh:
-            fh.write(body.replace(f"{waiting} the waiter",
-                                  f"{waiting} the waiter  blocked:{blocker}"))
-        self.nm(top, "add", "a note nobody promoted")
-
-        out = self.tm(top, "agenda")
+        out = self.tm(top, "agenda", "Monday board call")
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
-        self.assertTrue(os.path.exists(self.draft(top)), "the draft was not created")
-        for leaked in (waiting, blocker, "a note nobody promoted"):
-            self.assertNotIn(leaked, out.stdout,
-                             "the agenda listed records instead of getting out of the way")
+        self.assertTrue(os.path.isfile(self.private(top, "%s-monday-board-call"
+                                                   % TODAY)))
+        self.assertIn("this machine only", out.stdout)
+
+    def test_shared_puts_it_in_the_repo(self):
+        top = self.a_repo()
+        self.tm(top, "agenda", "Monday board call", "--shared")
+        self.assertTrue(os.path.isfile(self.shared(top, "%s-monday-board-call"
+                                                  % TODAY)))
+
+    def test_the_first_line_is_the_title(self):
+        """No frontmatter: the body is posted to a chat message as written, and
+        a header block would have to be stripped by something that knows its
+        shape — which is a format between the two halves (`PLT-ehd6`)."""
+        top = self.a_repo()
+        self.tm(top, "agenda", "Monday board call")
+        with open(self.only(top)) as fh:
+            self.assertEqual(fh.read().split("\n")[0], "Monday board call")
 
     def test_the_scaffold_carries_no_markdown_syntax(self):
-        """It is going to a chat message, where `##` renders as `##`. The shape
-        is a plain numbered line and a hyphen bullet."""
+        """It is going to a chat message, where `##` renders as `##`."""
         top = self.a_repo()
-        self.tm(top, "agenda")
-        with open(self.draft(top)) as fh:
-            self.assertNotIn("#", fh.read(), "the scaffold ships markdown syntax")
-
-    def test_creating_it_offers_both_ways_to_edit(self):
-        top = self.a_repo()
-        out = self.tm(top, "agenda").stdout
-        self.assertIn(".notes/agenda.md", out, "it does not show the path for a manual edit")
-        self.assertIn("say what belongs", out, "it does not offer the conversational route")
-
-    def test_the_draft_starts_with_next_steps_and_nothing_else(self):
-        """A numbered heading with an empty bullet under it is a form to fill
-        in, and this is not a form. Sections go above `Next Steps`."""
-        top = self.a_repo()
-        self.tm(top, "agenda")
-        with open(self.draft(top)) as fh:
+        self.tm(top, "agenda", "Monday board call")
+        with open(self.only(top)) as fh:
             body = fh.read()
-        self.assertEqual(body.strip(), "Next Steps")
+        self.assertIn("Next Steps", body)
+        self.assertNotIn("#", body)
 
-    def test_creating_it_says_the_draft_is_not_backed_up(self):
-        """The one cost `PLT-s9e7` accepted rather than solved, so it has to be
-        said where someone meets it."""
+    def test_several_are_open_at_once(self):
+        """Next Monday's board call and tomorrow's 1:1 are different meetings,
+        and under one fixed filename they fought over it."""
         top = self.a_repo()
-        self.assertIn("not backed up", self.tm(top, "agenda").stdout)
+        self.tm(top, "agenda", "Monday board call")
+        self.tm(top, "agenda", "Sam one to one")
+        out = self.tm(top, "agenda").stdout
+        self.assertIn("Monday board call", out)
+        self.assertIn("Sam one to one", out)
 
-    def test_a_second_run_does_not_overwrite_the_draft(self):
+    def test_the_same_title_twice_is_refused(self):
+        """Two files a day apart are two meetings; two the same day under one
+        name are a mistake, and overwriting would lose the first."""
         top = self.a_repo()
-        self.tm(top, "agenda")
-        with open(self.draft(top), "w") as fh:
-            fh.write("1. Something\n\n- a thought stored nowhere else\n\nNext Steps\n")
-        self.tm(top, "agenda")
-        with open(self.draft(top)) as fh:
-            self.assertIn("a thought stored nowhere else", fh.read())
+        self.tm(top, "agenda", "Monday board call")
+        out = self.tm(top, "agenda", "Monday board call")
+        self.assertNotEqual(out.returncode, 0)
+        self.assertIn("already exists", out.stdout + out.stderr)
 
-    def test_send_refuses_an_empty_draft(self):
+    def test_a_bare_run_with_none_open_says_how_to_start_one(self):
         top = self.a_repo()
+        self.assertIn("tm agenda", self.tm(top, "agenda").stdout)
+
+    # ------------------------------------------------------- naming one
+
+    def test_a_verb_with_one_open_needs_no_name(self):
+        """Naming the only agenda there is would be ceremony."""
+        top = self.a_repo()
+        self.tm(top, "agenda", "Monday board call")
+        self.write(top, "Monday board call\n\n1. A topic\n\nNext Steps\n")
+        self.assertEqual(self.tm(top, "agenda", "--send").returncode, 0)
+
+    def test_a_verb_with_several_open_asks_which(self):
+        """Guessing sends the wrong agenda to a room."""
+        top = self.a_repo()
+        self.tm(top, "agenda", "Monday board call")
+        self.tm(top, "agenda", "Sam one to one")
+        out = self.tm(top, "agenda", "--send")
+        self.assertNotEqual(out.returncode, 0)
+        self.assertIn("which", out.stdout + out.stderr)
+
+    def test_a_name_matches_on_part_of_the_title(self):
+        top = self.a_repo()
+        self.tm(top, "agenda", "Monday board call")
+        self.tm(top, "agenda", "Sam one to one")
+        out = self.tm(top, "agenda", "monday", "--set", "-",
+                      stdin="Monday board call\n\n1. Pricing\n\nNext Steps\n")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        with open(self.private(top, "%s-monday-board-call"
+                               % TODAY)) as fh:
+            self.assertIn("Pricing", fh.read())
+
+    def test_the_name_may_come_before_or_after_the_flag(self):
+        """`--publish` took the next word as its value, so
+        `tm agenda monday --publish` created an agenda called "monday"."""
+        top = self.a_repo()
+        self.tm(top, "agenda", "Monday board call")
+        out = self.tm(top, "agenda", "monday", "--publish")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertTrue(os.path.isfile(self.shared(top, "%s-monday-board-call"
+                                                  % TODAY)))
+
+    # ------------------------------------------------------- publishing
+
+    def test_publish_moves_it_and_leaves_nothing_behind(self):
+        top = self.a_repo()
+        self.tm(top, "agenda", "Monday board call")
+        self.tm(top, "agenda", "monday", "--publish")
+        folder = os.path.join(self.install_root(top), ".notes", "agendas")
+        self.assertEqual([n for n in os.listdir(folder) if n.endswith(".md")], [])
+
+    def test_there_is_no_verb_that_takes_it_back(self):
+        """Git history is not easy to un-say, and an agenda names people. The
+        absence is the point, so it is asserted rather than assumed."""
+        top = self.a_repo()
+        self.tm(top, "agenda", "Monday board call", "--shared")
+        for flag in ("--unpublish", "--private"):
+            out = self.tm(top, "agenda", "monday", flag)
+            self.assertNotEqual(out.returncode, 0, f"{flag} did something")
+
+    def test_publishing_something_already_shared_is_refused(self):
+        top = self.a_repo()
+        self.tm(top, "agenda", "Monday board call", "--shared")
+        out = self.tm(top, "agenda", "monday", "--publish")
+        self.assertNotEqual(out.returncode, 0)
+        self.assertIn("already", out.stdout + out.stderr)
+
+    # ------------------------------------------------------- sending
+
+    def test_send_refuses_an_agenda_holding_only_its_scaffold(self):
+        """A new agenda holds its title and `Next Steps`, so "has bytes" is not
+        the same question as "has anything on it"."""
+        top = self.a_repo()
+        self.tm(top, "agenda", "Monday board call")
         out = self.tm(top, "agenda", "--send")
         self.assertNotEqual(out.returncode, 0)
 
-    def test_a_draft_that_did_not_send_does_not_roll(self):
-        """The roll is the record that an agenda went out, so it must follow a
-        *successful* send. `NOTIFY=none` announces nowhere, which is not a send
-        — and a draft that never left is still the draft."""
-        top = self.a_repo()          # quietened: NOTIFY=none
-        self.tm(top, "agenda")
-        with open(self.draft(top), "w") as fh:
-            fh.write("1. A topic\n\n- a question\n\nNext Steps\n")
+    def test_send_posts_the_body_under_the_title(self):
+        top = self.a_repo()
+        self.tm(top, "agenda", "Monday board call")
+        self.write(top, "Monday board call\n\n1. Pricing\n\n- can we raise it\n\nNext Steps\n")
+        out = self.tm(top, "agenda", "--send").stdout
+        self.assertIn("Monday board call", out)
+        self.assertIn(TODAY, out)
+        self.assertIn("can we raise it", out)
+
+    def test_sending_does_not_end_the_agenda(self):
+        """It used to roll the draft aside under its date, which is why ticking
+        had nothing left to tick and why there was only ever one."""
+        top = self.a_repo()
+        self.tm(top, "agenda", "Monday board call")
+        self.write(top, "Monday board call\n\n1. A topic\n\nNext Steps\n")
         self.tm(top, "agenda", "--send")
-        notes = os.path.join(self.install_root(top), ".notes")
-        self.assertTrue(os.path.exists(self.draft(top)),
-                        "an agenda that never reached a channel was rolled away")
-        self.assertEqual([f for f in os.listdir(notes) if f.startswith("agenda-")], [])
+        self.assertTrue(os.path.isfile(self.only(top)))
 
     def test_a_tick_never_reaches_the_room(self):
-        """`PLT-6fbp`. Ticking is how a meeting works through the agenda, so it
-        happens after the send — but `--send` posts the file verbatim, and an
-        agenda already half-ticked would go out looking like a record of a
-        meeting that has not happened."""
+        """`PLT-6fbp`. Ticking is how a meeting works through the agenda, and
+        one going out half-ticked would read as a record of a meeting that has
+        not happened."""
         top = self.a_repo()
-        self.tm(top, "agenda")
-        with open(self.draft(top), "w") as fh:
-            fh.write("1. \u2713 A topic\n\n- \u2713 who would pay for it\n"
-                     "- still open\n\nNext Steps\n")
+        self.tm(top, "agenda", "Monday board call")
+        self.write(top, "Monday board call\n\n1. \u2713 A topic\n\n"
+                        "- \u2713 who would pay for it\n- still open\n\nNext Steps\n")
         out = self.tm(top, "agenda", "--send").stdout
         self.assertNotIn("\u2713", out, "a tick went out with the agenda")
         self.assertIn("A topic", out)
         self.assertIn("who would pay for it", out)
         self.assertIn("still open", out)
 
-    def test_the_draft_keeps_its_ticks(self):
+    def test_the_file_keeps_its_ticks(self):
         """Stripping is on the way out only. The file is the working copy the
-        meeting is ticking, and a failed send must not quietly clear it."""
-        top = self.a_repo()          # quietened: NOTIFY=none
-        self.tm(top, "agenda")
-        with open(self.draft(top), "w") as fh:
-            fh.write("- \u2713 who would pay for it\n\nNext Steps\n")
+        meeting is ticking."""
+        top = self.a_repo()
+        self.tm(top, "agenda", "Monday board call")
+        self.write(top, "Monday board call\n\n- \u2713 who would pay\n\nNext Steps\n")
         self.tm(top, "agenda", "--send")
-        with open(self.draft(top)) as fh:
+        with open(self.only(top)) as fh:
             self.assertIn("\u2713", fh.read())
-
-    def test_a_ticked_draft_is_still_a_draft(self):
-        """Ticks are characters on a line, not state the tool tracks, so nothing
-        about them changes whether there is an agenda to send."""
-        top = self.a_repo()
-        self.tm(top, "agenda")
-        with open(self.draft(top), "w") as fh:
-            fh.write("- \u2713 the only line\n\nNext Steps\n")
-        out = self.tm(top, "agenda", "--json").stdout
-        self.assertIn("\u2713", json.loads(out)["text"])
-
-    def test_no_marker_file_is_left_beside_the_draft(self):
-        """`agenda.sent` was two files saying one thing. The roll replaced it,
-        and a live `agenda.md` is unsent by construction."""
-        top = self.a_repo()
-        self.tm(top, "agenda")
-        notes = os.path.join(self.install_root(top), ".notes")
-        self.assertNotIn("agenda.sent", os.listdir(notes))
-
-    def test_send_refuses_a_draft_holding_only_the_scaffold(self):
-        """`tm agenda` writes `Next Steps` into a new draft, so "has bytes"
-        is not the same question as "has anything on it"."""
-        top = self.a_repo()
-        self.tm(top, "agenda")
-        out = self.tm(top, "agenda", "--send")
-        self.assertNotEqual(out.returncode, 0, "posted a heading with nothing under it")
-        self.assertFalse(
-            os.path.exists(os.path.join(self.install_root(top), ".notes", "agenda.sent")))
-
-    def test_send_posts_the_body_as_written(self):
-        """Nothing parses the draft, so there is no format between the half
-        that writes it and the half that sends it."""
-        top = self.a_repo()
-        os.makedirs(os.path.dirname(self.draft(top)), exist_ok=True)
-        body = "1. Acme SSO - do we commit?\n2. Toolchain is stuck"
-        with open(self.draft(top), "w") as fh:
-            fh.write(body + "\n")
-        out = self.tm(top, "agenda", "--send")
-        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
-        for line in body.split("\n"):
-            self.assertIn(line, out.stdout, "the body did not go out as written")
 
     def test_a_bare_run_never_sends(self):
         top = self.a_repo()
-        os.makedirs(os.path.dirname(self.draft(top)), exist_ok=True)
-        with open(self.draft(top), "w") as fh:
-            fh.write("something\n")
-        self.tm(top, "agenda")
-        self.assertFalse(
-            os.path.exists(os.path.join(self.install_root(top), ".notes", "agenda.sent")),
-            "a bare run marked the agenda sent")
+        self.tm(top, "agenda", "Monday board call")
+        self.write(top, "Monday board call\n\n1. A topic\n\nNext Steps\n")
+        self.assertNotIn("sent", self.tm(top, "agenda").stdout)
 
-    def test_the_draft_never_enters_the_repo(self):
+    # ------------------------------------------------------- the trees
+
+    def test_a_private_agenda_never_enters_the_repo(self):
         top = self.a_repo()
-        os.makedirs(os.path.dirname(self.draft(top)), exist_ok=True)
-        with open(self.draft(top), "w") as fh:
-            fh.write("private meeting planning\n")
-        rel = os.path.relpath(self.draft(top), top)
-        self.assertEqual(sh("git", "check-ignore", "-q", rel, cwd=top).returncode, 0,
-                         "the agenda draft is not gitignored")
+        self.tm(top, "agenda", "Monday board call")
+        sh("git", "add", "-A", cwd=top)
+        staged = sh("git", "diff", "--cached", "--name-only", cwd=top).stdout
+        self.assertNotIn("monday-board-call", staged)
+
+    def test_a_shared_agenda_is_committable(self):
+        top = self.a_repo()
+        self.tm(top, "agenda", "Monday board call", "--shared")
+        sh("git", "add", "-A", cwd=top)
+        staged = sh("git", "diff", "--cached", "--name-only", cwd=top).stdout
+        self.assertIn("monday-board-call", staged)
+
+    def test_a_legacy_draft_is_carried_into_the_tree(self):
+        """`.notes/agenda.md` predates all of this, and an adopter updating must
+        not open the app to find a meeting missing. The title is prepended
+        rather than guessed at: the first line of a legacy agenda is a section
+        heading, not a name for the meeting."""
+        top = self.a_repo()
+        folder = os.path.join(self.install_root(top), ".notes")
+        os.makedirs(folder, exist_ok=True)
+        with open(os.path.join(folder, "agenda.md"), "w") as fh:
+            fh.write("1. Injury Database\n\n- who would pay\n\nNext Steps\n")
+        out = self.tm(top, "agenda").stdout
+        self.assertFalse(os.path.exists(os.path.join(folder, "agenda.md")))
+        with open(self.only(top)) as fh:
+            body = fh.read()
+        self.assertIn("who would pay", body)
+        self.assertEqual(body.split("\n")[0], f"Agenda {TODAY}")
+        self.assertIn("Agenda", out)
+
+    def test_a_legacy_rolled_agenda_is_carried_too(self):
+        """Those were the record of what went out, and nothing else holds it."""
+        top = self.a_repo()
+        folder = os.path.join(self.install_root(top), ".notes")
+        os.makedirs(folder, exist_ok=True)
+        with open(os.path.join(folder, "agenda-2026-08-11.md"), "w") as fh:
+            fh.write("1. An old meeting\n\nNext Steps\n")
+        self.tm(top, "agenda")
+        with open(self.private(top, "2026-08-11-untitled")) as fh:
+            self.assertIn("An old meeting", fh.read())
 
 
 class TestAgendaInTheApp(Fixture):
     """`PLT-6v3m`. An adopter found the agenda useful enough to want it on a
-    phone. It is the one screen here that is not a record — gitignored, gone
-    with the machine — and it stays that way: the tool stores the text and never
-    parses it, so removing a line is text editing rather than a model the two
-    ends could implement differently (`PLT-ehd6`)."""
+    phone, and `PLT-49p8` made what this screen writes a record: the app is the
+    team's surface, so an agenda made here is shared. The tool still stores the
+    text and never parses it, so removing a line is text editing rather than a
+    model the two ends could implement differently (`PLT-ehd6`)."""
 
     DRIVER = """import json, os, sys
 sys.path.insert(0, os.path.join(sys.argv[1], "llmeep", "ui", "api"))
@@ -1896,50 +1992,79 @@ except Exception as exc:
         sh("git", "commit", "-qm", "adopt", cwd=top)
         return top
 
-    def do(self, top, args):
+    def do(self, top, args, tool="agenda"):
         script = self.path("drive_agenda.py")
         with open(script, "w") as fh:
             fh.write(self.DRIVER)
         env = dict(os.environ, LLMEEP_REPO=top, LLMEEP_AUTH_HANDLED="yes")
-        out = sh(sys.executable, script, self.working_copy(), "agenda", json.dumps(args),
+        out = sh(sys.executable, script, self.working_copy(), tool, json.dumps(args),
                  cwd=top, env=env)
         self.assertTrue(out.stdout.strip(), out.stderr)
         return json.loads(out.stdout.strip().split("\n")[-1])
 
-    def draft(self, top):
-        path = os.path.join(self.install_root(top), ".notes", "agenda.md")
+    def started(self, top, title="Monday board call"):
+        """One made the way the app makes them, and its name."""
+        self.assertNotIn("error", self.do(top, {"title": title}))
+        folder = os.path.join(self.install_root(top), "agendas")
+        name = [n for n in sorted(os.listdir(folder)) if n != "README.md"][0]
+        return name[:-3]
+
+    def body(self, top, name):
+        path = os.path.join(self.install_root(top), "agendas", name + ".md")
         if not os.path.exists(path):
             return ""
         with open(path) as fh:
             return fh.read()
 
+    def test_what_the_app_starts_is_shared(self):
+        """The default follows the door you came in by: this app is the team's
+        surface, while `tm agenda` in a terminal is one person's machine."""
+        top = self.a_repo()
+        name = self.started(top)
+        self.assertTrue(os.path.isfile(os.path.join(
+            self.install_root(top), "agendas", name + ".md")))
+
     def test_it_is_written_and_read_back(self):
         top = self.a_repo()
-        text = "1. Pricing\n\n- What do we charge for the pilot\n"
-        self.assertNotIn("error", self.do(top, {"text": text}))
-        self.assertIn("What do we charge", self.draft(top))
+        name = self.started(top)
+        text = "Monday board call\n\n1. Pricing\n\n- What do we charge for the pilot\n"
+        self.assertNotIn("error", self.do(top, {"name": name, "text": text}))
+        self.assertIn("What do we charge", self.body(top, name))
 
         read = self.do(top, {})
         self.assertNotIn("error", read, read)
-        self.assertIn("What do we charge", json.loads(read["ok"]["said"])["text"])
+        said = json.loads(read["ok"]["said"])["agendas"]
+        self.assertIn("What do we charge", said[0]["text"])
 
     def test_next_steps_stays_last(self):
         """The scaffold's one rule, and the reason the screen offers no ✕ on it."""
         top = self.a_repo()
-        self.do(top, {"text": "1. Pricing\n\n- What do we charge\n"})
-        self.assertTrue(self.draft(top).rstrip().endswith("Next Steps"), self.draft(top))
+        name = self.started(top)
+        self.do(top, {"name": name, "text": "Monday board call\n\n1. Pricing\n"})
+        self.assertTrue(self.body(top, name).rstrip().endswith("Next Steps"),
+                        self.body(top, name))
 
-    def test_the_draft_never_becomes_a_commit(self):
-        """It is gitignored: a draft for a meeting, not a record of anything. A
-        turn that only touches it should leave the repository alone."""
+    def test_what_the_app_writes_is_committed(self):
+        """An agenda used to be gitignored whatever happened to it, so a turn
+        that only touched one committed nothing. A shared agenda is a record,
+        and a record nobody commits is one that is gone with the machine."""
         top = self.a_repo()
-        head = sh("git", "rev-list", "--count", "HEAD", cwd=top).stdout.strip()
-        result = self.do(top, {"text": "1. Anything\n"})
-        self.assertFalse(result["ok"]["changed"])
-        self.assertIsNone(result["ok"]["commit"])
-        self.assertEqual(sh("git", "rev-list", "--count", "HEAD", cwd=top).stdout.strip(), head)
+        name = self.started(top)
+        result = self.do(top, {"name": name,
+                               "text": "Monday board call\n\n1. Anything\n"})
+        self.assertTrue(result["ok"]["changed"])
+        self.assertIsNotNone(result["ok"]["commit"])
         self.assertEqual(sh("git", "status", "--porcelain", cwd=top).stdout.strip(), "",
-                         "the draft turned up in the working tree")
+                         "the agenda was left in the working tree")
+
+    def test_a_private_agenda_can_be_published_from_here(self):
+        top = self.a_repo()
+        self.tm(top, "agenda", "Sam one to one")
+        folder = os.path.join(self.install_root(top), ".notes", "agendas")
+        name = sorted(os.listdir(folder))[0][:-3]
+        self.assertNotIn("error", self.do(top, {"name": name}, tool="publish"))
+        self.assertTrue(os.path.isfile(os.path.join(
+            self.install_root(top), "agendas", name + ".md")))
 
     def test_the_agent_is_told_the_shape(self):
         """The form is not guessable — plain numbered lines, hyphens, no
@@ -2779,7 +2904,7 @@ print(json.dumps(out))
                      "sys.path.insert(0, os.path.join(sys.argv[1], 'llmeep', 'ui', 'api'))\n"
                      "import server\n"
                      "args = {'id': 'PLT-0000', 'title': 'x', 'term': 'x',\n"
-                     "        'lines': ['a'], 'source': 's'}\n"
+                     "        'lines': ['a'], 'source': 's', 'name': 'x'}\n"
                      "print(json.dumps(sorted({server.TOOLS[t](dict(args))[1][0]\n"
                      "                         for t in server.TOOLS})))\n")
         env = dict(os.environ, LLMEEP_REPO=top, LLMEEP_AUTH_HANDLED="yes")
