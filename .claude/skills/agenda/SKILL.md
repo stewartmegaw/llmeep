@@ -45,3 +45,8 @@ few that matter.
 `--send` posts it under a dated heading, body as written — never unasked. A later `tm agenda`
 says `sent <date>`, and `edited since` if it moved on.
 
+**The app has it too** — a pill in *Other*, with an ✕ on each line (`PLT-6v3m`). `tm agenda
+--set -` replaces the draft from stdin and `--json` reads it back, which is how the app writes
+what you say there. The tool still never parses an agenda: it stores the text, and dropping a
+line is text editing.
+

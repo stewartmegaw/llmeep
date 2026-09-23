@@ -17,9 +17,11 @@ PLT-6vgh Test tm review end to end: a real commit through both reviewer APIs  fi
 PLT-2gdj Periodically check connectors — Gmail, Google Docs — and turn what they find into captures  detail  filed:2026-09-07
 PLT-hrpu An agenda holds nothing the repo keeps — decide whether it should exist at all  detail  filed:2026-09-12
 PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; use typeable() so they stay typeable  filed:2026-09-12
+PLT-jrtf A title ending in the word detail is read back as the detail tag, and check then refuses the commit  filed:2026-09-23
 
 ## recent
 
+2026-09-23  PLT-6v3m The agenda reaches the app: a tab in Other, editable from the chat, and an icon to remove a line  @stewart
 2026-09-21  PLT-zs7t A read never syncs, so a second writer sees a confident stale board with no hint it is behind  @stewart
 2026-09-21  PLT-f5e9 Dropping a promoted task leaves the note pointing at nothing, and nm check then blocks every commit in the repo  @stewart
 2026-09-21  PLT-cjgb Several tasks can run at once: a current-task pointer per checkout replaces the on-board anchor and WIP-1  @stewart
@@ -34,4 +36,3 @@ PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; us
 2026-09-14  PLT-5ab6 Notes run together in the app: within a date each note is a new line, which markdown renders as one paragraph  @stewart
 2026-09-14  PLT-avfj A domain ontology recorded as a folder shows nothing in the app; tm accepts a folder and the catalogue only takes a file  @stewart
 2026-09-14  PLT-25ew An adopter reports the board clipping at 390px: titles cut mid-word, filter pills off-screen with no way to reach them  @stewart
-2026-09-14  PLT-nmeg The conversation gets its own space: a fourth tab on a phone, a pane beside the tabs on anything wider  @stewart

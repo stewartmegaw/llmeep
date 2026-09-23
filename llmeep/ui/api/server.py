@@ -139,10 +139,21 @@ TOOLS = {
                              + (["-b"] if a.get("ledger") == "business" else [])
                              + (["-n"] if a.get("prioritise") else []), None),
     "unnote":     lambda a: ("nm", ["drop", a["id"]], None),
+
+    # The agenda. Read with no text, replaced with it — the tool stores bytes
+    # and never parses them, so this adds a writer rather than a format
+    # (`PLT-6v3m`). It is gitignored, so a turn that only touches the agenda
+    # commits nothing, which is right: it is a draft for a meeting, not a
+    # record of anything.
+    "agenda":     lambda a: ("tm", ["agenda", "--set", "-"], a["text"]) if a.get("text")
+                  is not None else ("tm", ["agenda", "--json"], None),
 }
 
 # Tools that change nothing, so a turn using only these commits nothing.
 READ_ONLY = {"board", "audience", "notes", "find", "why"}
+# Writes a file that is gitignored, so there is nothing to commit either way —
+# but it is not a *read*, and saying so keeps the one list honest.
+NO_COMMIT = {"agenda"}
 
 # A turn is bounded. An agent that cannot finish in this many steps is looping,
 # and the person is holding a phone.
@@ -196,6 +207,7 @@ They may not be a developer, and they are reading this on a phone.
 TOOL_ARGS = {
     "board": "{}", "audience": "{}",
     "notes": '{"term": "..."}  (empty term lists everything)',
+    "agenda": '{"text": "..."}  the whole draft; omit text to read it back',
     "find": '{"term": "..."}', "why": '{"term": "..."}',
     "add": '{"title": "...", "ledger": "platform|business", "prioritise": bool}',
     "retitle": '{"id": "...", "title": "..."}',
@@ -215,7 +227,13 @@ def skills_text():
     to a release that changed one — gets what their repo says and not what this
     image was built with."""
     out = []
-    for name in ("tm", "nm"):
+    # `agenda` joins the two subsystems because this app can now write one, and
+    # the form is not guessable: plain numbered lines and hyphens, no markdown,
+    # `Next Steps` last — rules that exist because the draft is going to a chat
+    # message where `##` renders as `##` (`PLT-6v3m`). It costs every turn what
+    # it always cost a task session, which is why it was split out in the first
+    # place; the difference is that here the verb is on screen.
+    for name in ("tm", "nm", "agenda"):
         path = os.path.join(REPO, ".claude", "skills", name, "SKILL.md")
         if os.path.isfile(path):
             with open(path) as fh:
@@ -703,6 +721,10 @@ def run_tool(name, args):
     for key in ("title", "term", "source"):
         if key in args:
             args[key] = str(args[key]).strip()
+    if name == "agenda" and args.get("text") is not None:
+        # Not stripped to nothing: an agenda is a shape, and its blank lines are
+        # part of it. Trailing whitespace only.
+        args["text"] = str(args["text"]).rstrip()
     if name == "capture":
         lines = [str(l).strip() for l in (args.get("lines") or []) if str(l).strip()]
         if not lines:
@@ -884,7 +906,7 @@ def act_directly(name, args):
     """
     if name not in TOOLS:
         raise RuntimeError(f"not a tool this app has: {name}")
-    if name not in READ_ONLY:
+    if name not in READ_ONLY and name not in NO_COMMIT:
         theirs = already_staged_elsewhere()
         if theirs:
             raise RuntimeError(
@@ -892,7 +914,7 @@ def act_directly(name, args):
                 f"{', '.join(theirs[:3])}. Commit or unstage them first; this app "
                 "will not put them in a commit about your records.")
     said = run_tool(name, dict(args))
-    if name in READ_ONLY:
+    if name in READ_ONLY or name in NO_COMMIT:
         return {"said": said, "changed": False, "commit": None, "pushed": False, "note": None}
     sha = commit_used([name])
     pushed, note = push_after_commit() if sha else (False, None)
@@ -1106,6 +1128,8 @@ class Handler(BaseHTTPRequestHandler):
             # they do and go stale at exactly the same moment.
             return self.send_json_from(
                 lambda: {**json.loads(tm("board", "--json")), "updated": records_changed()})
+        if path == "/api/agenda":
+            return self.send_json_from(lambda: json.loads(tm("agenda", "--json")))
         if path == "/api/notes":
             # The window as data, so the screen can put a verb on each note
             # rather than rendering the archive as a document nobody can act on

@@ -1835,6 +1835,93 @@ class TestAgenda(Fixture):
                          "the agenda draft is not gitignored")
 
 
+class TestAgendaInTheApp(Fixture):
+    """`PLT-6v3m`. An adopter found the agenda useful enough to want it on a
+    phone. It is the one screen here that is not a record — gitignored, gone
+    with the machine — and it stays that way: the tool stores the text and never
+    parses it, so removing a line is text editing rather than a model the two
+    ends could implement differently (`PLT-ehd6`)."""
+
+    DRIVER = """import json, os, sys
+sys.path.insert(0, os.path.join(sys.argv[1], "llmeep", "ui", "api"))
+import server
+try:
+    print(json.dumps({"ok": server.act_directly(sys.argv[2], json.loads(sys.argv[3]))}))
+except Exception as exc:
+    print(json.dumps({"error": str(exc)}))
+"""
+
+    def a_repo(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "commit", "-qm", "adopt", cwd=top)
+        return top
+
+    def do(self, top, args):
+        script = self.path("drive_agenda.py")
+        with open(script, "w") as fh:
+            fh.write(self.DRIVER)
+        env = dict(os.environ, LLMEEP_REPO=top, LLMEEP_AUTH_HANDLED="yes")
+        out = sh(sys.executable, script, self.working_copy(), "agenda", json.dumps(args),
+                 cwd=top, env=env)
+        self.assertTrue(out.stdout.strip(), out.stderr)
+        return json.loads(out.stdout.strip().split("\n")[-1])
+
+    def draft(self, top):
+        path = os.path.join(self.install_root(top), ".notes", "agenda.md")
+        if not os.path.exists(path):
+            return ""
+        with open(path) as fh:
+            return fh.read()
+
+    def test_it_is_written_and_read_back(self):
+        top = self.a_repo()
+        text = "1. Pricing\n\n- What do we charge for the pilot\n"
+        self.assertNotIn("error", self.do(top, {"text": text}))
+        self.assertIn("What do we charge", self.draft(top))
+
+        read = self.do(top, {})
+        self.assertNotIn("error", read, read)
+        self.assertIn("What do we charge", json.loads(read["ok"]["said"])["text"])
+
+    def test_next_steps_stays_last(self):
+        """The scaffold's one rule, and the reason the screen offers no ✕ on it."""
+        top = self.a_repo()
+        self.do(top, {"text": "1. Pricing\n\n- What do we charge\n"})
+        self.assertTrue(self.draft(top).rstrip().endswith("Next Steps"), self.draft(top))
+
+    def test_the_draft_never_becomes_a_commit(self):
+        """It is gitignored: a draft for a meeting, not a record of anything. A
+        turn that only touches it should leave the repository alone."""
+        top = self.a_repo()
+        head = sh("git", "rev-list", "--count", "HEAD", cwd=top).stdout.strip()
+        result = self.do(top, {"text": "1. Anything\n"})
+        self.assertFalse(result["ok"]["changed"])
+        self.assertIsNone(result["ok"]["commit"])
+        self.assertEqual(sh("git", "rev-list", "--count", "HEAD", cwd=top).stdout.strip(), head)
+        self.assertEqual(sh("git", "status", "--porcelain", cwd=top).stdout.strip(), "",
+                         "the draft turned up in the working tree")
+
+    def test_the_agent_is_told_the_shape(self):
+        """The form is not guessable — plain numbered lines, hyphens, no
+        markdown, because it is going to a chat message where `##` renders as
+        `##`. The app can write one now, so it carries the skill that says so."""
+        top = self.a_repo()
+        script = self.path("drive_prompt.py")
+        with open(script, "w") as fh:
+            fh.write("import os, sys\n"
+                     "sys.path.insert(0, os.path.join(sys.argv[1], 'llmeep', 'ui', 'api'))\n"
+                     "import server\n"
+                     "print(server.agent_prompt())\n")
+        env = dict(os.environ, LLMEEP_REPO=top, LLMEEP_AUTH_HANDLED="yes")
+        prompt = sh(sys.executable, script, self.working_copy(), cwd=top, env=env).stdout
+        self.assertIn("No markdown", prompt, "the agenda's form never reached the model")
+        self.assertIn("Next Steps", prompt)
+        self.assertIn("agenda", prompt)
+
+
 class TestChromeDocs(Fixture):
     """`PLT-6yjz`. The records are the point of the repo, so someone who cannot
     read a decision has to take the board on faith. Reading is therefore wider

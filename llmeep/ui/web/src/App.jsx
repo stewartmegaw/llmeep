@@ -235,6 +235,7 @@ export default function App() {
                      count: browsable.filter((d) => d.group === 'Decisions').length },
                    { value: 'ontology', label: 'Ontology',
                      count: browsable.filter((d) => d.group === 'Ontology').length },
+                   { value: 'agenda', label: 'Agenda' },
                  ]} />
         )}
         {tab === 'board' && board && (
@@ -246,7 +247,11 @@ export default function App() {
         {tab === 'notes' && (
           <Notes base={BASE} onAsk={setAsking} busy={acting} reload={notesAt} />
         )}
-        {tab === 'other' && (
+        {tab === 'other' && sub === 'agenda' && (
+          <Agenda base={BASE} busy={acting} reload={notesAt}
+                  onSet={(text) => runTool('agenda', { text })} />
+        )}
+        {tab === 'other' && sub !== 'agenda' && (
           <Read base={BASE} docs={browsable}
                 only={sub === 'decisions' ? 'Decisions' : 'Ontology'}
                 empty={sub === 'decisions'
@@ -608,6 +613,82 @@ function Notes({ base, onAsk, busy, reload }) {
           </List>
         </Box>
       ))}
+    </Box>
+  )
+}
+
+// **The agenda, which is the one screen that is not a record.** Everything else
+// here reads something the repo keeps; an agenda is a draft for a meeting,
+// gitignored and gone with the machine. It is on this screen because it is
+// written in the same conversation as everything else, and because an adopter
+// found it useful enough to want it on a phone (`PLT-6v3m`).
+//
+// **Lines, not items.** The tool has never parsed the agenda — the agent writes
+// the file and `--send` posts what is in it, so there is no format for the two
+// ends to disagree about (`PLT-ehd6`). Removing one is text editing: drop the
+// line, hand back the rest. Nothing here knows what a section is.
+function Agenda({ base, busy, reload, onSet }) {
+  const [state, setState] = React.useState(null)
+  const [error, setError] = React.useState(null)
+
+  React.useEffect(() => {
+    fetch(`${base}/api/agenda`)
+      .then((r) => (r.ok ? r.json() : r.text().then((t) => Promise.reject(new Error(t)))))
+      .then((d) => { setState(d); setError(null) })
+      .catch((e) => setError(e.message))
+  }, [base, reload])
+
+  if (error) return <Typography color="error" sx={{ mt: 3 }}>{error}</Typography>
+  if (!state) return <Box sx={{ mt: 4, textAlign: 'center' }}><CircularProgress size={22} /></Box>
+
+  const lines = (state.text || '').split('\n')
+  const written = lines.filter((l) => l.trim()).length
+  if (!written) {
+    return (
+      <Typography color="text.secondary" sx={{ mt: 4, textAlign: 'center', px: 3, lineHeight: 1.5 }}>
+        Nothing on the agenda yet — say what the meeting has to get through.
+      </Typography>
+    )
+  }
+
+  // `Next Steps` is the last thing on every agenda and not a line to remove.
+  const fixed = (l) => l.trim() === 'Next Steps'
+  const drop = (i) => onSet(lines.filter((_, n) => n !== i).join('\n'))
+
+  return (
+    <Box sx={{ mt: 2 }}>
+      <List disablePadding sx={{ border: 1, borderColor: 'divider', borderRadius: 2 }}>
+        {lines.map((line, i) => (line.trim() ? (
+          <ListItem key={i} divider={i < lines.length - 1} alignItems="flex-start"
+            sx={{ py: 0.75 }}
+            secondaryAction={!fixed(line) && (
+              <IconButton size="small" disabled={busy} sx={GLYPH}
+                          aria-label={`Remove line ${i + 1}`} onClick={() => drop(i)}>
+                <span aria-hidden>✕</span>
+              </IconButton>
+            )}
+          >
+            <ListItemText
+              primary={line}
+              primaryTypographyProps={{ sx: {
+                lineHeight: 1.4, overflowWrap: 'anywhere',
+                // A numbered line is a heading and a hyphen is a bullet: the
+                // agenda's whole shape, because it is going to a chat message
+                // where markdown renders as itself.
+                fontWeight: /^\s*\d+\./.test(line) ? 600 : 400,
+                pl: /^\s*-/.test(line) ? 2 : 0,
+                color: fixed(line) ? 'text.secondary' : 'text.primary',
+              } }}
+            />
+          </ListItem>
+        ) : null))}
+      </List>
+      <Typography variant="caption" color="text.secondary"
+                  sx={{ display: 'block', mt: 1.5, lineHeight: 1.5 }}>
+        {state.last_sent ? `Last sent ${state.last_sent}. ` : ''}
+        Say what belongs here and it gets written. Local and gitignored — it is a
+        draft for a meeting, not a record.
+      </Typography>
     </Box>
   )
 }

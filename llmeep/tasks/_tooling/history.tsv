@@ -135,3 +135,4 @@
 2026-09-21	PLT-cjgb	platform	Several tasks can run at once: a current-task pointer per checkout replaces the on-board anchor and WIP-1	stewart
 2026-09-21	PLT-f5e9	platform	Dropping a promoted task leaves the note pointing at nothing, and nm check then blocks every commit in the repo	stewart
 2026-09-21	PLT-zs7t	platform	A read never syncs, so a second writer sees a confident stale board with no hint it is behind	stewart
+2026-09-23	PLT-6v3m	platform	The agenda reaches the app: a tab in Other, editable from the chat, and an icon to remove a line	stewart

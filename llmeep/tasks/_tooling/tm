@@ -1681,6 +1681,10 @@ def cmd_agenda(args):
     """
     if "--send" in args:
         return agenda_send()
+    if "--set" in args:
+        return agenda_set(sys.stdin.read())
+    if "--json" in args:
+        return agenda_json()
     path = agenda_path()
     where = os.path.relpath(path, os.getcwd())
     rolled = agenda_rolled()
@@ -1701,6 +1705,47 @@ def cmd_agenda(args):
     print("  edit it there, or say what belongs and your agent will write it.")
     print("  add tasks, notes or decisions by id, and anything else on your mind.")
     print("  it is not backed up: local, gitignored, and gone if this machine is.\n")
+
+
+def agenda_set(text):
+    """**Replace the draft with what was handed in.** Stored, never parsed.
+
+    The tool has never known what an agenda says — the agent writes the file and
+    `--send` posts what is in it, so there is no format between the two halves
+    and nothing for them to disagree about (`PLT-ehd6`). That holds here: this
+    writes bytes. An interface that wants to drop a line reads the text, drops
+    the line and hands back the rest, which is text editing rather than a model
+    the two ends could implement differently (`PLT-6v3m`).
+    """
+    path = agenda_path()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    body = text.rstrip("\n")
+    # The scaffold's one rule: `Next Steps` is the last thing on every agenda.
+    if body and AGENDA_SCAFFOLD.strip() not in body:
+        body += "\n\n" + AGENDA_SCAFFOLD.strip()
+    with open(path, "w") as fh:
+        fh.write(body + "\n")
+    kept = len([l for l in body.split("\n") if l.strip()])
+    print(f"\n  agenda: {kept} line(s)\n")
+    return 0
+
+
+def agenda_json():
+    """The draft as data, for an interface. The text as it stands, and what
+    `tm agenda` would otherwise say about it in prose."""
+    path = agenda_path()
+    text = ""
+    if os.path.isfile(path):
+        with open(path) as fh:
+            text = fh.read()
+    rolled = agenda_rolled()
+    print(json.dumps({
+        "text": text,
+        "exists": os.path.isfile(path),
+        "lines": len([l for l in text.split("\n") if l.strip()]),
+        "last_sent": rolled[-1][0] if rolled else None,
+    }, indent=2))
+    return 0
 
 
 def agenda_send():
@@ -4128,6 +4173,7 @@ USAGE = """tm — taskman
                                 renders it to pass on as it is)
   tm standup --cron             the crontab line, if you schedule it
   tm agenda [--send]            what a meeting must get through (--send posts it)
+  tm agenda --set -             replace the draft with stdin; --json reads it back
   tm ontology [<path>|--none]   where your domain ontology lives, or that there is none
   tm feedback [<text...>|-]     note what llmeep itself got wrong (opt-in, local, never sent)
   tm audience                   how this user wants to be talked to (USER_TYPE in .env)

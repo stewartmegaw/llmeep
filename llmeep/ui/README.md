@@ -107,6 +107,11 @@ make this checkout diverge, which is the problem the endpoint exists to prevent.
 correctly — a task dropped on one side while the app ranked it comes back, and nothing in the diff
 looks wrong ([`DEC-054`](../decisions/DEC-054-the-deterministic-half-of-a-merge-is-the-tools.md)).
 
+**Agenda is the exception to all of this.** It is a draft for a meeting, not a record: gitignored,
+local, and gone with the machine. The screen lists it a line at a time with an ✕ on each, the text
+box writes it, and neither makes a commit. `tm agenda --send` still posts it, and still only when
+somebody asks.
+
 ## Reading is wider than writing
 
 Three tabs. **Board** is what is live. **Notes** opens the notes straight away — a list with one
