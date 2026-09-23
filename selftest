@@ -2867,6 +2867,57 @@ print(json.dumps(out))
         self.assertLessEqual(len(result["ok"]["used"]), 12)
 
 
+class TestTitleEndingInATag(Fixture):
+    """`PLT-jrtf`, reported by an adopter. `detail` is the only tag that is also
+    an ordinary word — every other carries a sigil or a colon — so it is the only
+    one a title can end in. One did: "…with file download instead of per-row
+    detail". Reading the line back turned that word into a tag, `check` then
+    refused every commit in the repository with "tagged detail but no detail file
+    exists", and `retitle` could not clear it because there was nothing in the
+    file to clear. The line was always correct; the parser was wrong."""
+
+    def a_repo(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        return top
+
+    TITLE = "Build a searchable signal load history instead of per-row detail"
+
+    def test_the_last_word_of_a_title_is_not_a_tag(self):
+        top = self.a_repo()
+        self.tm(top, "add", "--id", "-n", self.TITLE)
+        out = self.tm(top, "check").stdout
+        self.assertNotIn("no detail file", out, "the title's last word was read as a tag")
+
+    def test_the_whole_title_survives_a_round_trip(self):
+        """The board is read and rewritten by every verb that touches it, so a
+        word eaten on read is a word lost from the file on the next write."""
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", self.TITLE).stdout.strip()
+        self.tm(top, "prioritise", tid)
+        with open(os.path.join(self.install_root(top),
+                               "tasks", "platform", "board.md")) as fh:
+            line = next(l for l in fh if tid in l)
+        self.assertIn(self.TITLE, line)
+
+    def test_a_real_detail_tag_still_parses_beside_such_a_title(self):
+        """The fix must not go the other way: a task that both ends in the word
+        and carries the tag has to keep both."""
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", self.TITLE).stdout.strip()
+        self.tm(top, "go", tid)
+        self.tm(top, "detail")
+        out = self.tm(top, "board").stdout
+        self.assertIn("detail", out)
+        self.assertEqual(self.tm(top, "check").returncode, 0,
+                         "a genuine detail tag stopped resolving")
+        with open(os.path.join(self.install_root(top),
+                               "tasks", "platform", "board.md")) as fh:
+            line = next(l for l in fh if tid in l)
+        self.assertIn(self.TITLE + "  ", line, "the title lost its last word to the tag")
+
+
 class TestRetitle(Fixture):
     """`PLT-6yjz`. "Edit this task" had no verb at all, so the only way to act
     on a better title was the hand edit `DEC-036` forbids — which is why two

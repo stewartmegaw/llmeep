@@ -114,7 +114,9 @@ PLT-021  Audit the retry timeouts         filed:2026-07-11
   not a filing date. `check` never complains about a missing one.
 - **`@stew`** — who owns it. See [Assignee](#assignee).
 - **`detail`** — a [Detail](#detail) exists. Its absence means the line is the whole task,
-  so nothing goes looking.
+  so nothing goes looking. **The only tag that is also an ordinary word**, which is why tags are
+  read only from the tag column — after the run of two or more spaces every write puts in front
+  of them. A title may end in the word and mean the word (`PLT-jrtf`).
 - **`commits:3`** — commits landed while this task was in progress, accumulated over every
   stretch it has been picked up for. Written by `park`, which unassigns; without it a task with
   work behind it and one nobody has touched render identically, and the part-done one is the

@@ -53,6 +53,10 @@ SECTIONS = {"in progress": "in_progress",
 TAG_RE = re.compile(r"^(detail|@[a-z0-9][a-z0-9._-]*|blocked:[A-Za-z]{3}-\S+"
                     r"|filed:\d{4}-\d{2}-\d{2}|since:[0-9a-f]{7,40}"
                     r"|commits:\d+)$")
+# Tags that are also ordinary English. Exactly one, and that is worth keeping
+# true: a tag with a sigil or a colon can never be the last word of a title.
+WORD_TAGS = {"detail"}
+
 ID_RE = re.compile(r"^(PLT|BUS)-\S+$")
 
 
@@ -243,23 +247,45 @@ class Board:
                     getattr(self, SECTIONS[section]).append(self._parse(line))
 
     @staticmethod
-    def _split_tags(tokens):
+    def _split_tags(tokens, line=""):
+        """Pop the trailing tags off a board line, leaving the title.
+
+        **`detail` is the only tag that is also an ordinary word.** Every other
+        one carries a sigil or a prefix — `@who`, `blocked:`, `filed:`, `since:`,
+        `commits:` — so it can never be the last word of a title. `detail` can,
+        and was: an adopter filed "…with file download instead of per-row
+        detail", and reading the line back turned that word into a tag, so
+        `check` refused every commit with "tagged detail but no detail file
+        exists". `retitle` could not clear it, because there was nothing in the
+        file to clear — the line was always correct and the *parser* was wrong
+        (`PLT-jrtf`).
+
+        So the ambiguous word is only read as a tag where `render` puts tags:
+        after a run of two or more spaces. Everything else still parses exactly
+        as before, which keeps a hand-edited line with a single space in front
+        of its tags working.
+        """
+        after = re.search(r" {2,}", line)
+        region = line[after.end():].split() if after else []
         tags = []
         while tokens and TAG_RE.match(tokens[-1]):
+            token = tokens[-1]
+            if token in WORD_TAGS and tags.count(token) >= region.count(token):
+                break
             tags.insert(0, tokens.pop())
         return tokens, tags
 
     def _parse(self, line):
         tokens = line.split()
         tid = tokens.pop(0)
-        tokens, tags = self._split_tags(tokens)
+        tokens, tags = self._split_tags(tokens, line)
         return Task(tid, " ".join(tokens), tags)
 
     def _parse_recent(self, line):
         tokens = line.split()
         done_on = tokens.pop(0)
         tid = tokens.pop(0)
-        tokens, tags = self._split_tags(tokens)
+        tokens, tags = self._split_tags(tokens, line)
         # Keep the assignee; drop `detail`/`blocked:` — a completed task has no
         # blocker, and its detail is found by id, not by a tag.
         tags = [t for t in tags if t.startswith("@")]
