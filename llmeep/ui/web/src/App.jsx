@@ -2,7 +2,7 @@ import React from 'react'
 import {
   Alert, AppBar, Box, Button, Checkbox, Chip, CircularProgress, Container, Dialog,
   DialogActions, DialogContent, DialogTitle, Divider, IconButton, List, ListItem,
-  ListItemButton, ListItemText, Paper, Snackbar, Stack, Tab, Tabs, TextField,
+  ListItemButton, ListItemText, Menu, MenuItem, Paper, Snackbar, Stack, Tab, Tabs, TextField,
   Toolbar, Typography, useMediaQuery, useTheme,
 } from '@mui/material'
 import Read, { Doc, size } from './Read.jsx'
@@ -130,6 +130,30 @@ export default function App() {
       setAsking(null)
     }
   }, [load])
+
+  // **Putting something on the agenda is text editing**, like every other
+  // change this screen makes to one: read the draft, add a bullet, hand the
+  // whole thing back. The tool still never parses an agenda (`PLT-ehd6`), and
+  // there is no new verb — `agenda --set -` already takes replacement text.
+  //
+  // The new line goes above `Next Steps`, which is always last, and above any
+  // blank lines in front of it. Nothing else knows where it should sit: a
+  // section is a judgement, so an unsorted bullet at the end is honest about
+  // having been added by a tap rather than written into a topic.
+  const ontoAgenda = React.useCallback(async (line) => {
+    try {
+      const r = await fetch(`${BASE}/api/agenda`)
+      if (!r.ok) throw new Error(`llmeep answered ${r.status}`)
+      const lines = ((await r.json()).text || '').split('\n')
+      let at = lines.findIndex((l) => l.trim() === 'Next Steps')
+      if (at < 0) at = lines.length
+      while (at > 0 && !lines[at - 1].trim()) at--
+      const kept = [...lines.slice(0, at), line, '', ...lines.slice(at)]
+      runTool('agenda', { text: kept.join('\n').replace(/\n{3,}/g, '\n\n') })
+    } catch (e) {
+      setFlash(e.message)
+    }
+  }, [runTool])
 
   // **A drop resolves to a verb, never to a file.** Where a task landed is a
   // question about its neighbours, which is exactly what `prioritise --after`
@@ -262,6 +286,7 @@ export default function App() {
         {tab === 'board' && board && Object.entries(board).map(([ledger, sections]) => (
           <Ledger key={ledger} name={ledger} sections={sections} off={off}
                   docs={docs} onDetail={setDetail} onAsk={setAsking} onAct={runTool}
+                  onAgenda={ontoAgenda}
                   busy={acting} drag={drag} onDrag={setDrag} onDrop={dropped} />
         ))}
       </Container>
@@ -742,7 +767,7 @@ function Confirm({ asking, busy, onClose, onYes }) {
 
 // `off` holds the pills that have been switched off — a ledger name or a
 // section key. Empty means show everything, which is where it starts.
-function Ledger({ name, sections, off, docs, onDetail, onAsk, onAct, busy, drag, onDrag, onDrop }) {
+function Ledger({ name, sections, off, docs, onDetail, onAsk, onAct, onAgenda, busy, drag, onDrag, onDrop }) {
   if (off.has(name)) return null
   const live = SECTIONS.filter(([key]) => !off.has(key) && sections[key]?.length)
   if (!live.length) return null
@@ -759,6 +784,7 @@ function Ledger({ name, sections, off, docs, onDetail, onAsk, onAct, busy, drag,
             {sections[key].map((task, i) => (
               <Task key={task.id} task={task} docs={docs} onDetail={onDetail}
                     section={key} onAsk={onAsk} onAct={onAct} busy={busy}
+                    onAgenda={onAgenda}
                     drag={drag} onDrag={onDrag} onDrop={onDrop}
                     divider={i < sections[key].length - 1} />
             ))}
@@ -807,7 +833,13 @@ function Clip(props) {
   )
 }
 
-function Task({ task, docs, onDetail, section, onAsk, onAct, busy, drag, onDrag, onDrop, divider }) {
+function Task({ task, docs, onDetail, section, onAsk, onAct, onAgenda, busy, drag, onDrag, onDrop, divider }) {
+  // **One button instead of four.** Every action but the drag handle lives
+  // behind it: four glyphs in a row on a phone are four small targets nobody
+  // can tell apart, and the row grew every time the board learned a verb. A
+  // menu also has room for words, so `↑` stops having to mean "prioritise".
+  const [menu, setMenu] = React.useState(null)
+  const pick = (go) => () => { setMenu(null); go() }
   // **Pointer events, not HTML5 drag.** `dragstart` never fires on touch, and
   // this screen is a phone first. Dragging begins on the handle only, so a drag
   // never competes with scrolling the board with a thumb (`PLT-4spu`).
@@ -880,51 +912,59 @@ function Task({ task, docs, onDetail, section, onAsk, onAct, busy, drag, onDrag,
               <span aria-hidden>⠿</span>
             </Box>
           )}
-          {/* **A section is a click, not a drag.** Up ranks it, down returns it
-              to the pool — one tap each, on a phone, without holding anything.
-              Neither asks first: both are cheap, and the other button undoes
-              it. */}
-          {onAsk && section === 'backlog' && (
-            <IconButton size="small" disabled={busy} sx={GLYPH}
-                        aria-label={`Prioritise ${task.id}`}
-                        onClick={() => onAct('prioritise', { id: task.id })}>
-              <span aria-hidden>↑</span>
-            </IconButton>
-          )}
-          {onAsk && section === 'prioritised' && (
-            <IconButton size="small" disabled={busy} sx={GLYPH}
-                        aria-label={`Return ${task.id} to the backlog`}
-                        onClick={() => onAct('park', { id: task.id })}>
-              <span aria-hidden>↓</span>
-            </IconButton>
-          )}
-          {/* `done` closes a task from any open section, so this is on all of
-              them — the board is a list of things that are not finished, and
-              saying one is finished is the commonest thing anyone does to it. */}
           <IconButton size="small" disabled={busy} sx={GLYPH}
-                      aria-label={`Mark ${task.id} done`}
-                      onClick={() => onAsk({
-                        tool: 'done', args: { id: task.id }, verb: 'Mark done',
-                        title: task.title,
-                        body: 'Done, and the team is told.',
-                      })}>
-            <span aria-hidden>✓</span>
+                      aria-label={`What can be done with ${task.id}`}
+                      aria-haspopup="menu"
+                      onClick={(e) => setMenu(e.currentTarget)}>
+            <span aria-hidden style={{ fontSize: 17, lineHeight: 1 }}>⋯</span>
           </IconButton>
-          {/* **Not on work in progress.** `drop` writes no history — the task
-              was never filed — so dropping something started would erase the
-              only record that anyone had touched it, including the commit count
-              that says how much is behind it (`DEC-047`). Park it or finish it. */}
-          {section !== 'in_progress' && (
-            <IconButton size="small" disabled={busy} sx={GLYPH}
-                        aria-label={`Archive ${task.id}`}
-                        onClick={() => onAsk({
-                          tool: 'drop', args: { id: task.id }, verb: 'Archive it',
-                          title: task.title,
-                          body: 'Archived, not deleted.',
-                        })}>
-              <span aria-hidden>✕</span>
-            </IconButton>
-          )}
+          <Menu anchorEl={menu} open={Boolean(menu)} onClose={() => setMenu(null)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
+            {/* **A section is a click, not a drag.** Up ranks it, down returns
+                it to the pool. Neither asks first: both are cheap, and the
+                other one undoes it. */}
+            {section === 'backlog' && (
+              <MenuItem onClick={pick(() => onAct('prioritise', { id: task.id }))}>
+                Move to the queue
+              </MenuItem>
+            )}
+            {section === 'prioritised' && (
+              <MenuItem onClick={pick(() => onAct('park', { id: task.id }))}>
+                Back to the pool
+              </MenuItem>
+            )}
+            {/* An id and a title, because an agenda is read aloud and `PLT-5m8z`
+                on its own tells the room nothing. */}
+            {onAgenda && (
+              <MenuItem onClick={pick(() => onAgenda(`- ${task.id} — ${task.title}`))}>
+                Add to the agenda
+              </MenuItem>
+            )}
+            {/* `done` closes a task from any open section, so this is on all of
+                them — the board is a list of things that are not finished, and
+                saying one is finished is the commonest thing anyone does to it. */}
+            <MenuItem onClick={pick(() => onAsk({
+              tool: 'done', args: { id: task.id }, verb: 'Mark done',
+              title: task.title,
+              body: 'Done, and the team is told.',
+            }))}>
+              Mark it done
+            </MenuItem>
+            {/* **Not on work in progress.** `drop` writes no history — the task
+                was never filed — so dropping something started would erase the
+                only record that anyone had touched it, including the commit
+                count that says how much is behind it (`DEC-047`). */}
+            {section !== 'in_progress' && (
+              <MenuItem onClick={pick(() => onAsk({
+                tool: 'drop', args: { id: task.id }, verb: 'Archive it',
+                title: task.title,
+                body: 'Archived, not deleted.',
+              }))}>
+                Archive it
+              </MenuItem>
+            )}
+          </Menu>
         </Stack>
       )}
     >
