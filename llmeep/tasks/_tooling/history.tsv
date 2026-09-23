@@ -141,3 +141,4 @@
 2026-09-23	PLT-5m8z	platform	A task's board buttons collapse into a menu that can also put it on the agenda	stewart
 2026-09-23	PLT-49p8	platform	An agenda is a record: private on this machine, shared in the repo	stewart
 2026-09-23	PLT-xkrc	platform	The app never shows a private agenda	stewart
+2026-09-23	PLT-y7xy	platform	An agenda is shared unless you say otherwise	stewart

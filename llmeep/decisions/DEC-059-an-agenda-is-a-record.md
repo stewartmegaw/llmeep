@@ -1,6 +1,6 @@
 ---
 id: DEC-059
-title: An agenda is a record, private on one machine or shared in the repo
+title: An agenda is a record, shared in the repo unless you say otherwise
 status: accepted
 decided: 2026-09-23
 deciders: [stewart]
@@ -9,7 +9,7 @@ superseded_by: []
 relates_to: [DEC-008, DEC-051, DEC-058]
 ---
 
-# DEC-059 — An agenda is a record, private on one machine or shared in the repo
+# DEC-059 — An agenda is a record, shared in the repo unless you say otherwise
 
 ## Status
 
@@ -40,11 +40,10 @@ An agenda is a file in a tree, and there are two trees. `llmeep/agendas/` is com
 shared; `.notes/agendas/` is local to one machine. Same file shape, same verbs: `<date>-<slug>.md`,
 the title on the first line, `Next Steps` last.
 
-**The default follows the door you came in by.** `tm agenda "<title>"` in a terminal makes a
-private one, because a terminal is one person's machine and a half-formed agenda there is
-thinking. The app makes a shared one, because the app is the team's surface and what is made
-there is already something the team can see. `--publish` moves a private agenda into the repo
-and **nothing moves it back**.
+**Shared unless you say otherwise.** `tm agenda "<title>"` writes into the repo; `--private`
+keeps it on this machine. Most agendas are ordinary work the team should see, and the few that
+are not — a salary, a departure, someone's performance — are the ones worth a flag. `--publish`
+moves a private agenda into the repo and **nothing moves it back**.
 
 Sending no longer ends an agenda's life, and the roll is gone with it. Several agendas are open
 at once, because next Monday's board call and tomorrow's 1:1 are different meetings.
@@ -63,6 +62,13 @@ at once, because next Monday's board call and tomorrow's 1:1 are different meeti
   machine's thinking.
 - **One tree, always shared** — rejected because a meeting agenda names people. "Discuss Sam's
   performance" reads differently in git history than in a file that dies with the laptop.
+- **The default follows the door you came in by** — a terminal makes a private agenda, the app a
+  shared one. Decided first and reversed the same day, before release, once the consequence was
+  visible: the app shows only shared agendas (`PLT-xkrc`), so an agenda written by an agent at a
+  terminal had to be published before anyone could tick through it on a phone. That put the cost
+  of the rare case on the common one, and a default that has to be undone most times is not a
+  default. It survives as the *app's* rule, because what is made on a team's surface is already
+  something the team can see.
 - **One tree, always private, with an export** — rejected as the same invisibility with an extra
   step, and an export is a copy that immediately disagrees with the file it came from.
 - **Keep one draft and add a close-out step at the end of the meeting** — rejected once the file
@@ -92,9 +98,11 @@ app cannot list, write or publish a private agenda, and a name that matches one 
 rather than reaching into `.notes/` on the caller's behalf. It reports "no agenda yet" rather
 than "there is one you may not see", because the second leaks the thing being protected.
 
-The cost is a step: an agenda written by an agent at a terminal is private, so working through it
-in the app on a phone means publishing it first. That is one command, run by the person who wrote
-it, which is the right person to be deciding.
+The cost moves to the sensitive case: an agenda about a person is one `--private` away from
+being permanent and public, and nobody is prompted for it. That is accepted because the
+alternative — refusing to act without `--shared` or `--private` every time — puts friction on
+the fifteen boring agendas between each sensitive one, and friction applied everywhere stops
+being read. The agenda skill is told to offer `--private` when a meeting is about a person.
 
 ## Revisit when
 

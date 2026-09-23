@@ -6,16 +6,16 @@
 The counterpart is [`.notes/agendas/`](../.notes/README.md), which is local to one machine and
 gitignored. Same file shape, same verbs; the difference is who can read it next year.
 
-| Made by                    | Lands in            |
-| -------------------------- | ------------------- |
-| the app                    | here                |
-| `tm agenda "<title>"`      | `.notes/agendas/`   |
+| Made by                      | Lands in          |
+| ---------------------------- | ----------------- |
+| `tm agenda "<title>"`        | here              |
+| the app                      | here              |
+| `tm agenda "<title>" --private` | `.notes/agendas/` |
 | `tm agenda <name> --publish` | here, from there  |
 
-**The default follows the door you came in by** (`PLT-49p8`). A terminal is one person's machine
-and a half-formed agenda there is thinking; the app is the team's surface. Nothing moves an
-agenda back out of here, because git history is not easy to un-say and meeting agendas name
-people.
+**Shared unless you say otherwise** (`PLT-y7xy`). Most agendas are ordinary work the team should
+see; the few that are about a person say so with `--private`. Nothing moves an agenda back out
+of here, because git history is not easy to un-say and meeting agendas name people.
 
 **The app only ever deals in this tree.** It is meant to sit behind an ingress and be reached by
 the team, so it never lists, writes or publishes a private agenda (`PLT-xkrc`). Working through

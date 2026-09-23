@@ -16,11 +16,11 @@ was paying for it (`PLT-2cyh`).
 stop** — no listing, no suggestions. They have `tasks`, `notes` and `tm why` for looking things
 up. Bare `tm agenda` says which are open; several can be, so every other verb takes the name.
 
-**An agenda is a record.** `tm agenda "<title>"` writes a private one under
-`llmeep/.notes/agendas/`, local to this machine. The app writes shared ones into
-`llmeep/agendas/`, which is committed. `tm agenda <name> --publish` moves a private one there
-and nothing moves it back — git history is not easy to un-say, and agendas name people
-(`PLT-49p8`). **Ask before publishing.**
+**An agenda is a record, and shared unless they say otherwise.** `tm agenda "<title>"` writes
+one into `llmeep/agendas/`, which is committed. `--private` keeps it under
+`llmeep/.notes/agendas/`, local to this machine — **offer that when the meeting is about a
+person**, a salary, a departure, anyone's performance. `tm agenda <name> --publish` moves a
+private one into the repo and nothing moves it back, so **ask before publishing** (`PLT-49p8`).
 
 **You write the file** as they talk, and **everything is reshaped into this form** — pasted
 prose, a task id, a note plus a passing thought. Nothing goes in verbatim. The **first line is

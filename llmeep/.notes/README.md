@@ -21,7 +21,7 @@ behind; `.notes/` is one machine's thinking, in progress.
 or automation may treat what is here as the record of anything. A teammate cloning this repo
 gets none of it, and that must break nothing — which is the test, and the only one.
 
-`tm agenda` writes here by default, and an agenda passes the test the way anything here does: it
+`tm agenda --private` writes here, and such an agenda passes the test the way anything here does: it
 names tasks and notes that all still exist, so losing it costs a few minutes of picking rather
 than information. An agenda worth keeping is published — `tm agenda <name> --publish` moves it
 to [`agendas/`](../agendas/README.md), which is committed (`PLT-49p8`). Something whose *only*

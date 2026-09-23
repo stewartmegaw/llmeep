@@ -868,7 +868,8 @@ Most of a standup is exactly what an agenda leaves out, because it is going fine
 
 ```sh
 tm agenda                      # which agendas are open
-tm agenda "Monday board call"  # start one, on this machine only
+tm agenda "Monday board call"  # start one, in the repo
+tm agenda "Pay review" --private  # start one this machine keeps
 tm agenda monday --send        # post it, ticks stripped
 tm agenda monday --publish     # move it into the repo, for everyone
 ```
@@ -878,11 +879,10 @@ tm agenda monday --publish     # move it into the repo, for everyone
 same file under `.notes/agendas/`, local to one machine. The first line is the title, the
 filename is the date and the title's slug, and a directory listing is the history.
 
-**The default follows the door you came in by.** `tm agenda` in a terminal writes a private one,
-because a terminal is one person's machine and a half-formed agenda there is thinking. The app
-writes a shared one, because the app is the team's surface. `--publish` moves a private agenda
-into the repo and **nothing moves it back**: git history is not easy to un-say, and meeting
-agendas name people (`PLT-49p8`).
+**Shared unless you say otherwise.** Most agendas are ordinary work the team should see, and the
+few that are not say so with `--private`. `--publish` moves a private agenda into the repo and
+**nothing moves it back**: git history is not easy to un-say, and meeting agendas name people
+(`PLT-49p8`, `PLT-y7xy`).
 
 **The app deals only in shared ones.** It is reachable by the team, and the private tree's whole
 promise is that a teammate cloning the repo gets none of it (`PLT-xkrc`).

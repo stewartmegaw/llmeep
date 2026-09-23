@@ -902,7 +902,7 @@ class TestHandover(Fixture):
         """An agenda holds its title and `Next Steps` from the moment it is
         made. Treating that as loose would flag every repo that ever ran it."""
         top = self.install()
-        self.tm(top, "agenda", "Monday board call")
+        self.tm(top, "agenda", "Monday board call", "--private")
         self.assertNotIn("private agenda", self.out(top))
         folder = os.path.join(self.install_root(top), ".notes", "agendas")
         path = os.path.join(folder, sorted(os.listdir(folder))[0])
@@ -914,7 +914,7 @@ class TestHandover(Fixture):
         """It is in the repo and survives a clone, so it is not something a
         handover has to carry (`PLT-49p8`)."""
         top = self.install()
-        self.tm(top, "agenda", "Monday board call", "--shared")
+        self.tm(top, "agenda", "Monday board call")
         folder = os.path.join(self.install_root(top), "agendas")
         path = os.path.join(folder, [n for n in sorted(os.listdir(folder))
                                      if n != "README.md"][0])
@@ -1729,35 +1729,45 @@ class TestAgenda(Fixture):
     def private(self, top, name):
         return os.path.join(self.install_root(top), ".notes", "agendas", name + ".md")
 
-    def only(self, top, private=True):
-        """The one agenda's path, whichever tree it is in."""
+    def only(self, top, private=False):
+        """The one agenda's path. Shared by default, as agendas now are."""
         folder = os.path.join(self.install_root(top),
                               *((".notes", "agendas") if private else ("agendas",)))
         names = [n for n in sorted(os.listdir(folder)) if n != "README.md"]
         self.assertEqual(len(names), 1, f"{names} in {folder}")
         return os.path.join(folder, names[0])
 
-    def write(self, top, body, private=True):
+    def write(self, top, body, private=False):
         with open(self.only(top, private), "w") as fh:
             fh.write(body)
 
     # ------------------------------------------------------- making one
 
-    def test_a_terminal_makes_a_private_one(self):
-        """The default follows the door you came in by: a terminal is one
-        person's machine, and a half-formed agenda there is thinking."""
+    def test_it_is_shared_unless_you_say_otherwise(self):
+        """Most agendas are ordinary work the team should see. The default used
+        to follow the door you came in by, which meant an agenda written at a
+        terminal had to be published before anyone could tick through it on a
+        phone — the common case paying the cost of the rare one (`PLT-y7xy`)."""
         top = self.a_repo()
         out = self.tm(top, "agenda", "Monday board call")
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
-        self.assertTrue(os.path.isfile(self.private(top, "%s-monday-board-call"
-                                                   % TODAY)))
-        self.assertIn("this machine only", out.stdout)
-
-    def test_shared_puts_it_in_the_repo(self):
-        top = self.a_repo()
-        self.tm(top, "agenda", "Monday board call", "--shared")
         self.assertTrue(os.path.isfile(self.shared(top, "%s-monday-board-call"
                                                   % TODAY)))
+
+    def test_private_keeps_it_on_this_machine(self):
+        top = self.a_repo()
+        out = self.tm(top, "agenda", "Pay review", "--private")
+        self.assertTrue(os.path.isfile(self.private(top, "%s-pay-review" % TODAY)))
+        self.assertIn("this machine only", out.stdout)
+
+    def test_private_is_for_making_one_and_says_so(self):
+        """Silently ignoring it on a verb that acts on an existing agenda is how
+        `--publish` came to create one called "monday"."""
+        top = self.a_repo()
+        self.tm(top, "agenda", "Monday board call")
+        out = self.tm(top, "agenda", "monday", "--private", "--send")
+        self.assertNotEqual(out.returncode, 0)
+        self.assertIn("--private is for making", out.stdout + out.stderr)
 
     def test_the_first_line_is_the_title(self):
         """No frontmatter: the body is posted to a chat message as written, and
@@ -1789,12 +1799,16 @@ class TestAgenda(Fixture):
 
     def test_the_same_title_twice_is_refused(self):
         """Two files a day apart are two meetings; two the same day under one
-        name are a mistake, and overwriting would lose the first."""
+        name are a mistake, and overwriting would lose the first. The refusal
+        names the one it clashed with, because "already exists" leaves you
+        looking for it."""
         top = self.a_repo()
         self.tm(top, "agenda", "Monday board call")
         out = self.tm(top, "agenda", "Monday board call")
         self.assertNotEqual(out.returncode, 0)
-        self.assertIn("already exists", out.stdout + out.stderr)
+        said = out.stdout + out.stderr
+        self.assertIn("already names an agenda", said)
+        self.assertIn("monday-board-call", said)
 
     def test_a_bare_run_with_none_open_says_how_to_start_one(self):
         top = self.a_repo()
@@ -1825,15 +1839,14 @@ class TestAgenda(Fixture):
         out = self.tm(top, "agenda", "monday", "--set", "-",
                       stdin="Monday board call\n\n1. Pricing\n\nNext Steps\n")
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
-        with open(self.private(top, "%s-monday-board-call"
-                               % TODAY)) as fh:
+        with open(self.shared(top, "%s-monday-board-call" % TODAY)) as fh:
             self.assertIn("Pricing", fh.read())
 
     def test_the_name_may_come_before_or_after_the_flag(self):
         """`--publish` took the next word as its value, so
         `tm agenda monday --publish` created an agenda called "monday"."""
         top = self.a_repo()
-        self.tm(top, "agenda", "Monday board call")
+        self.tm(top, "agenda", "Monday board call", "--private")
         out = self.tm(top, "agenda", "monday", "--publish")
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
         self.assertTrue(os.path.isfile(self.shared(top, "%s-monday-board-call"
@@ -1843,23 +1856,42 @@ class TestAgenda(Fixture):
 
     def test_publish_moves_it_and_leaves_nothing_behind(self):
         top = self.a_repo()
-        self.tm(top, "agenda", "Monday board call")
+        self.tm(top, "agenda", "Monday board call", "--private")
         self.tm(top, "agenda", "monday", "--publish")
         folder = os.path.join(self.install_root(top), ".notes", "agendas")
         self.assertEqual([n for n in os.listdir(folder) if n.endswith(".md")], [])
 
     def test_there_is_no_verb_that_takes_it_back(self):
         """Git history is not easy to un-say, and an agenda names people. The
-        absence is the point, so it is asserted rather than assumed."""
+        absence is the point, so it is asserted rather than assumed — and what
+        someone reaching for it gets has to be a refusal, not a near-duplicate
+        agenda sitting beside the one they meant."""
         top = self.a_repo()
-        self.tm(top, "agenda", "Monday board call", "--shared")
+        self.tm(top, "agenda", "Monday board call")
         for flag in ("--unpublish", "--private"):
             out = self.tm(top, "agenda", "monday", flag)
             self.assertNotEqual(out.returncode, 0, f"{flag} did something")
+        self.assertIn("nothing takes an agenda back out of the repo",
+                      self.tm(top, "agenda", "monday", "--private").stdout
+                      + self.tm(top, "agenda", "monday", "--private").stderr)
+        folder = os.path.join(self.install_root(top), ".notes", "agendas")
+        self.assertFalse(os.path.isdir(folder) and
+                         [n for n in os.listdir(folder) if n.endswith(".md")],
+                         "reaching for an unpublish made a private agenda")
+
+    def test_words_that_already_name_an_agenda_are_refused(self):
+        """Everything that is not a flag is either a name or the words of a new
+        agenda, and the tool cannot tell which was meant. Refusing is the only
+        answer that cannot quietly make a second agenda about one meeting."""
+        top = self.a_repo()
+        self.tm(top, "agenda", "Monday board call")
+        out = self.tm(top, "agenda", "monday")
+        self.assertNotEqual(out.returncode, 0)
+        self.assertIn("already names an agenda", out.stdout + out.stderr)
 
     def test_publishing_something_already_shared_is_refused(self):
         top = self.a_repo()
-        self.tm(top, "agenda", "Monday board call", "--shared")
+        self.tm(top, "agenda", "Monday board call")
         out = self.tm(top, "agenda", "monday", "--publish")
         self.assertNotEqual(out.returncode, 0)
         self.assertIn("already", out.stdout + out.stderr)
@@ -1926,14 +1958,14 @@ class TestAgenda(Fixture):
 
     def test_a_private_agenda_never_enters_the_repo(self):
         top = self.a_repo()
-        self.tm(top, "agenda", "Monday board call")
+        self.tm(top, "agenda", "Pay review", "--private")
         sh("git", "add", "-A", cwd=top)
         staged = sh("git", "diff", "--cached", "--name-only", cwd=top).stdout
-        self.assertNotIn("monday-board-call", staged)
+        self.assertNotIn("pay-review", staged)
 
     def test_a_shared_agenda_is_committable(self):
         top = self.a_repo()
-        self.tm(top, "agenda", "Monday board call", "--shared")
+        self.tm(top, "agenda", "Monday board call")
         sh("git", "add", "-A", cwd=top)
         staged = sh("git", "diff", "--cached", "--name-only", cwd=top).stdout
         self.assertIn("monday-board-call", staged)
@@ -1950,7 +1982,9 @@ class TestAgenda(Fixture):
             fh.write("1. Injury Database\n\n- who would pay\n\nNext Steps\n")
         out = self.tm(top, "agenda").stdout
         self.assertFalse(os.path.exists(os.path.join(folder, "agenda.md")))
-        with open(self.only(top)) as fh:
+        # Carried into the *private* tree: it was written when every agenda was
+        # local, and a migration must not publish anything on someone's behalf.
+        with open(self.only(top, private=True)) as fh:
             body = fh.read()
         self.assertIn("who would pay", body)
         self.assertEqual(body.split("\n")[0], f"Agenda {TODAY}")
@@ -2063,7 +2097,7 @@ except Exception as exc:
         gets none of it. Listing one here would hand it to exactly the people it
         was kept from."""
         top = self.a_repo()
-        self.tm(top, "agenda", "Sam one to one")
+        self.tm(top, "agenda", "Sam one to one", "--private")
         read = self.do(top, {})
         self.assertNotIn("error", read, read)
         said = json.loads(read["ok"]["said"])["agendas"]
@@ -2073,7 +2107,7 @@ except Exception as exc:
         """Not hiding it from the listing while leaving it reachable by name —
         the name is guessable, and hiding is not a boundary."""
         top = self.a_repo()
-        self.tm(top, "agenda", "Sam one to one")
+        self.tm(top, "agenda", "Sam one to one", "--private")
         folder = os.path.join(self.install_root(top), ".notes", "agendas")
         name = sorted(os.listdir(folder))[0][:-3]
         before = open(os.path.join(folder, name + ".md")).read()

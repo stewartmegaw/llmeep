@@ -22,6 +22,7 @@ PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
 
 ## recent
 
+2026-09-23  PLT-y7xy An agenda is shared unless you say otherwise  @stewart
 2026-09-23  PLT-xkrc The app never shows a private agenda  @stewart
 2026-09-23  PLT-49p8 An agenda is a record: private on this machine, shared in the repo  @stewart
 2026-09-23  PLT-5m8z A task's board buttons collapse into a menu that can also put it on the agenda  @stewart
@@ -36,4 +37,3 @@ PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
 2026-09-21  PLT-naj8 The conversation pane: 20% wider on tablet, and answers rendered as markdown rather than flat text  @stewart
 2026-09-21  PLT-mv62 Ordering the queue needs a verb: prioritise --after, so a position can be asked for rather than hand-edited  @stewart
 2026-09-21  PLT-pudy Notes should be a list you can act on: promote one to a task or drop it, which needs nm to export them  @stewart
-2026-09-21  PLT-7kk3 A verb you already know should be a button: done and drop on a task, without a trip through the model  @stewart

@@ -1824,14 +1824,30 @@ def cmd_agenda(args):
     # is either the agenda's name or the words of a new one, so a typo — or a
     # verb that deliberately does not exist, like `--unpublish` — fell through
     # and silently created an agenda called "monday".
-    known = ("--shared", "--json", "--send", "--set", "--publish")
+    known = ("--shared", "--private", "--json", "--send", "--set", "--publish")
     unknown = [a for a in args if a.startswith("--") and a not in known]
     if unknown:
         raise Fail(f"{unknown[0]} is not something `agenda` does")
-    shared = "--shared" in args
-    args = [a for a in args if a != "--shared"]
+    # **Shared unless you say otherwise.** The default used to follow the door
+    # you came in by — a terminal made a private agenda, the app a shared one —
+    # and the consequence was that an agenda written by an agent had to be
+    # published before it could be worked through on a phone, which is the
+    # common case carrying the cost of the rare one (`PLT-y7xy`).
+    #
+    # `--shared` still means *only the shared ones* on every other verb, which is
+    # how the app is held to its tree; here it is what the default already does.
+    private = "--private" in args
+    shared = not private
+    # On a verb that acts on an existing agenda, `--shared` is the app saying
+    # "only the ones I may see". On a create it is the default, so it says
+    # nothing — which is why the two are read separately.
+    asked_shared = "--shared" in args
+    elsewhere = [a for a in args if a in ("--json", "--send", "--set", "--publish")]
+    if private and elsewhere:
+        raise Fail(f"--private is for making an agenda, not for {elsewhere[0]}")
+    args = [a for a in args if a not in ("--shared", "--private")]
     if "--json" in args:
-        return agenda_json(shared_only=shared)
+        return agenda_json(shared_only=asked_shared)
     # **Every verb takes the agenda as a positional**, never as the flag's
     # value: `tm agenda monday --publish` and `tm agenda --publish monday` both
     # have to mean the same thing, and a flag that swallows the next word makes
@@ -1842,17 +1858,40 @@ def cmd_agenda(args):
     if "--publish" in args:
         return agenda_publish(one)
     if "--send" in args:
-        return agenda_send(one, shared)
+        return agenda_send(one, asked_shared)
     if "--set" in args:
-        return agenda_set(one, sys.stdin.read(), shared)
+        return agenda_set(one, sys.stdin.read(), asked_shared)
     if named:
         return agenda_new(" ".join(named), private=not shared)
     return agenda_say()
 
 
 def agenda_new(title, private):
+    """Make one. **Words that name an agenda already open are refused.**
+
+    Everything here that is not a flag is either the name of an agenda or the
+    words of a new one, and the tool cannot tell which was meant — so anything
+    unrecognised used to fall through to "make a new agenda called that". It
+    made one called *monday* three times over: from `--publish` eating the next
+    word, from `--unpublish` being ignored, and from `--private` on an agenda
+    someone was trying to take back out of the repo (`PLT-y7xy`).
+
+    That last one is the reason this refuses rather than disambiguates. There is
+    no verb that unpublishes, so `tm agenda monday --private` is someone
+    reaching for one, and quietly creating a near-duplicate beside the agenda
+    they meant is the worst available answer.
+    """
     if len(title) > TITLE_MAX:
         raise Fail(f"{len(title)} characters; the cap is {TITLE_MAX}")
+    try:
+        clash = find_agenda(title)
+    except Fail:
+        clash = None
+    if clash:
+        raise Fail(f"{title!r} already names an agenda — {clash['name']}.\n"
+                   "  Use other words for a new one"
+                   + ("; nothing takes an agenda back out of the repo."
+                      if private and not clash["private"] else "."))
     path = agenda_file_for(title, private)
     if os.path.exists(path):
         raise Fail(f"{typeable(path)} already exists — edit it, or use other words")
