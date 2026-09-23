@@ -320,7 +320,6 @@ export default function App() {
         {tab === 'other' && sub === 'agenda' && (
           <Agenda base={BASE} busy={acting} reload={notesAt}
                   onSet={(name, text) => runTool('agenda', { name, text })}
-                  onPublish={(a) => runTool('publish', { name: a.name })}
                   onCreate={startAgenda} />
         )}
         {tab === 'other' && sub !== 'agenda' && (
@@ -732,7 +731,13 @@ const ticked = (l) => TICKED.test(l)
 // said twice — once as a character and once as the styling.
 const bare = (l) => l.replace(TICKED, '$1')
 
-function Agenda({ base, busy, reload, onSet, onCreate, onPublish }) {
+// **Every agenda here is a shared one.** The server asks `tm` for those alone:
+// this app is meant to sit behind an ingress and be reached by the team, and
+// `.notes/agendas/` promises a teammate cloning the repo gets none of it. So
+// there is no private marker to show and nothing to publish — that is
+// `tm agenda <name> --publish`, at the terminal, by whoever wrote it
+// (`PLT-xkrc`).
+function Agenda({ base, busy, reload, onSet, onCreate }) {
   const [state, setState] = React.useState(null)
   const [error, setError] = React.useState(null)
   const [open, setOpen] = React.useState(null)
@@ -799,23 +804,7 @@ function Agenda({ base, busy, reload, onSet, onCreate, onPublish }) {
         ))}
         {start}
       </Stack>
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-        <Typography variant="subtitle2" sx={{ flexGrow: 1 }}>
-          {showing.date}
-        </Typography>
-        {/* **Private is worth saying on the screen**, because the difference
-            between the two is who can read it next year, and nothing else on
-            the card shows it. */}
-        {showing.private && (
-          <Chip size="small" variant="outlined" label="this machine only" />
-        )}
-        {showing.private && onPublish && (
-          <Button size="small" disabled={busy} sx={{ textTransform: 'none' }}
-                  onClick={() => onPublish(showing)}>
-            Share it
-          </Button>
-        )}
-      </Stack>
+      <Typography variant="subtitle2" sx={{ mb: 1 }}>{showing.date}</Typography>
       <List disablePadding sx={{ border: 1, borderColor: 'divider', borderRadius: 2 }}>
         {body.map((line, i) => (line.trim() ? (
           <ListItem key={i} divider={i < body.length - 1} alignItems="flex-start"
@@ -851,10 +840,8 @@ function Agenda({ base, busy, reload, onSet, onCreate, onPublish }) {
       </List>
       <Typography variant="caption" color="text.secondary"
                   sx={{ display: 'block', mt: 1.5, lineHeight: 1.5 }}>
-        Say what belongs here and it gets written.{' '}
-        {showing.private
-          ? 'This one is local and gitignored — sharing it puts it in the repo for good.'
-          : 'In the repo, so it is still here next year.'}
+        Say what belongs here and it gets written. In the repo, so it is still
+        here next year.
       </Typography>
     </Box>
   )
@@ -1099,7 +1086,7 @@ function Task({ task, docs, onDetail, section, onAsk, onAct, onAgenda, agendas, 
             {(agendas || []).map((a) => (
               <MenuItem key={a.name} onClick={pick(() =>
                 onAgenda(a.name, `- ${task.id} — ${task.title}`))}>
-                {a.title || a.name}{a.private ? '  (private)' : ''}
+                {a.title || a.name}
               </MenuItem>
             ))}
           </Menu>

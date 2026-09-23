@@ -1731,11 +1731,16 @@ def agendas():
     return out
 
 
-def find_agenda(name):
+def find_agenda(name, shared_only=False):
     """The one an argument means. A bare verb with exactly one agenda open means
     that one — naming it would be ceremony — and with several it asks, because
-    guessing sends the wrong agenda to a room."""
-    open_ = agendas()
+    guessing sends the wrong agenda to a room.
+
+    **`shared_only` is a wall, not a preference.** The app passes it on every
+    verb, so a name that happens to match a private agenda finds nothing rather
+    than reaching into `.notes/` on the caller's behalf (`PLT-xkrc`).
+    """
+    open_ = [a for a in agendas() if not (shared_only and a["private"])]
     if not open_:
         raise Fail('no agenda yet — `tm agenda "<what the meeting is>"` starts one')
     if not name:
@@ -1826,7 +1831,7 @@ def cmd_agenda(args):
     shared = "--shared" in args
     args = [a for a in args if a != "--shared"]
     if "--json" in args:
-        return agenda_json()
+        return agenda_json(shared_only=shared)
     # **Every verb takes the agenda as a positional**, never as the flag's
     # value: `tm agenda monday --publish` and `tm agenda --publish monday` both
     # have to mean the same thing, and a flag that swallows the next word makes
@@ -1837,9 +1842,9 @@ def cmd_agenda(args):
     if "--publish" in args:
         return agenda_publish(one)
     if "--send" in args:
-        return agenda_send(one)
+        return agenda_send(one, shared)
     if "--set" in args:
-        return agenda_set(one, sys.stdin.read())
+        return agenda_set(one, sys.stdin.read(), shared)
     if named:
         return agenda_new(" ".join(named), private=not shared)
     return agenda_say()
@@ -1901,7 +1906,7 @@ def agenda_publish(name):
     return 0
 
 
-def agenda_set(name, text):
+def agenda_set(name, text, shared_only=False):
     """**Replace an agenda with what was handed in.** Stored, never parsed.
 
     The tool has never known what an agenda says — the agent writes the file and
@@ -1911,7 +1916,7 @@ def agenda_set(name, text):
     the line and hands back the rest, which is text editing rather than a model
     the two ends could implement differently (`PLT-6v3m`).
     """
-    a = find_agenda(name)
+    a = find_agenda(name, shared_only)
     body = text.rstrip("\n")
     # The scaffold's one rule: `Next Steps` is the last thing on every agenda.
     if body and AGENDA_SCAFFOLD.strip() not in body:
@@ -1923,15 +1928,23 @@ def agenda_set(name, text):
     return 0
 
 
-def agenda_json():
-    """Every agenda as data, for an interface."""
+def agenda_json(shared_only=False):
+    """Every agenda as data, for an interface.
+
+    **`--shared` is not a filter for tidiness.** The app is meant to sit behind
+    an ingress and be reached by the team, and `.notes/agendas/` promises that a
+    teammate cloning the repo gets none of it. Serving a private agenda through
+    the app would hand it to exactly the people it was kept from, so the app
+    asks for the shared ones and this is where that is honoured (`PLT-xkrc`).
+    """
+    rows = [a for a in agendas() if not (shared_only and a["private"])]
     print(json.dumps({
-        "agendas": [dict(a, text=open(a["path"]).read()) for a in agendas()],
+        "agendas": [dict(a, text=open(a["path"]).read()) for a in rows],
     }, indent=2))
     return 0
 
 
-def agenda_send(name):
+def agenda_send(name, shared_only=False):
     """Posts an agenda under its title and today's date, through the one notifier
     (`DEC-008`).
 
@@ -1940,7 +1953,7 @@ def agenda_send(name):
     an agenda's life** — it is a file that stays where it is, so a meeting can be
     sent an agenda in advance and then worked through it (`PLT-49p8`).
     """
-    a = find_agenda(name)
+    a = find_agenda(name, shared_only)
     with open(a["path"]) as fh:
         body = fh.read().strip()
     lines = body.split("\n")

@@ -2057,14 +2057,38 @@ except Exception as exc:
         self.assertEqual(sh("git", "status", "--porcelain", cwd=top).stdout.strip(), "",
                          "the agenda was left in the working tree")
 
-    def test_a_private_agenda_can_be_published_from_here(self):
+    def test_a_private_agenda_is_invisible_here(self):
+        """`PLT-xkrc`. This app is meant to sit behind an ingress and be reached
+        by the team, and `.notes/agendas/` promises a teammate cloning the repo
+        gets none of it. Listing one here would hand it to exactly the people it
+        was kept from."""
+        top = self.a_repo()
+        self.tm(top, "agenda", "Sam one to one")
+        read = self.do(top, {})
+        self.assertNotIn("error", read, read)
+        said = json.loads(read["ok"]["said"])["agendas"]
+        self.assertEqual(said, [], "a private agenda was served to the app")
+
+    def test_a_private_agenda_cannot_be_written_here_either(self):
+        """Not hiding it from the listing while leaving it reachable by name —
+        the name is guessable, and hiding is not a boundary."""
         top = self.a_repo()
         self.tm(top, "agenda", "Sam one to one")
         folder = os.path.join(self.install_root(top), ".notes", "agendas")
         name = sorted(os.listdir(folder))[0][:-3]
-        self.assertNotIn("error", self.do(top, {"name": name}, tool="publish"))
-        self.assertTrue(os.path.isfile(os.path.join(
-            self.install_root(top), "agendas", name + ".md")))
+        before = open(os.path.join(folder, name + ".md")).read()
+        self.do(top, {"name": name, "text": "Sam one to one\n\n1. Rewritten\n"})
+        self.assertEqual(open(os.path.join(folder, name + ".md")).read(), before,
+                         "the app reached into .notes/ by name")
+
+    def test_there_is_no_publish_tool(self):
+        """Publishing is `tm agenda <name> --publish`, at the terminal, by
+        whoever wrote it. The app cannot see a private agenda, so offering to
+        share one would be a button for something it cannot name."""
+        top = self.a_repo()
+        result = self.do(top, {"name": "anything"}, tool="publish")
+        self.assertIn("error", result)
+        self.assertIn("not a tool", result["error"])
 
     def test_the_agent_is_told_the_shape(self):
         """The form is not guessable — plain numbered lines, hyphens, no

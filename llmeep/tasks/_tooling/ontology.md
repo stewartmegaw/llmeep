@@ -884,6 +884,9 @@ writes a shared one, because the app is the team's surface. `--publish` moves a 
 into the repo and **nothing moves it back**: git history is not easy to un-say, and meeting
 agendas name people (`PLT-49p8`).
 
+**The app deals only in shared ones.** It is reachable by the team, and the private tree's whole
+promise is that a teammate cloning the repo gets none of it (`PLT-xkrc`).
+
 **Several are open at once**, because next Monday's board call and tomorrow's 1:1 are different
 files. A verb with one agenda open means that one; with several it asks, because guessing sends
 the wrong agenda to a room.

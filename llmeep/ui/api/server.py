@@ -144,14 +144,20 @@ TOOLS = {
     # it — the tool stores bytes and never parses them, so this adds a writer
     # rather than a format (`PLT-6v3m`).
     #
-    # **What this app makes is shared**, because the app is the team's surface
-    # while a terminal is one person's machine (`PLT-49p8`). `tm agenda` on its
-    # own defaults the other way.
-    "agenda":     lambda a: ("tm", ["agenda", a["name"], "--set", "-"], a["text"])
-                  if a.get("text") is not None else
+    # **Shared ones only, and `--shared` is on every call.** This app is meant to
+    # sit behind an ingress and be reached by the team, while `.notes/agendas/`
+    # promises that a teammate cloning the repo gets none of it. Showing a
+    # private agenda here would hand it to exactly the people it was kept from,
+    # so the app cannot see one, cannot write one, and cannot publish one — that
+    # is `tm agenda <name> --publish`, at the terminal, by whoever wrote it
+    # (`PLT-xkrc`).
+    #
+    # What this app *makes* is shared for the same reason: the app is the team's
+    # surface while a terminal is one person's machine (`PLT-49p8`).
+    "agenda":     lambda a: ("tm", ["agenda", a["name"], "--set", "-", "--shared"],
+                              a["text"]) if a.get("text") is not None else
                   ("tm", ["agenda", a["title"], "--shared"], None) if a.get("title")
-                  else ("tm", ["agenda", "--json"], None),
-    "publish":    lambda a: ("tm", ["agenda", a["name"], "--publish"], None),
+                  else ("tm", ["agenda", "--json", "--shared"], None),
 }
 
 # Tools that change nothing, so a turn using only these commits nothing.
@@ -229,7 +235,7 @@ TOOL_ARGS = {
     "notes": '{"term": "..."}  (empty term lists everything)',
     "agenda": '{"name": "...", "text": "..."}  replaces that agenda; '
               '{"title": "..."} starts one; omit both to read them all back',
-    "publish": '{"name": "..."}  move a private agenda into the repo, for everyone',
+
     "find": '{"term": "..."}', "why": '{"term": "..."}',
     "add": '{"title": "...", "ledger": "platform|business", "prioritise": bool}',
     "retitle": '{"id": "...", "title": "..."}',

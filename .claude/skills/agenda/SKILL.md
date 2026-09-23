@@ -61,7 +61,9 @@ when they say so, take it off when they say otherwise. `--send` strips them, so 
 at any point and the room never receives a half-ticked agenda (`PLT-6fbp`).
 
 **The app has it too** — a pill in *Other*, a chip per agenda, with a checkbox and an ✕ on each
-line (`PLT-6v3m`). `tm agenda <name> --set -` replaces one from stdin and `--json` reads them
+line (`PLT-6v3m`). **Shared ones only**: the app is reachable by the team, so it never shows or
+touches a private agenda (`PLT-xkrc`). Someone who wants to work through one on a phone has to
+publish it first — say so rather than leaving them looking for it. `tm agenda <name> --set -` replaces one from stdin and `--json` reads them
 all back, which is how the app writes what you say there. The tool still never parses an
 agenda: it stores the text, and
 both ticking a line and dropping one are text editing.

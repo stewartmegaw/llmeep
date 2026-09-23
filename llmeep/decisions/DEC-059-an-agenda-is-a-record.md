@@ -85,6 +85,17 @@ which is a section heading, not a name for the meeting.
 
 The app can write `agendas/`, which widens `WRITABLE` from two trees to three.
 
+**The app deals only in shared agendas** (`PLT-xkrc`). It is meant to sit behind an ingress and
+be reached by the team, and the private tree promises that a teammate cloning the repo gets none
+of it — serving one through the app would hand it to exactly the people it was kept from. So the
+app cannot list, write or publish a private agenda, and a name that matches one finds nothing
+rather than reaching into `.notes/` on the caller's behalf. It reports "no agenda yet" rather
+than "there is one you may not see", because the second leaks the thing being protected.
+
+The cost is a step: an agenda written by an agent at a terminal is private, so working through it
+in the app on a phone means publishing it first. That is one command, run by the person who wrote
+it, which is the right person to be deciding.
+
 ## Revisit when
 
 An agenda needs to be shared with people who do not have the repo. Publishing to a tree assumes
