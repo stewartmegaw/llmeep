@@ -3087,6 +3087,80 @@ print(json.dumps(out))
         self.assertLessEqual(len(result["ok"]["used"]), 12)
 
 
+class TestUnknownFlags(Fixture):
+    """`PLT-pm22`, reported by an adopter. A caller one release ahead of the
+    install it drives asked for `tm agenda --json`; that `tm` had no `--json`,
+    ignored it, printed its human draft and exited 0, and the caller fed prose
+    to a JSON parser — surfacing as `Expecting value: line 2 column 3`. Nothing
+    could name the skew, because the run had succeeded. A flag a command does
+    not answer to is now refused with a non-zero exit, so the failure says what
+    it is at the point it happens."""
+
+    def a_repo(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        return top
+
+    def test_a_flag_a_command_does_not_take_is_refused(self):
+        top = self.a_repo()
+        for cmd, flag in (("board", "--nope"), ("drop", "--anything"),
+                          ("status", "--json"), ("done", "--json")):
+            out = self.tm(top, cmd, flag)
+            self.assertNotEqual(out.returncode, 0,
+                                f"`tm {cmd} {flag}` succeeded, so a caller reads success")
+            self.assertIn("does not take", out.stdout + out.stderr)
+
+    def test_the_refusal_names_the_skew(self):
+        """The message has to reach whoever is driving the install, not only
+        whoever typed it — an update is the fix in the case this exists for."""
+        out = self.tm(self.a_repo(), "board", "--json-lines")
+        self.assertIn("older than whatever is calling it", out.stdout + out.stderr)
+        self.assertIn("--update", out.stdout + out.stderr)
+
+    def test_the_flags_each_command_does_take_still_work(self):
+        top = self.a_repo()
+        self.tm(top, "add", "-n", "A task to read back")
+        for argv in (("board", "--json"), ("board", "--chat"), ("unpushed", "--json"),
+                     ("status",), ("feedback",)):
+            out = self.tm(top, *argv)
+            self.assertEqual(out.returncode, 0,
+                             f"`tm {' '.join(argv)}` was refused:\n{out.stdout}{out.stderr}")
+
+    def test_every_command_declares_its_flags(self):
+        """The one way this can rot: a command added to the dispatch table and
+        not to `FLAGS`, which is a `KeyError` on the first run rather than a
+        missing check. Asserted for both tools, by reading them."""
+        root = self.install_root(self.a_repo())
+        for tool, path in (("tm", ("tasks", "_tooling", "tm")),
+                           ("nm", ("notes", "_tooling", "nm"))):
+            body = open(os.path.join(root, *path)).read()
+            dispatch = re.search(r"commands = \{(.+?)\}", body, re.S).group(1)
+            declared = re.search(r"\nFLAGS = \{(.+?)\n\}", body, re.S).group(1)
+            for name in re.findall(r'"([a-z]+)":', dispatch):
+                self.assertIn(f'"{name}"', declared,
+                              f"`{tool} {name}` is dispatched but declares no flags")
+
+    def test_nm_refuses_one_too(self):
+        """`nm notes --json` is read by the app on the same wire as `tm`, so the
+        same silence would produce the same unexplainable parse error."""
+        top = self.a_repo()
+        out = self.nm(top, "notes", "--nope")
+        self.assertNotEqual(out.returncode, 0)
+        self.assertIn("does not take", out.stdout + out.stderr)
+        self.assertEqual(self.nm(top, "notes", "--json").returncode, 0)
+
+    def test_a_value_is_not_read_as_a_flag(self):
+        """`--set`, `--reply` and `-f` are followed by whatever the user typed,
+        which is prose and may start with a dash. A bare `-` is stdin."""
+        top = self.a_repo()
+        self.tm(top, "agenda", "Monday call")
+        out = self.tm(top, "agenda", "monday", "--set", "-",
+                      stdin="1. --the first item\n")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertIn("--the first item", self.tm(top, "agenda").stdout)
+
+
 class TestTitleEndingInATag(Fixture):
     """`PLT-jrtf`, reported by an adopter. `detail` is the only tag that is also
     an ordinary word — every other carries a sigil or a colon — so it is the only

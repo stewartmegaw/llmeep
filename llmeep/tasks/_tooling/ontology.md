@@ -373,6 +373,23 @@ inferred from state has to be typed.
 change. It answers "what am I doing?" and "what's next?" with the same command, and puts the
 task, its detail, its blockers and any linked decisions in front of the agent.
 
+### An unknown flag is refused, not ignored
+
+Every command declares the flags it answers to — `FLAGS` in `tm` — and anything else is a
+refusal with a non-zero exit, before the command runs and before the upstream fetch
+(`DEC-060`).
+
+Silently ignoring one is the worst available answer, because the caller reads success and gets
+output in a shape it did not ask for. An app one release ahead of the install it drives asked
+for `tm agenda --json`; that `tm` had no `--json`, printed its ordinary human draft and exited
+0, and the app fed prose to a JSON parser. What the person saw was `Expecting value: line 2
+column 3`. Nothing upstream could name the skew, because from every angle the run had
+succeeded (`PLT-pm22`). The same silence once let `agenda --unpublish` fall through and create
+an agenda called "monday".
+
+A value that follows a flag — `--set`, `--reply`, `-f`, `--after`, `--period`, `--msg` — is the
+user's own words and is never read as a flag. A bare `-` is stdin.
+
 ### Why `prioritise` is a command when reordering is not
 
 It fails the test below — moving a line from `backlog` to `prioritised` breaks no invariant,

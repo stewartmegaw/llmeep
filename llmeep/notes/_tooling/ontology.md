@@ -162,6 +162,15 @@ reading a transcript and deciding what matters. `nm` never parses one:
 | Delete a processed capture | Write the task title |
 | Bound the window | — |
 
+### An unknown flag is refused, not ignored
+
+`FLAGS` in `nm` declares what each command answers to, and anything else is a non-zero exit
+(`DEC-060`).
+The contract, and the incident behind it, are the same as taskman's — see **An unknown flag is
+refused, not ignored** in [`tasks/_tooling/ontology.md`](../../tasks/_tooling/ontology.md).
+`nm notes --json` is read by the app over the same wire as `tm board --json`, so it carries the
+same hazard and gets the same answer.
+
 ## Rendering the window
 
 **The tool carries the rules** (`DEC-050`). The shared ones are the board's — markdown never a

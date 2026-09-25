@@ -1820,14 +1820,9 @@ def cmd_agenda(args):
     (principle 7).
     """
     migrate_legacy_agenda()
-    # **An unknown flag is refused, not ignored.** Everything that is not a flag
-    # is either the agenda's name or the words of a new one, so a typo — or a
-    # verb that deliberately does not exist, like `--unpublish` — fell through
-    # and silently created an agenda called "monday".
-    known = ("--shared", "--private", "--json", "--send", "--set", "--publish")
-    unknown = [a for a in args if a.startswith("--") and a not in known]
-    if unknown:
-        raise Fail(f"{unknown[0]} is not something `agenda` does")
+    # An unknown flag is refused before we get here, by `FLAGS` — everything
+    # that is not a flag is either the agenda's name or the words of a new one,
+    # so a typo used to fall through and create an agenda called "monday".
     # **Shared unless you say otherwise.** The default used to follow the door
     # you came in by — a terminal made a private agenda, the app a shared one —
     # and the consequence was that an agenda written by an agent had to be
@@ -4619,6 +4614,67 @@ def cmd_feedback(args):
     print("  local and gitignored; nothing is sent.\n")
 
 
+# Every flag each command answers to. One table rather than twenty checks, and
+# consulted before the command runs.
+#
+# **An unknown flag is refused, not ignored** (`PLT-pm22`). A `tm` that accepts
+# a flag it has never heard of, does the old thing and exits 0 is the worst
+# possible answer: the caller reads success and gets output in a shape it did
+# not ask for. That is how an app one release ahead of the install it drives
+# showed `Expecting value: line 2 column 3` — `agenda --json` on a `tm` without
+# `--json` printed the human draft, and the caller fed it to a JSON parser. The
+# same silence let `agenda --unpublish` fall through and create an agenda called
+# "monday". Failing loudly makes both of those say what is wrong.
+FLAGS = {
+    "add": ("-b", "-n", "-f", "--id"),
+    "go": ("-f",),
+    "park": ("-n",),
+    "prioritise": ("-n", "--after"),
+    "prioritize": ("-n", "--after"),
+    "done": ("--force",),
+    "drop": (),
+    "detail": ("--folder",),
+    "status": (),
+    "board": ("--json", "--chat", "--recent"),
+    "retitle": (),
+    "find": (),
+    "why": ("--stale", "--yes"),
+    "standup": ("--chat", "--cron", "--send", "--period"),
+    "agenda": ("--shared", "--private", "--json", "--send", "--set", "--publish"),
+    "ontology": ("--none",),
+    "feedback": (),
+    "audience": (),
+    "unpushed": ("--json",),
+    "handover": (),
+    "check": ("--context", "--msg", "--notify", "--nudge", "--push", "--quiet",
+              "--send", "--staged"),
+    "review": ("--reply",),
+    "resolve": (),
+}
+
+# Flags whose value is the next argument. That value is whatever the user typed
+# — an agenda's prose, a reviewer's reply — so it is skipped rather than read as
+# a flag of its own.
+VALUE_FLAGS = ("-f", "--after", "--period", "--reply", "--set", "--msg")
+
+
+def reject_unknown_flags(name, args):
+    """Refuse a flag `name` does not answer to. A bare `-` is stdin, not a flag."""
+    known = FLAGS[name]
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg in known:
+            i += 2 if arg in VALUE_FLAGS else 1
+            continue
+        if arg.startswith("-") and arg != "-":
+            listed = ", ".join(f"`{f}`" for f in known) if known else "no flags"
+            raise Fail(f"`tm {name}` does not take {arg} — it takes {listed}.\n"
+                       "  If you expected it to, this install is older than "
+                       "whatever is calling it; run `./.llmeep --update`.")
+        i += 1
+
+
 def main():
     argv = sys.argv[1:]
     if not argv or argv[0] in ("-h", "--help", "help"):
@@ -4638,6 +4694,14 @@ def main():
     cmd = commands.get(argv[0])
     if not cmd:
         print(f"unknown command: {argv[0]}\n\n{USAGE}", file=sys.stderr)
+        return 2
+    # Before the upstream fetch below: a typo should not cost a network round
+    # trip, and an install being driven by something newer should say so at
+    # once rather than after a pull.
+    try:
+        reject_unknown_flags(argv[0], argv[1:])
+    except Fail as exc:
+        print(f"  ! {exc}", file=sys.stderr)
         return 2
     # Above every command, not once a session: there is no session for a tool
     # that exits, and the reminder is worthless anywhere the agent is not
