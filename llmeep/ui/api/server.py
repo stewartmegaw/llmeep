@@ -695,7 +695,17 @@ def act(text, session="default"):
     used, changed = [], False
 
     for _ in range(MAX_STEPS):
-        step = ask_model(log)
+        try:
+            step = ask_model(log)
+        except ModelReply as exc:
+            # Handed back, exactly as a failed tool is. A model that broke its
+            # own output contract should be told and try again; raising here
+            # ended the turn and showed the person a parser message instead
+            # (`PLT-z5dn`).
+            log.append({"role": "user",
+                        "content": f"That was not one JSON object: {exc}. "
+                                   "Reply with a single JSON object and nothing else."})
+            continue
         if step.get("say") or step.get("done"):
             answer = str(step.get("say", "")).strip() or "Done."
             log.append({"role": "assistant", "content": json.dumps(step)})
@@ -1011,17 +1021,60 @@ def ask_model(log):
         headers={"Content-Type": "application/json", "Authorization": f"Bearer {llm_key()}"})
     with urllib.request.urlopen(req, timeout=LLM_TIMEOUT) as resp:
         answer = json.loads(resp.read())["choices"][0]["message"]["content"]
-    return json.loads(strip_fence(answer))
+    return first_json(answer)
+
+
+class ModelReply(RuntimeError):
+    """A reply that did not contain a JSON value this loop can act on.
+
+    Its own class so `act` can hand it back to the model the way a failed tool
+    is handed back, rather than ending the turn (`PLT-z5dn`)."""
+
+
+def first_json(answer):
+    """The first JSON value in a reply, and nothing about the rest.
+
+    The prompt asks for one object per turn, and a model that plans ahead sends
+    two anyway — a tool call followed by the next one, or by a sentence. A plain
+    `json.loads` raises `Extra data: line 4 column 1`, which reached a person as
+    the whole of a failed turn (`PLT-z5dn`). Dropping the remainder costs
+    nothing: the loop asks again for the next step, so a second planned call is
+    re-planned with the first one's result in hand, which is better information
+    than it had when it guessed.
+    """
+    text = strip_fence(answer)
+    try:
+        step, end = json.JSONDecoder().raw_decode(text)
+    except ValueError as exc:
+        # The raw reply is logged because it is otherwise unrecoverable: the pod
+        # log showed only `POST /api/intent 200`, so the output that broke the
+        # turn could not be read after the fact.
+        sys.stderr.write(f"  model reply did not parse ({exc}): {answer[:800]!r}\n")
+        raise ModelReply(str(exc)) from exc
+    if not isinstance(step, dict):
+        sys.stderr.write(f"  model reply was not an object: {answer[:800]!r}\n")
+        raise ModelReply(f"that was a {type(step).__name__}, not an object")
+    rest = text[end:].strip()
+    if rest:
+        # Not an error and not silent. A model doing this every turn is a prompt
+        # problem worth seeing in the log.
+        sys.stderr.write(f"  ignored {len(rest)} char(s) after the first JSON "
+                         f"value: {rest[:200]!r}\n")
+    return step
 
 
 def strip_fence(text):
     """Models wrap JSON in a code fence about half the time. Cheaper to accept
-    it than to argue with the prompt."""
+    it than to argue with the prompt.
+
+    The first fenced block wherever it sits, not only one at the very start: a
+    fence after a sentence of preamble, or a second block after the first, both
+    used to fall through to the caller as prose (`PLT-z5dn`). An unterminated
+    fence is taken to the end of the reply.
+    """
     text = text.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1] if "\n" in text else text
-        text = text.rsplit("```", 1)[0]
-    return text.strip()
+    found = re.search(r"```(?:json)?\s*(.*?)(?:```|$)", text, re.S)
+    return found.group(1).strip() if found else text
 
 
 # The only trees this app may write, relative to the install. Not the whole

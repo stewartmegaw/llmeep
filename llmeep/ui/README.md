@@ -166,6 +166,14 @@ changed, which is the failure `DEC-003` exists to prevent.
 It runs until it is done, which includes asking you something and waiting. Reading is free, so
 it looks before it acts.
 
+**The reply shape is asked for, not relied on.** A model that plans ahead sends the next step
+alongside the current one, so the loop takes the first JSON value in a reply and logs the rest
+rather than failing. A reply with no usable object is handed back as a complaint and asked
+again — the same move a failed tool already makes — because a model breaking its own output
+contract is a thing to correct, not a turn to lose. It was one: `Extra data: line 4 column 1`
+reached a person as the whole of a failed turn, and the reply that caused it was logged nowhere
+(`PLT-z5dn`). It is logged now, truncated, when parsing fails.
+
 **It cannot start a task.** Filing, ranking, parking, rewording and closing all say something
 true from a phone; starting is a claim to be working on something, and that happens at a
 terminal. A task started from here would sit in progress with nobody on it, and there is no

@@ -2675,6 +2675,111 @@ except Exception as exc:
         self.assertIn("staged outside the records", result["error"])
 
 
+class TestModelReply(Fixture):
+    """`PLT-z5dn`, from an adopter deployment. The prompt asks for one JSON
+    object per turn; a model that plans ahead sent a tool call followed by a
+    second object, `json.loads` raised `Extra data: line 4 column 1 (char 54)`,
+    nothing in the loop caught it, and that string was the whole of the failed
+    turn the person saw. The raw reply was logged nowhere, so it could not be
+    read afterwards either."""
+
+    DRIVER = """import json, os, sys
+sys.path.insert(0, os.path.join(sys.argv[1], "llmeep", "ui", "api"))
+import server
+
+shapes = json.loads(sys.argv[2])
+out = {}
+for label, text in shapes.items():
+    try:
+        out[label] = server.first_json(text)
+    except server.ModelReply as exc:
+        out[label] = {"refused": str(exc)}
+print(json.dumps(out))
+"""
+
+    RECOVERS = """import json, os, sys
+sys.path.insert(0, os.path.join(sys.argv[1], "llmeep", "ui", "api"))
+import server
+
+# One unusable reply, then a good one. The turn must survive the first.
+replies = iter([
+    server.ModelReply("Extra data: line 4 column 1 (char 54)"),
+    {"say": "the board is empty"},
+])
+def stub(log):
+    nxt = next(replies)
+    if isinstance(nxt, Exception):
+        raise nxt
+    stub.saw = list(log)
+    return nxt
+server.ask_model = stub
+answer = server.act("what is on the board")
+print(json.dumps({"answer": answer, "log": stub.saw}))
+"""
+
+    def a_repo(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        return top
+
+    def parse(self, top, shapes):
+        script = self.path("drive_reply.py")
+        with open(script, "w") as fh:
+            fh.write(self.DRIVER)
+        env = dict(os.environ, LLMEEP_REPO=top, LLMEEP_AUTH_HANDLED="yes")
+        out = sh(sys.executable, script, self.working_copy(), json.dumps(shapes),
+                 cwd=top, env=env)
+        self.assertTrue(out.stdout.strip(), out.stderr)
+        return json.loads(out.stdout.strip().split("\n")[-1])
+
+    def test_a_second_json_value_is_dropped_not_fatal(self):
+        """The reported shape, and the ones next to it. Each must yield the first
+        object rather than an error."""
+        got = self.parse(self.a_repo(), {
+            "reported": '{"tool": "board"}\n{"say": "then I will tick it"}',
+            "object then prose": '{"tool": "board"} and then I will tick it off',
+            "fenced": '```json\n{"tool": "board"}\n```',
+            "prose then two fences":
+                'Let me look.\n```json\n{"tool": "board"}\n```\n```json\n{"say":"x"}\n```',
+            "one line fence": '```{"tool": "board"}```',
+            "plain": '{"tool": "board"}',
+        })
+        for label, step in got.items():
+            self.assertEqual(step, {"tool": "board"},
+                             f"{label} did not yield the first object: {step}")
+
+    def test_a_reply_with_no_object_is_refused_not_raised(self):
+        """`ModelReply` rather than a bare `ValueError`, so the loop can tell
+        this apart from a real failure and hand it back."""
+        got = self.parse(self.a_repo(), {
+            "prose": "I will look at the board.",
+            "a list": "[1, 2]",
+            "empty": "",
+        })
+        for label, step in got.items():
+            self.assertIn("refused", step, f"{label} was not refused: {step}")
+        self.assertIn("not an object", got["a list"]["refused"])
+
+    def test_the_turn_survives_an_unusable_reply(self):
+        """The defect was that it did not. The loop hands the complaint back as a
+        user turn, the way a failed tool already is, and asks again."""
+        top = self.a_repo()
+        script = self.path("drive_recover.py")
+        with open(script, "w") as fh:
+            fh.write(self.RECOVERS)
+        env = dict(os.environ, LLMEEP_REPO=top, LLMEEP_AUTH_HANDLED="yes")
+        out = sh(sys.executable, script, self.working_copy(), cwd=top, env=env)
+        self.assertTrue(out.stdout.strip(), out.stderr)
+        got = json.loads(out.stdout.strip().split("\n")[-1])
+        self.assertEqual(got["answer"]["answer"], "the board is empty",
+                         "the turn did not recover from one unusable reply")
+        handed_back = [m for m in got["log"] if "not one JSON object" in str(m.get("content"))]
+        self.assertTrue(handed_back, f"the complaint never reached the model: {got['log']}")
+        self.assertNotIn("Extra data", got["answer"]["answer"],
+                         "a parser message reached the person")
+
+
 class TestTurnHeartbeat(Fixture):
     """`PLT-mrt8`. One HTTP request was held open for a whole turn with nothing
     written until the answer, which hands every proxy in front of the app the
