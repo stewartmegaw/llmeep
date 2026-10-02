@@ -145,3 +145,4 @@
 2026-09-25	PLT-pm22	platform	An install older than the image says so, instead of a JSON parse error	stewart
 2026-10-02	PLT-3awu	platform	The app's agenda read must not list private agendas	stewart
 2026-10-02	PLT-z5dn	platform	A model reply with more than one JSON value must not fail the turn	stewart
+2026-10-02	PLT-rwpq	platform	tm resolve must not revert a park the other side never touched	stewart

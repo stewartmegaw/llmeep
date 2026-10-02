@@ -808,7 +808,7 @@ one.
 | `backlog` lines | **Union both sides.** A task added on either branch exists. The pool has no order, so there is nothing else to resolve — this is the cheap case, and most conflicts are now this one. |
 | `prioritised` lines | **Union both sides**, then see Ordering. A task prioritised on either branch stays prioritised; nobody's ranking decision is silently dropped. |
 | Ordering       | Only `prioritised` has one. No correct answer: keep the target branch's order; append the incoming branch's tasks below, preserving their relative order. Reprioritise afterwards if it matters. |
-| Same task, both sections | Someone prioritised it while someone else did not. **Keep `prioritised`** — an explicit ranking outranks the absence of one. |
+| Same task, both sections | **Compare each side with the merge base.** A side whose placement equals the base made no move about this task, so the other side's move is the only one and it wins outright. Only when **both** sides moved it, and differently, is there a conflict: keep the stronger section and name the move that was discarded. |
 | `in progress`  | **Union both sides.** Each was started by somebody who has not finished, and several in progress is ordinary (`DEC-057`). Evicting one would be the merge un-starting work someone is in the middle of. |
 | `recent`       | Union, sort by date descending, prune to 15.                                |
 | `history.tsv`  | Append-only, so both sides appended at EOF. Keep both lines, sort by date. Never drop one. |
@@ -834,6 +834,16 @@ Resolving the four sections independently reads "prioritised on one side" as a d
 side's pool and "dropped on one side" as an addition on the other, which brings dropped tasks
 back. Where the two sides disagree about the section, the stronger one wins: `recent` (a
 completion has a history row behind it) over `in progress` over `prioritised` over `backlog`.
+
+**But strength only decides a real disagreement.** Reading the two sides alone cannot tell a
+decision from a line nobody touched, and the base can: a side still carrying the base's
+placement is not arguing for it. Preferring the stronger section regardless reverted a
+deliberate `park` — one side moved a task `prioritised` → `backlog`, the other only added an
+unrelated task, and the task was written back into `prioritised` and reported as "kept the
+ranking" (`PLT-rwpq`). A revert announced as a decision is worse than either, because the person
+reads the line and believes the board. So the comparison is three-way and per task, and the
+strength rule applies only when both sides moved it — where something genuinely is discarded,
+and `resolve` says which move that was.
 
 **It writes the records and never the index.** Staging and committing stay with whoever ran it
 (`DEC-005`).

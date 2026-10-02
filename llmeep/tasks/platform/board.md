@@ -19,11 +19,11 @@ PLT-hrpu An agenda holds nothing the repo keeps — decide whether it should exi
 PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; use typeable() so they stay typeable  filed:2026-09-12
 PLT-uqet The agenda tab lists past agendas and hands a new one to the agent  detail  filed:2026-09-23
 PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
-PLT-rwpq tm resolve must not revert a park the other side never touched  filed:2026-10-02
 PLT-5j6u The app's background is white, not the viewer's dark mode  filed:2026-10-02
 
 ## recent
 
+2026-10-02  PLT-rwpq tm resolve must not revert a park the other side never touched  @stewart
 2026-10-02  PLT-z5dn A model reply with more than one JSON value must not fail the turn  @stewart
 2026-10-02  PLT-3awu The app's agenda read must not list private agendas  @stewart
 2026-09-25  PLT-pm22 An install older than the image says so, instead of a JSON parse error  @stewart
@@ -38,4 +38,3 @@ PLT-5j6u The app's background is white, not the viewer's dark mode  filed:2026-1
 2026-09-21  PLT-f5e9 Dropping a promoted task leaves the note pointing at nothing, and nm check then blocks every commit in the repo  @stewart
 2026-09-21  PLT-cjgb Several tasks can run at once: a current-task pointer per checkout replaces the on-board anchor and WIP-1  @stewart
 2026-09-21  PLT-94kz The app stages tasks/ and notes/ whole, so a modified tool or ontology under _tooling lands in a records commit  @stewart
-2026-09-21  PLT-4spu Drag a task to order the queue, and drag it between backlog and prioritised  @stewart

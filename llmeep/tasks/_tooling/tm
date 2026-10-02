@@ -857,6 +857,11 @@ def resolve_board(path, sides, said):
     dropped task came back whenever the other side had touched it. A board is a
     set of tasks, each of which is in one section, so the merge is over that set
     and the section is resolved afterwards.
+
+    **And the section is resolved against the base, per task.** Two sides alone
+    cannot distinguish a decision from a line nobody touched, so preferring the
+    stronger section reverted deliberate moves and called it a choice
+    (`PLT-rwpq`, `DEC-061`).
     """
     text = [show(rev, path) for rev in sides[1:]]
     if text[1] is None or text[2] is None:
@@ -876,13 +881,27 @@ def resolve_board(path, sides, said):
         _, name, line = entry.split("\t", 2)
         mine, yours = flat[1].get(tid), flat[2].get(tid)
         if mine and yours and mine[0] != yours[0]:
-            name = min((mine[0], yours[0]), key=SECTION_RANK.index)
-            line = (mine if mine[0] == name else yours)[1]
-            other = yours[0] if name == mine[0] else mine[0]
-            notes.append(f"{tid} was in prioritised on one side — kept the ranking"
-                         if {name, other} == {"prioritised", "backlog"}
-                         else f"{tid} is in {name} on one side and {other} on the "
-                              f"other — kept {name}")
+            # **Against the base, per task.** Picking the earlier-ranked section
+            # treated a side that never touched the task as having argued for
+            # where it already was: a deliberate `park` was reverted because the
+            # other side, which had only added an unrelated task, still carried
+            # the merge base's line (`PLT-rwpq`). A side whose placement equals
+            # the base made no move, so the other side's move is the only one.
+            was = (flat[0].get(tid) or (None, None))[0]
+            if was is not None and yours[0] == was:
+                name, line = mine                      # they stood still
+            elif was is not None and mine[0] == was:
+                name, line = yours                     # we stood still
+            else:
+                # Both moved it, and differently. That is a real conflict: keep
+                # the nearer-to-done section and say what was discarded, rather
+                # than reporting a choice as if nothing was lost.
+                name = min((mine[0], yours[0]), key=SECTION_RANK.index)
+                line = (mine if mine[0] == name else yours)[1]
+                other = yours[0] if name == mine[0] else mine[0]
+                notes.append(f"{tid} was moved to {name} on one side and {other} "
+                             f"on the other — kept {name}, discarded the move to "
+                             f"{other}")
         out[name][tid] = line
 
     # Two branches with work under way used to break WIP-1, and the incoming

@@ -1283,8 +1283,10 @@ class TestResolve(Fixture):
         self.assertEqual(len(pool), 2, self.board(top))
         self.assertEqual(self.tm(top, "check").returncode, 0, self.board(top))
 
-    def test_a_ranking_outranks_the_absence_of_one(self):
-        """Someone prioritised it while someone else left it in the pool."""
+    def test_a_side_that_stood_still_is_not_an_argument(self):
+        """Someone prioritised it while someone else did something unrelated. The
+        other side's line is the merge base's, which is not a decision about this
+        task, so the one move wins and nothing is reported as a conflict."""
         top = self.a_repo()
         tid = self.filed(top, "which section does this belong in")
         self.commit(top, "base")
@@ -1293,7 +1295,51 @@ class TestResolve(Fixture):
                             ours=lambda: self.tm(top, "add", "something else"))
         self.assertIn(tid, self.section(top, "prioritised"), self.board(top))
         self.assertNotIn(tid, self.section(top, "backlog"))
-        self.assertIn("kept the ranking", said)
+        self.assertNotIn("discarded", said,
+                         f"a one-sided move was reported as a conflict: {said}")
+
+    def test_a_park_is_not_reverted_by_a_side_that_never_touched_it(self):
+        """`PLT-rwpq`, reported by an adopter. The app parked a task
+        prioritised -> backlog; the other side only added an unrelated task. The
+        resolver preferred the nearer-to-done section and wrote the task back
+        into prioritised, undoing the park and calling it "kept the ranking" —
+        reporting a revert as a decision."""
+        top = self.a_repo()
+        tid = self.filed(top, "work that turned out to be blocked", "-n")
+        self.commit(top, "base")
+        self.assertIn(tid, self.section(top, "prioritised"), self.board(top))
+        said = self.diverge(top,
+                            theirs=lambda: self.tm(top, "add", "something unrelated"),
+                            ours=lambda: self.tm(top, "park", tid))
+        self.assertIn(tid, self.section(top, "backlog"),
+                      f"the park was reverted:\n{self.board(top)}\n{said}")
+        self.assertNotIn(tid, self.section(top, "prioritised"))
+        self.assertNotIn("kept the ranking", said)
+        self.assertEqual(self.tm(top, "check").returncode, 0, self.board(top))
+
+    def test_the_park_survives_from_either_side_of_the_merge(self):
+        """The same divergence with the sides swapped. A resolver that reads one
+        parent and not the other would pass one of these two and fail this."""
+        top = self.a_repo()
+        tid = self.filed(top, "work that turned out to be blocked", "-n")
+        self.commit(top, "base")
+        self.diverge(top,
+                     theirs=lambda: self.tm(top, "park", tid),
+                     ours=lambda: self.tm(top, "add", "something unrelated"))
+        self.assertIn(tid, self.section(top, "backlog"), self.board(top))
+
+    def test_both_sides_moving_it_is_a_real_conflict_and_says_so(self):
+        """What "kept the ranking" was for, and the only case it is right for.
+        Both sides moved the task, so something is genuinely discarded and the
+        report has to name it — otherwise the person cannot go and check."""
+        top = self.a_repo()
+        tid = self.filed(top, "two people had plans for this one")
+        self.commit(top, "base")
+        said = self.diverge(top,
+                            theirs=lambda: self.tm(top, "prioritise", tid),
+                            ours=lambda: self.tm(top, "go", tid))
+        self.assertIn(tid, self.section(top, "in progress"), self.board(top))
+        self.assertIn("discarded", said, f"the discarded move was not named: {said}")
 
     def test_a_dropped_task_is_not_resurrected(self):
         """`drop` says the record should not exist and writes no history, so a
