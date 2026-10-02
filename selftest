@@ -2036,6 +2036,24 @@ except Exception as exc:
         self.assertTrue(out.stdout.strip(), out.stderr)
         return json.loads(out.stdout.strip().split("\n")[-1])
 
+    READER = """import json, os, sys
+sys.path.insert(0, os.path.join(sys.argv[1], "llmeep", "ui", "api"))
+import server
+print(json.dumps(json.loads(server.tm("agenda", "--json", "--shared"))))
+"""
+
+    def read_agenda(self, top):
+        """What `GET /api/agenda` answers, through the server's own call rather
+        than a copy of it — a test that restated the flags would pass while the
+        endpoint forgot them."""
+        script = self.path("read_agenda.py")
+        with open(script, "w") as fh:
+            fh.write(self.READER)
+        env = dict(os.environ, LLMEEP_REPO=top, LLMEEP_AUTH_HANDLED="yes")
+        out = sh(sys.executable, script, self.working_copy(), cwd=top, env=env)
+        self.assertTrue(out.stdout.strip(), out.stderr)
+        return json.loads(out.stdout.strip().split("\n")[-1])
+
     def started(self, top, title="Monday board call"):
         """One made the way the app makes them, and its name."""
         self.assertNotIn("error", self.do(top, {"title": title}))
@@ -2049,6 +2067,38 @@ except Exception as exc:
             return ""
         with open(path) as fh:
             return fh.read()
+
+    def test_the_agenda_read_never_serves_a_private_one(self):
+        """`PLT-3awu`. `GET /api/agenda` ran a bare `tm agenda --json`, and
+        `--json` included the private tree unless `--shared` was passed — so the
+        screen documented as never showing a private agenda showed them. The
+        endpoint is asserted through the same path it serves, not by reading the
+        source for a flag."""
+        top = self.a_repo()
+        self.tm(top, "agenda", "Shared standup")
+        self.tm(top, "agenda", "Pay review for one person", "--private")
+        served = self.read_agenda(top)
+        names = [a["name"] for a in served["agendas"]]
+        self.assertTrue(any("shared-standup" in n for n in names),
+                        f"the shared agenda did not reach the app: {names}")
+        self.assertFalse([a for a in served["agendas"] if a["private"]],
+                         f"the app served a private agenda: {names}")
+        self.assertFalse([n for n in names if "pay-review" in n],
+                         "the private agenda's name reached the app")
+
+    def test_the_default_is_the_safe_one(self):
+        """The boundary has to hold for a caller that forgets the flag, which is
+        the whole defect — so a bare `--json` is asserted, not `--json --shared`.
+        `--all` is the opt-in and must still work for a person at a terminal."""
+        top = self.a_repo()
+        self.tm(top, "agenda", "Shared standup")
+        self.tm(top, "agenda", "Pay review for one person", "--private")
+        bare = json.loads(self.tm(top, "agenda", "--json").stdout)
+        self.assertFalse([a for a in bare["agendas"] if a["private"]],
+                         "a bare --json still lists the private tree")
+        widened = json.loads(self.tm(top, "agenda", "--json", "--all").stdout)
+        self.assertTrue([a for a in widened["agendas"] if a["private"]],
+                        "--all did not widen the read")
 
     def test_what_the_app_starts_is_shared(self):
         """The default follows the door you came in by: this app is the team's

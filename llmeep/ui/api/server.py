@@ -1162,7 +1162,11 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json_from(
                 lambda: {**json.loads(tm("board", "--json")), "updated": records_changed()})
         if path == "/api/agenda":
-            return self.send_json_from(lambda: json.loads(tm("agenda", "--json")))
+            # `--shared` is now the default, and is passed anyway: the one thing this
+            # endpoint must never do is serve the private tree, and saying so at
+            # the call site costs nothing (`PLT-3awu`).
+            return self.send_json_from(
+                lambda: json.loads(tm("agenda", "--json", "--shared")))
         if path == "/api/notes":
             # The window as data, so the screen can put a verb on each note
             # rather than rendering the archive as a document nobody can act on

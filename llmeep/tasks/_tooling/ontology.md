@@ -904,6 +904,13 @@ few that are not say so with `--private`. `--publish` moves a private agenda int
 **The app deals only in shared ones.** It is reachable by the team, and the private tree's whole
 promise is that a teammate cloning the repo gets none of it (`PLT-xkrc`).
 
+**And `--json` is shared-only by default, which is where that promise actually lives.** It once
+included the private tree unless the caller passed `--shared`, so the boundary held only while
+every caller remembered a flag — and `GET /api/agenda` forgot, listing private agendas on the
+one screen documented as never showing them (`PLT-3awu`). `--all` is the opt-in, and its only
+caller is a person at a terminal looking at their own machine. A privacy boundary belongs in the
+default, not in each caller's memory.
+
 **Several are open at once**, because next Monday's board call and tomorrow's 1:1 are different
 files. A verb with one agenda open means that one; with several it asks, because guessing sends
 the wrong agenda to a room.

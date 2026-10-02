@@ -1837,12 +1837,22 @@ def cmd_agenda(args):
     # "only the ones I may see". On a create it is the default, so it says
     # nothing — which is why the two are read separately.
     asked_shared = "--shared" in args
+    # **`--json` is shared-only unless asked otherwise.** It used to include the
+    # private tree unless `--shared` was passed, which put the privacy boundary
+    # in every caller's memory rather than in the default — and one call site
+    # duly forgot it, serving `.notes/agendas/` through an app documented as
+    # never showing them (`PLT-3awu`). The safe answer is the one you get for
+    # free; `--all` is the opt-in, and it has no caller but a person at a
+    # terminal looking at their own machine.
+    asked_all = "--all" in args
     elsewhere = [a for a in args if a in ("--json", "--send", "--set", "--publish")]
     if private and elsewhere:
         raise Fail(f"--private is for making an agenda, not for {elsewhere[0]}")
-    args = [a for a in args if a not in ("--shared", "--private")]
+    if asked_all and not ("--json" in args or len(args) == 1):
+        raise Fail("--all widens `--json`; it is not a filter for the other verbs")
+    args = [a for a in args if a not in ("--shared", "--private", "--all")]
     if "--json" in args:
-        return agenda_json(shared_only=asked_shared)
+        return agenda_json(shared_only=not asked_all)
     # **Every verb takes the agenda as a positional**, never as the flag's
     # value: `tm agenda monday --publish` and `tm agenda --publish monday` both
     # have to mean the same thing, and a flag that swallows the next word makes
@@ -1965,11 +1975,17 @@ def agenda_set(name, text, shared_only=False):
 def agenda_json(shared_only=False):
     """Every agenda as data, for an interface.
 
-    **`--shared` is not a filter for tidiness.** The app is meant to sit behind
-    an ingress and be reached by the team, and `.notes/agendas/` promises that a
-    teammate cloning the repo gets none of it. Serving a private agenda through
-    the app would hand it to exactly the people it was kept from, so the app
-    asks for the shared ones and this is where that is honoured (`PLT-xkrc`).
+    **Shared-only is the default, and that is the point.** The app is meant to
+    sit behind an ingress and be reached by the team, and `.notes/agendas/`
+    promises that a teammate cloning the repo gets none of it. Serving a private
+    agenda through the app would hand it to exactly the people it was kept from
+    (`PLT-xkrc`).
+
+    The caller used to have to ask with `--shared`, and one of the two forgot —
+    `GET /api/agenda` ran a bare `tm agenda --json` and listed the private tree
+    on a screen documented as never showing it (`PLT-3awu`). A boundary that
+    holds only while every caller remembers a flag is not a boundary, so the
+    default is the safe one and `--all` is the opt-in.
     """
     rows = [a for a in agendas() if not (shared_only and a["private"])]
     print(json.dumps({
@@ -4640,7 +4656,8 @@ FLAGS = {
     "find": (),
     "why": ("--stale", "--yes"),
     "standup": ("--chat", "--cron", "--send", "--period"),
-    "agenda": ("--shared", "--private", "--json", "--send", "--set", "--publish"),
+    "agenda": ("--shared", "--private", "--all", "--json", "--send", "--set",
+               "--publish"),
     "ontology": ("--none",),
     "feedback": (),
     "audience": (),
