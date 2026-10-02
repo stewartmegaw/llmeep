@@ -151,6 +151,17 @@ from it, so there is no path to traverse and nothing outside the records can be 
 `?id=../../../etc/passwd` opens nothing, for documents and for bytes alike, and there are tests
 that say so.
 
+## It is light
+
+One palette, not the viewer's. The theme followed `prefers-color-scheme` and most phones are on
+dark — by default or on a schedule after sunset — so the board arrived as white-on-black cards
+nobody chose (`PLT-5j6u`). `index.html` declares `color-scheme: light` too, so the browser does
+not paint its own dark canvas in the moment before React mounts.
+
+This is a records screen read in short glances, and the records are black on white everywhere
+else they are read. Nothing here is a brand, and a theme switch would be the first thing in this
+app that was a preference rather than a record.
+
 ## It is a wrapper, not a second implementation
 
 One text box takes anything — a thought, a call transcript, a question, a correction — and the

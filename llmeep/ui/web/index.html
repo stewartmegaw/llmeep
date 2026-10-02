@@ -3,7 +3,9 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="color-scheme" content="light dark" />
+    <!-- light, to match the app's one palette (`PLT-5j6u`) — without this the
+         browser paints its own dark canvas before React mounts, which flashes -->
+    <meta name="color-scheme" content="light" />
     <title>llmeep</title>
     <!-- llmeep:base — rewritten by the server to wherever this is mounted -->
   </head>
