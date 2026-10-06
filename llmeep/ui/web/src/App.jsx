@@ -6,6 +6,7 @@ import {
   Toolbar, Typography, useMediaQuery, useTheme,
 } from '@mui/material'
 import Read, { Doc, size } from './Read.jsx'
+import { matches, idle } from './search.js'
 import Markdown from './Markdown.jsx'
 import Pills from './Pills.jsx'
 
@@ -14,6 +15,13 @@ const BASE = (window.LLMEEP_BASE || '').replace(/\/$/, '')
 
 // The order work moves through, and the order it is read in. `recent` is
 // deliberately absent: it is history, and this screen is about what is live.
+// A tab label, with its share of the matches once something is being searched
+// for. Not a MUI Badge: a badge floats off the corner of a label and two of
+// them collide on a narrow tab row, where this just makes the word longer.
+function found(query, label, n) {
+  return idle(query) ? label : `${label} ${n}`
+}
+
 const SECTIONS = [
   ['in_progress', 'In progress'],
   ['prioritised', 'Prioritised'],
@@ -51,6 +59,13 @@ export default function App() {
   // `null` closed, a string open. Same shape as `naming` — the two dialogs ask
   // the same question about different records.
   const [filing, setFiling] = React.useState(null)
+  // What is being searched for, across every tab at once. One box, because the
+  // thing being looked for is a thing, not a thing-in-a-tab — you rarely know
+  // which tab wrote it down (`PLT-t6wd`).
+  const [query, setQuery] = React.useState('')
+  // Notes fetch their own window, so their count is reported up rather than
+  // computed here. Everything else on this screen is already in App's hands.
+  const [noteHits, setNoteHits] = React.useState(0)
   const [tab, setTab] = React.useState('board')
   const [sub, setSub] = React.useState('decisions')
   // Everything on to begin with, and you switch off what you do not want. There
@@ -93,6 +108,32 @@ export default function App() {
   const browsable = React.useMemo(
     () => docs.filter((d) => d.group !== unbrowsed), [docs, unbrowsed],
   )
+
+  // **The board the screen renders, searched.** Filtering here rather than
+  // inside `Ledger` keeps one answer for both the rows and the count above
+  // them, and leaves the section/ledger structure alone — a search narrows what
+  // is in each section, it does not flatten the board into a list of hits.
+  const shown = React.useMemo(() => {
+    if (!board || idle(query)) return board
+    const out = {}
+    for (const [ledger, sections] of Object.entries(board)) {
+      const kept = {}
+      for (const [key, rows] of Object.entries(sections)) {
+        kept[key] = (rows || []).filter(
+          (t) => matches(query, t.id, t.title, t.assignee))
+      }
+      out[ledger] = kept
+    }
+    return out
+  }, [board, query])
+
+  // Counted off `shown`, so the number above the rows is the number of rows.
+  const boardHits = React.useMemo(() => {
+    if (!shown) return 0
+    return Object.values(shown).reduce((n, sections) =>
+      n + SECTIONS.reduce((m, [key]) => m + (sections[key]?.length || 0), 0), 0)
+  }, [shown])
+
 
   React.useEffect(() => {
     fetch(`${BASE}/api/config`).then((r) => r.json())
@@ -214,6 +255,17 @@ export default function App() {
       .then((d) => setAgendas(d.agendas || []))
       .catch(() => setAgendas([]))
   }, [notesAt])
+  // `Other` holds three things, and only one of them is on screen at a time —
+  // so its count is of all three, or the tab would under-report whatever you
+  // are not looking at. Both lists are already here: `browsable` for the
+  // documents, `agendas` for the meetings.
+  const otherHits = React.useMemo(() => {
+    if (idle(query)) return 0
+    const docHits = browsable.filter((d) => matches(query, d.title, d.group)).length
+    const agendaHits = (agendas || [])
+      .filter((a) => matches(query, a.title, a.name, a.text)).length
+    return docHits + agendaHits
+  }, [browsable, agendas, query])
 
   //
   // **With no agent configured there is nowhere to hand off to**, so the button
@@ -264,7 +316,7 @@ export default function App() {
       <AppBar position="sticky" color="default" elevation={0}
               sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Toolbar sx={{ minHeight: 72 }}>
-          <Box sx={{ flexGrow: 1 }}>
+          <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', minWidth: 0 }}>
             {/* The road runner the README opens with. It is fetched from the
                 same third-party CDN that README links, so it is the one request
                 this app makes to anywhere it does not control — and where this
@@ -278,6 +330,29 @@ export default function App() {
                    onError={() => setMarkFailed(true)}
                    sx={{ height: 45, width: 'auto', display: 'block' }} />
             )}
+            {/* **Beside the mark, and it searches everything.** One box rather
+                than one per tab: you are looking for a thing, and which tab
+                wrote it down is the question the search is meant to answer.
+                The tab you are on does not change — the counts on the labels
+                say where the rest of the matches are, and moving you there
+                would take the decision away (`PLT-t6wd`). */}
+            <TextField
+              value={query} onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search"
+              size="small" variant="outlined"
+              inputProps={{ 'aria-label': 'Search every tab' }}
+              InputProps={{
+                endAdornment: query ? (
+                  <IconButton size="small" aria-label="Clear the search"
+                              onClick={() => setQuery('')}
+                              sx={{ ...GLYPH, mr: -0.5 }}>
+                    <span aria-hidden style={{ fontSize: 15, lineHeight: 1 }}>✕</span>
+                  </IconButton>
+                ) : null,
+              }}
+              sx={{ ml: 1.5, flex: '1 1 auto', minWidth: 90, maxWidth: 260,
+                    '& .MuiOutlinedInput-root': { borderRadius: 5 } }}
+            />
           </Box>
           {/* Freshness sits with the control that changes it: reload above, and
               under it what reloading got you. When the records last changed, not
@@ -314,12 +389,17 @@ export default function App() {
             else is a group inside the second, and a row of tabs a thumb has to
             aim at is worse than a list it can scroll. */}
         <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="fullWidth">
-          <Tab value="board" label="Board" />
-          <Tab value="notes" label="Notes" />
+          {/* **The count only exists while searching.** A standing count on
+              every label would be four numbers nobody asked for, and on a board
+              the section headings already carry them. A zero is shown rather
+              than hidden: "Notes 0" is the answer to where something is not,
+              which is most of what a search across tabs is for. */}
+          <Tab value="board" label={found(query, 'Board', boardHits)} />
+          <Tab value="notes" label={found(query, 'Notes', noteHits)} />
           {/* "Other", not "Read": the text box can promote a note or reword a
               task from these screens too, so naming them for reading would be
               naming them for half of what they do. */}
-          <Tab value="other" label="Other" />
+          <Tab value="other" label={found(query, 'Other', otherHits)} />
           {/* An icon and no word: it is the one tab whose content is a
               conversation, and a label beside three others would squeeze all
               four. On a wide screen the pane makes it unnecessary. */}
@@ -345,36 +425,54 @@ export default function App() {
           <Pills sx={{ mt: 2 }} value={sub} onChange={setSub}
                  options={[
                    { value: 'decisions', label: 'Decisions',
-                     count: browsable.filter((d) => d.group === 'Decisions').length },
+                     count: browsable.filter((d) => d.group === 'Decisions'
+                       && matches(query, d.title, d.group)).length },
                    { value: 'ontology', label: 'Ontology',
-                     count: browsable.filter((d) => d.group === 'Ontology').length },
+                     count: browsable.filter((d) => d.group === 'Ontology'
+                       && matches(query, d.title, d.group)).length },
                    { value: 'agenda', label: 'Agenda' },
                  ]} />
         )}
-        {tab === 'board' && board && (
-          <BoardFilters board={board} off={off} onToggle={toggle} />
+        {tab === 'board' && shown && (
+          /* **Counted off the searched board.** These say how much of each
+             section there is, so while a search is on they have to say how much
+             there is *of the search* — a pill reading "Backlog 10" above a
+             heading reading "Backlog (4)" makes the reader distrust both
+             (`PLT-t6wd`). */
+          <BoardFilters board={shown} off={off} onToggle={toggle} />
         )}
 
         {error && (
           <Typography color="error" sx={{ mt: 3, whiteSpace: 'pre-wrap' }}>{error}</Typography>
         )}
         {tab === 'notes' && (
-          <Notes base={BASE} onAsk={setAsking} busy={acting} reload={notesAt} />
+          <Notes base={BASE} onAsk={setAsking} busy={acting} reload={notesAt}
+                 query={query} onCount={setNoteHits} />
         )}
         {tab === 'other' && sub === 'agenda' && (
-          <Agenda base={BASE} busy={acting} reload={notesAt}
+          <Agenda base={BASE} busy={acting} reload={notesAt} query={query}
                   onSet={(name, text) => runTool('agenda', { name, text })}
                   onCreate={startAgenda} />
         )}
         {tab === 'other' && sub !== 'agenda' && (
-          <Read base={BASE} docs={browsable}
+          <Read base={BASE} docs={browsable} query={query}
                 only={sub === 'decisions' ? 'Decisions' : 'Ontology'}
                 empty={sub === 'decisions'
                   ? 'No decisions recorded yet.'
                   : 'No domain ontology recorded yet — ask to record where yours lives.'}
                 key={sub} />
         )}
-        {tab === 'board' && board && Object.entries(board).map(([ledger, sections]) => (
+        {/* A board with every section emptied by a search renders nothing at
+            all, and a blank screen under a box you just typed in reads as the
+            app having broken rather than as an answer. The other tabs say so
+            too (`PLT-t6wd`). */}
+        {tab === 'board' && shown && !idle(query) && boardHits === 0 && (
+          <Typography color="text.secondary" sx={{ mt: 4, textAlign: 'center', px: 3 }}>
+            No tasks match that. The board is what is not finished — completed
+            work is searched with tm find, at a terminal.
+          </Typography>
+        )}
+        {tab === 'board' && shown && Object.entries(shown).map(([ledger, sections]) => (
           <Ledger key={ledger} name={ledger} sections={sections} off={off}
                   docs={docs} onDetail={setDetail} onAsk={setAsking} onAct={runTool}
                   onAgenda={ontoAgenda} agendas={agendas}
@@ -692,7 +790,7 @@ function ConversationPane({ conversation }) {
 // task or it goes. The rows come from `nm notes --json`, so what is a note, what
 // it was promoted to and whether that shipped are all decided in one place
 // (`PLT-pudy`).
-function Notes({ base, onAsk, busy, reload }) {
+function Notes({ base, onAsk, busy, reload, query, onCount }) {
   const [state, setState] = React.useState(null)
   const [error, setError] = React.useState(null)
 
@@ -702,6 +800,15 @@ function Notes({ base, onAsk, busy, reload }) {
       .then((d) => { setState(d); setError(null) })
       .catch((e) => setError(e.message))
   }, [base, reload])
+
+  // The window fetches itself, so the tab label cannot count it from outside.
+  // Filtered once here, and the number handed up.
+  const hits = React.useMemo(
+    () => (state?.notes || []).filter(
+      (n) => matches(query, n.id, n.text, n.src, n.task)),
+    [state, query],
+  )
+  React.useEffect(() => { onCount?.(hits.length) }, [hits.length, onCount])
 
   if (error) return <Typography color="error" sx={{ mt: 3 }}>{error}</Typography>
   if (!state) return <Box sx={{ mt: 4, textAlign: 'center' }}><CircularProgress size={22} /></Box>
@@ -713,7 +820,15 @@ function Notes({ base, onAsk, busy, reload }) {
     )
   }
 
-  const days = state.notes.reduce((acc, n) => {
+  if (!idle(query) && !hits.length) {
+    return (
+      <Typography color="text.secondary" sx={{ mt: 4, textAlign: 'center', px: 3 }}>
+        No notes match that.
+      </Typography>
+    )
+  }
+
+  const days = hits.reduce((acc, n) => {
     (acc[n.on] = acc[n.on] || []).push(n)
     return acc
   }, {})
@@ -722,7 +837,7 @@ function Notes({ base, onAsk, busy, reload }) {
     <Box sx={{ mt: 2 }}>
       {/* First, because it is the actionable part and it is invisible in the
           archive: nothing in there says a file is sitting in `raw/`. */}
-      {state.waiting > 0 && (
+      {state.waiting > 0 && idle(query) && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
           {state.waiting} capture{state.waiting === 1 ? '' : 's'} waiting in raw/
         </Typography>
@@ -817,7 +932,7 @@ const bare = (l) => l.replace(TICKED, '$1')
 // there is no private marker to show and nothing to publish — that is
 // `tm agenda <name> --publish`, at the terminal, by whoever wrote it
 // (`PLT-xkrc`).
-function Agenda({ base, busy, reload, onSet, onCreate }) {
+function Agenda({ base, busy, reload, onSet, onCreate, query }) {
   const [state, setState] = React.useState(null)
   const [error, setError] = React.useState(null)
   const [open, setOpen] = React.useState(null)
@@ -832,7 +947,10 @@ function Agenda({ base, busy, reload, onSet, onCreate }) {
   if (error) return <Typography color="error" sx={{ mt: 3 }}>{error}</Typography>
   if (!state) return <Box sx={{ mt: 4, textAlign: 'center' }}><CircularProgress size={22} /></Box>
 
-  const all = state.agendas || []
+  // Searched by title and by what is written in them — an agenda is mostly its
+  // body, and the line you remember is rarely in the name.
+  const all = (state.agendas || []).filter(
+    (a) => matches(query, a.title, a.name, a.text))
   // **The newest by default**, because the meeting you are in is almost always
   // the one most recently made. `open` only ever holds a deliberate choice.
   const showing = all.find((a) => a.name === open) || all[0]

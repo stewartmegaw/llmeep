@@ -1,4 +1,5 @@
 import React from 'react'
+import { matches, idle } from './search.js'
 import {
   Box, Button, CircularProgress, IconButton, List, ListItemButton,
   ListItemText, Table, TableBody, TableCell, TableContainer, TableHead,
@@ -13,7 +14,7 @@ import Markdown from './Markdown.jsx'
 // `only` names the group to show. A screen that is one group needs no group
 // heading, and a screen that is one *document* — Notes — should open it rather
 // than offer a list of one.
-export default function Read({ base, only, docs: given, empty }) {
+export default function Read({ base, only, docs: given, empty, query }) {
   const [docs, setDocs] = React.useState(given || null)
   const [open, setOpen] = React.useState(null)
   const [error, setError] = React.useState(null)
@@ -25,9 +26,13 @@ export default function Read({ base, only, docs: given, empty }) {
       .catch((e) => setError(e.message))
   }, [base, given])
 
+  // The same matcher the tab labels count with, so the list and the number
+  // above it cannot disagree (`PLT-t6wd`). Titles only: a document's body is
+  // not loaded until you open it, so there is nothing else here to search.
   const mine = React.useMemo(
-    () => (docs || []).filter((d) => !only || d.group === only),
-    [docs, only],
+    () => (docs || []).filter((d) => (!only || d.group === only)
+      && matches(query, d.title, d.group)),
+    [docs, only, query],
   )
 
   // A single document is the screen, not a list with one row on it.
@@ -63,7 +68,7 @@ export default function Read({ base, only, docs: given, empty }) {
     return (
       <Typography color="text.secondary"
                   sx={{ mt: 4, textAlign: 'center', px: 3, lineHeight: 1.5 }}>
-        {empty || 'Nothing here yet.'}
+        {idle(query) ? (empty || 'Nothing here yet.') : 'Nothing here matches that.'}
       </Typography>
     )
   }

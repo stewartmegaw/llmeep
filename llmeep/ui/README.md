@@ -151,6 +151,25 @@ from it, so there is no path to traverse and nothing outside the records can be 
 `?id=../../../etc/passwd` opens nothing, for documents and for bytes alike, and there are tests
 that say so.
 
+## One search box, every tab
+
+The box beside the mark filters the board, the notes and the documents at once, in the browser,
+over what each tab already has in hand. The tab labels carry the count — `Board 4 · Notes 0 ·
+Other 1` — and **the tab does not change**: a search says where the matches are, and jumping you
+to one of them takes the decision away. A zero is shown rather than hidden, because "it is not
+in the notes" is most of what a search across tabs is for.
+
+Terms are ANDed, which is how anyone narrows a list; an OR would widen it and read as the search
+having broken. One matcher in `search.js` is shared by the panes and by the counts, so a label
+reading `Board 4` can never sit above two rows — the board's own filter pills and section
+headings are counted off the searched board for the same reason.
+
+What it does not reach: completed work, which has left the board for `history.tsv` and is
+`tm find` at a terminal; captures still sitting in `raw/`; and a document's body, since only
+titles are loaded until you open one. No request is made — a round trip to ask the repo about
+records it has already sent would be slower, would fail offline, and would need a verb that does
+not exist.
+
 ## It is light
 
 One palette, not the viewer's. The theme followed `prefers-color-scheme` and most phones are on
