@@ -1002,7 +1002,7 @@ function Task({ task, docs, onDetail, section, onAsk, onAct, onAgenda, agendas, 
   const items = head ? 1 + docs.filter((d) => d.parent === head.id).length : null
   return (
     <ListItem divider={divider} alignItems="flex-start" data-task-id={task.id}
-      sx={{ py: 1.25, opacity: held ? 0.4 : 1,
+      sx={{ py: 1, opacity: held ? 0.4 : 1,
             ...(line && { [`border${line === 'top' ? 'Top' : 'Bottom'}`]: 2,
                           borderColor: 'primary.main' }) }}
       secondaryAction={onAsk && (
@@ -1102,7 +1102,7 @@ function Task({ task, docs, onDetail, section, onAsk, onAct, onAgenda, agendas, 
         // scroll to reach the rest (`PLT-25ew`).
         primaryTypographyProps={{ sx: { lineHeight: 1.35, overflowWrap: 'anywhere' } }}
         secondary={
-          <Box sx={{ mt: 0.75 }}>
+          <Box sx={{ mt: 0.25 }}>
             {task.detail && (
               // On its own line above the rest, and a button rather than a
               // chip. Everything else on this card is a label describing the
@@ -1121,10 +1121,27 @@ function Task({ task, docs, onDetail, section, onAsk, onAct, onAgenda, agendas, 
                 {items ? `Attachments ${items}` : 'Attachments'}
               </Button>
             )}
-            <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
-              {task.assignee
-                ? <Chip size="small" label={`@${task.assignee}`} />
-                : <Chip size="small" variant="outlined" label="unassigned" />}
+            {/* **A chip on every row is not a signal.** Every pool task is
+                unassigned — `add` files them that way and `park` unassigns —
+                so "unassigned" was drawn on every line of a twenty-task
+                backlog, carrying nothing and costing each card a second row
+                of 32px chips. The three chips left are exceptions: somebody
+                owns this, somebody has worked on it, something is in its way.
+                They are worth seeing precisely because most rows have none,
+                which is only true once the constant one is gone (`PLT-2bbm`).
+
+                The id is not an exception — every task has one — so it is the
+                quietest thing on the card rather than a bordered chip at the
+                end of the row. It stays because people say it out loud and
+                type it at a terminal. */}
+            <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap"
+                   alignItems="center">
+              <Box component="span"
+                   sx={{ fontFamily: 'ui-monospace, monospace', fontSize: 12,
+                         color: 'text.disabled', letterSpacing: 0 }}>
+                {task.id}
+              </Box>
+              {task.assignee && <Chip size="small" label={`@${task.assignee}`} />}
               {task.commits > 0 && (
                 <Chip size="small" color="success" variant="outlined"
                       label={`${task.commits} commit${task.commits === 1 ? '' : 's'} in`} />
@@ -1132,8 +1149,6 @@ function Task({ task, docs, onDetail, section, onAsk, onAct, onAgenda, agendas, 
               {task.blocked_by && (
                 <Chip size="small" color="warning" variant="outlined" label="blocked" />
               )}
-              <Chip size="small" variant="outlined" label={task.id}
-                    sx={{ opacity: 0.5, fontFamily: 'ui-monospace, monospace' }} />
             </Stack>
           </Box>
         }
