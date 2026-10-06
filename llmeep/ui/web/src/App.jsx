@@ -18,6 +18,19 @@ const BASE = (window.LLMEEP_BASE || '').replace(/\/$/, '')
 // A tab label, with its share of the matches once something is being searched
 // for. Not a MUI Badge: a badge floats off the corner of a label and two of
 // them collide on a narrow tab row, where this just makes the word longer.
+// A label, and a tap that filters by it. The search box is already the one
+// place this screen narrows itself, so a label chip sets the query rather than
+// introducing a second filtering model beside it (`PLT-jpsc`).
+function LabelChips({ labels, onPick }) {
+  if (!labels || !labels.length) return null
+  return labels.map((name) => (
+    <Chip key={name} size="small" variant="outlined" label={`#${name}`}
+          onClick={onPick ? () => onPick(name) : undefined}
+          sx={{ cursor: onPick ? 'pointer' : 'default',
+                borderStyle: 'dashed', color: 'text.secondary' }} />
+  ))
+}
+
 function found(query, label, n) {
   return idle(query) ? label : `${label} ${n}`
 }
@@ -120,7 +133,8 @@ export default function App() {
       const kept = {}
       for (const [key, rows] of Object.entries(sections)) {
         kept[key] = (rows || []).filter(
-          (t) => matches(query, t.id, t.title, t.assignee))
+          (t) => matches(query, t.id, t.title, t.assignee,
+                         (t.labels || []).map((l) => `#${l}`).join(' ')))
       }
       out[ledger] = kept
     }
@@ -294,6 +308,11 @@ export default function App() {
   // already hold something like it — `add` searches History and only an agent
   // reads the answer. A dialog wired straight to the verb would file duplicates
   // into the wrong ledger, politely.
+  // Tapping a label is the same act as typing it, so it goes through the one
+  // box rather than a filter of its own. `#` is included because that is what
+  // the chip says and what `tm label` stores.
+  const pickLabel = React.useCallback((name) => setQuery(`#${name}`), [])
+
   const fileTask = React.useCallback((title) => {
     const said = title.trim()
     if (!said) return
@@ -447,7 +466,7 @@ export default function App() {
         )}
         {tab === 'notes' && (
           <Notes base={BASE} onAsk={setAsking} busy={acting} reload={notesAt}
-                 query={query} onCount={setNoteHits} />
+                 query={query} onCount={setNoteHits} onPickLabel={pickLabel} />
         )}
         {tab === 'other' && sub === 'agenda' && (
           <Agenda base={BASE} busy={acting} reload={notesAt} query={query}
@@ -475,7 +494,7 @@ export default function App() {
         {tab === 'board' && shown && Object.entries(shown).map(([ledger, sections]) => (
           <Ledger key={ledger} name={ledger} sections={sections} off={off}
                   docs={docs} onDetail={setDetail} onAsk={setAsking} onAct={runTool}
-                  onAgenda={ontoAgenda} agendas={agendas}
+                  onAgenda={ontoAgenda} agendas={agendas} onPickLabel={pickLabel}
                   busy={acting} drag={drag} onDrag={setDrag} onDrop={dropped} />
         ))}
       </Container>
@@ -790,7 +809,7 @@ function ConversationPane({ conversation }) {
 // task or it goes. The rows come from `nm notes --json`, so what is a note, what
 // it was promoted to and whether that shipped are all decided in one place
 // (`PLT-pudy`).
-function Notes({ base, onAsk, busy, reload, query, onCount }) {
+function Notes({ base, onAsk, busy, reload, query, onCount, onPickLabel }) {
   const [state, setState] = React.useState(null)
   const [error, setError] = React.useState(null)
 
@@ -805,7 +824,8 @@ function Notes({ base, onAsk, busy, reload, query, onCount }) {
   // Filtered once here, and the number handed up.
   const hits = React.useMemo(
     () => (state?.notes || []).filter(
-      (n) => matches(query, n.id, n.text, n.src, n.task)),
+      (n) => matches(query, n.id, n.text, n.source, n.task,
+                     (n.labels || []).map((l) => `#${l}`).join(' '))),
     [state, query],
   )
   React.useEffect(() => { onCount?.(hits.length) }, [hits.length, onCount])
@@ -880,7 +900,7 @@ function Notes({ base, onAsk, busy, reload, query, onCount }) {
                 <ListItemText
                   primary={n.text}
                   primaryTypographyProps={{ sx: { lineHeight: 1.35, overflowWrap: 'anywhere' } }}
-                  secondary={(n.task || n.source) && (
+                  secondary={(n.task || n.source || n.labels?.length) && (
                     <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 0.75 }}>
                       {n.task && (
                         // A tick means the task shipped, so the note is awaiting
@@ -891,6 +911,11 @@ function Notes({ base, onAsk, busy, reload, query, onCount }) {
                               label={n.shipped ? `${n.task} ✓` : n.task}
                               sx={{ fontFamily: 'ui-monospace, monospace' }} />
                       )}
+                      {/* **Beside the source, not instead of it** (`DEC-062`).
+                          `src:` is where this came from and a label is what it
+                          is about; an adopter was using the first for the
+                          second because there was nothing else to use. */}
+                      <LabelChips labels={n.labels} onPick={onPickLabel} />
                       {n.source && (
                         <Chip size="small" variant="outlined" label={n.source}
                               sx={{ opacity: 0.6 }} />
@@ -1071,7 +1096,7 @@ function Confirm({ asking, busy, onClose, onYes }) {
 
 // `off` holds the pills that have been switched off — a ledger name or a
 // section key. Empty means show everything, which is where it starts.
-function Ledger({ name, sections, off, docs, onDetail, onAsk, onAct, onAgenda, agendas, busy, drag, onDrag, onDrop }) {
+function Ledger({ name, sections, off, docs, onDetail, onAsk, onAct, onAgenda, agendas, busy, drag, onDrag, onDrop, onPickLabel }) {
   if (off.has(name)) return null
   const live = SECTIONS.filter(([key]) => !off.has(key) && sections[key]?.length)
   if (!live.length) return null
@@ -1088,7 +1113,7 @@ function Ledger({ name, sections, off, docs, onDetail, onAsk, onAct, onAgenda, a
             {sections[key].map((task, i) => (
               <Task key={task.id} task={task} docs={docs} onDetail={onDetail}
                     section={key} onAsk={onAsk} onAct={onAct} busy={busy}
-                    onAgenda={onAgenda} agendas={agendas}
+                    onAgenda={onAgenda} agendas={agendas} onPickLabel={onPickLabel}
                     drag={drag} onDrag={onDrag} onDrop={onDrop}
                     divider={i < sections[key].length - 1} />
             ))}
@@ -1137,7 +1162,7 @@ function Clip(props) {
   )
 }
 
-function Task({ task, docs, onDetail, section, onAsk, onAct, onAgenda, agendas, busy, drag, onDrag, onDrop, divider }) {
+function Task({ task, docs, onDetail, section, onAsk, onAct, onAgenda, agendas, busy, drag, onDrag, onDrop, divider, onPickLabel }) {
   // **One button instead of four.** Every action but the drag handle lives
   // behind it: four glyphs in a row on a phone are four small targets nobody
   // can tell apart, and the row grew every time the board learned a verb. A
@@ -1347,6 +1372,7 @@ function Task({ task, docs, onDetail, section, onAsk, onAct, onAgenda, agendas, 
               {task.blocked_by && (
                 <Chip size="small" color="warning" variant="outlined" label="blocked" />
               )}
+              <LabelChips labels={task.labels} onPick={onPickLabel} />
             </Stack>
           </Box>
         }

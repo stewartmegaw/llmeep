@@ -129,6 +129,13 @@ TOOLS = {
     "done":       lambda a: ("tm", ["done", a["id"]], None),
     "drop":       lambda a: ("tm", ["drop", a["id"]], None),
     "detail":     lambda a: ("tm", ["detail", a["id"]], None),
+    # **Labels reach the app through a verb, like everything else.** The model
+    # names a tool and supplies data; it never supplies a command, so a label is
+    # a list of words validated by `tm` and never a string spliced into argv
+    # (`DEC-062`). Which tool depends on the id, because a label means the same
+    # thing on a task and on a note.
+    "label":      lambda a: (tool_for(a["id"]), ["label", a["id"]] + a["labels"], None),
+    "unlabel":    lambda a: (tool_for(a["id"]), ["unlabel", a["id"]] + a["labels"], None),
 
     # Notes. A pasted transcript arrives here — distilled into lines by the
     # agent and piped in, which is what `nm add` reading stdin is for and what
@@ -186,6 +193,16 @@ def only_looks(name, args):
 MAX_STEPS = 12
 
 ID_RE = re.compile(r"^(PLT|BUS|NTE)-[A-Za-z0-9]{1,12}$")
+# A label is the adopter's word, so this validates its shape and not its
+# spelling — the same regex `tm` and `nm` enforce, checked here as well because
+# everything reaching a subprocess is checked here (`DEC-062`).
+LABEL_RE = re.compile(r"^#?[A-Za-z0-9][A-Za-z0-9._-]{0,24}$")
+
+
+def tool_for(rid):
+    """`NTE-` is a note and everything else is a task. A label means the same
+    thing on both, so the verb is one tool call or the other by id."""
+    return "nm" if str(rid).upper().startswith("NTE-") else "tm"
 
 # **The wrapper, and only the wrapper.**
 #
@@ -238,6 +255,8 @@ TOOL_ARGS = {
 
     "find": '{"term": "..."}', "why": '{"term": "..."}',
     "add": '{"title": "...", "ledger": "platform|business", "prioritise": bool}',
+    "label": '{"id": "PLT-… or NTE-…", "labels": ["ulster", "reporting"]}',
+    "unlabel": '{"id": "PLT-… or NTE-…", "labels": ["ulster"]}',
     "retitle": '{"id": "...", "title": "..."}',
     "prioritise": '{"id": "...", "top": bool}',
     "park": '{"id": "..."}', "done": '{"id": "..."}',
@@ -768,6 +787,18 @@ def run_tool(name, args):
         if not lines:
             raise RuntimeError("capture needs lines")
         args["lines"] = lines
+    if name in ("label", "unlabel"):
+        # A list, each item its own argv entry — so a label containing a space
+        # or a dash can never become a second argument or a flag.
+        words = [str(w).strip() for w in (args.get("labels") or []) if str(w).strip()]
+        if not words:
+            raise RuntimeError(f"{name} needs at least one label")
+        for w in words:
+            if not LABEL_RE.match(w):
+                raise RuntimeError(
+                    f"{w!r} is not a label — letters, numbers, dot, dash or "
+                    "underscore, 25 characters")
+        args["labels"] = words
     tool, argv, stdin = TOOLS[name](args)
     return run_record_tool(tool, argv, stdin)
 

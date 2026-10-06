@@ -170,6 +170,21 @@ titles are loaded until you open one. No request is made — a round trip to ask
 records it has already sent would be slower, would fail offline, and would need a verb that does
 not exist.
 
+## Labels are chips, and a chip is a filter
+
+A record's labels sit with the other things its line says about itself, drawn dashed so they
+read as somebody's word rather than as something the tool worked out. Tapping one puts it in the
+search box, which is already the one place this screen narrows itself — a second filtering model
+beside the search would be two things to learn for one job.
+
+On a note they sit **beside** the source, not instead of it (`DEC-062`): `src:` is where the
+capture came from and a label is what it is about, and an adopter with no labels was using the
+first for the second.
+
+The agent can label too, through `label` and `unlabel` in the tool table. It names a tool and
+supplies a list of words; it never supplies a command, so a label is validated for shape and
+passed as its own argv entry, and which subsystem runs is decided by the id.
+
 ## It is light
 
 One palette, not the viewer's. The theme followed `prefers-color-scheme` and most phones are on

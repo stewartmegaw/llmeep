@@ -3162,15 +3162,31 @@ print(json.dumps(out))
             fh.write("import json, os, sys\n"
                      "sys.path.insert(0, os.path.join(sys.argv[1], 'llmeep', 'ui', 'api'))\n"
                      "import server\n"
+                     # Every argument name the table reads. A tool added with a
+                     # new one belongs here too, or this probe crashes instead
+                     # of reporting — which is how `label` was caught.
                      "args = {'id': 'PLT-0000', 'title': 'x', 'term': 'x',\n"
-                     "        'lines': ['a'], 'source': 's', 'name': 'x'}\n"
-                     "print(json.dumps(sorted({server.TOOLS[t](dict(args))[1][0]\n"
-                     "                         for t in server.TOOLS})))\n")
+                     "        'lines': ['a'], 'source': 's', 'name': 'x',\n"
+                     "        'labels': ['x']}\n"
+                     # Named, not crashed. A tool reading an argument this dict
+                     # does not carry used to raise inside the comprehension,
+                     # which reached the suite as a JSONDecodeError on empty
+                     # stdout and never mentioned the tool at fault.
+                     "verbs, missing = set(), []\n"
+                     "for t in server.TOOLS:\n"
+                     "    try:\n"
+                     "        verbs.add(server.TOOLS[t](dict(args))[1][0])\n"
+                     "    except KeyError as exc:\n"
+                     "        missing.append(f'{t} needs args[{exc}]')\n"
+                     "print(json.dumps({'verbs': sorted(verbs), 'missing': missing}))\n")
         env = dict(os.environ, LLMEEP_REPO=top, LLMEEP_AUTH_HANDLED="yes")
         out = sh(sys.executable, script, self.working_copy(), cwd=top, env=env)
-        verbs = json.loads(out.stdout.strip().split("\n")[-1])
-        self.assertNotIn("go", verbs, verbs)
-        self.assertIn("done", verbs, "closing a task should still be possible")
+        self.assertTrue(out.stdout.strip(), f"the probe printed nothing:\n{out.stderr}")
+        got = json.loads(out.stdout.strip().split("\n")[-1])
+        self.assertEqual(got["missing"], [],
+                         "add these argument names to this test's `args`")
+        self.assertNotIn("go", got["verbs"], got["verbs"])
+        self.assertIn("done", got["verbs"], "closing a task should still be possible")
 
     def test_a_malformed_id_never_reaches_the_tool(self):
         top = self.adopted("bad-id")
