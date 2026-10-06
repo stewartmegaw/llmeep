@@ -12,21 +12,31 @@
 // completed work is `tm find`, at a terminal, and a document's body is not
 // searched because only its title is loaded until you open it.
 
-// Space-separated terms, all of which must appear somewhere in the row. AND
-// rather than OR: typing a second word is how anyone narrows a list, and an OR
-// would widen it, which reads as the search having broken.
+// Space-separated terms, all of which must appear. AND rather than OR: typing a
+// second word is how anyone narrows a list, and an OR would widen it, which
+// reads as the search having broken.
 export function terms(query) {
   return String(query || '').toLowerCase().split(/\s+/).filter(Boolean)
 }
 
-// `fields` is whatever identifies the row — nulls and numbers are fine, so a
-// caller can pass an id, a title and a tag without checking each one first.
-export function matches(query, ...fields) {
+// **A `#term` is a label and is matched whole** (`PLT-n4wq`). Substring is right
+// for typing — `ulst` should find things — and wrong for a label, because
+// tapping `#ulster` returned everything tagged `#ulster-meeting-prep` as well.
+// A label is a thing the adopter named, not a prefix, and a chip that quietly
+// means "and anything starting like this" cannot be used to answer "what is on
+// for Ulster".
+//
+// Typing the word without the `#` still searches everything, labels included,
+// which is the loose reading and the one worth keeping for a search box.
+export function matches(query, fields, labels = []) {
   const want = terms(query)
   if (!want.length) return true
-  const hay = fields.filter((f) => f !== null && f !== undefined)
-    .join(' ').toLowerCase()
-  return want.every((t) => hay.includes(t))
+  const hay = (fields || []).filter((f) => f !== null && f !== undefined)
+    .concat(labels || []).join(' ').toLowerCase()
+  const mine = (labels || []).map((l) => String(l).toLowerCase())
+  return want.every((t) => (t.startsWith('#')
+    ? mine.includes(t.slice(1))
+    : hay.includes(t)))
 }
 
 // `true` when nothing is being searched for, so callers can skip filtering

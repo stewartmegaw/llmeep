@@ -31,7 +31,7 @@ export default function Read({ base, only, docs: given, empty, query }) {
   // not loaded until you open it, so there is nothing else here to search.
   const mine = React.useMemo(
     () => (docs || []).filter((d) => (!only || d.group === only)
-      && matches(query, d.title, d.group)),
+      && matches(query, [d.title, d.group])),
     [docs, only, query],
   )
 

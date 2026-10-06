@@ -160,7 +160,10 @@ to one of them takes the decision away. A zero is shown rather than hidden, beca
 in the notes" is most of what a search across tabs is for.
 
 Terms are ANDed, which is how anyone narrows a list; an OR would widen it and read as the search
-having broken. One matcher in `search.js` is shared by the panes and by the counts, so a label
+having broken. **A term starting with `#` is a label and matches that label whole** — substring
+is right for typing, where `ulst` should find things, and wrong for a chip: tapping `#ulster`
+returned everything tagged `#ulster-meeting-prep` too, which cannot answer "what is on for
+Ulster". Typing the bare word still searches everything, labels included. One matcher in `search.js` is shared by the panes and by the counts, so a label
 reading `Board 4` can never sit above two rows — the board's own filter pills and section
 headings are counted off the searched board for the same reason.
 

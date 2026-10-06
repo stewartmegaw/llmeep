@@ -22,6 +22,7 @@ PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
 
 ## recent
 
+2026-10-06  PLT-n4wq A label term matches that label, not every label containing it  @stewart
 2026-10-06  PLT-jpsc The app filters by label and shows the ones a record carries  @stewart
 2026-10-06  PLT-e4kn Tasks and notes carry labels an adopter chooses, and labels survive completion  @stewart
 2026-10-06  PLT-t6wd A search box filters every tab in place, and each tab says how many it found  @stewart
@@ -36,4 +37,3 @@ PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
 2026-09-23  PLT-xkrc The app never shows a private agenda  @stewart
 2026-09-23  PLT-49p8 An agenda is a record: private on this machine, shared in the repo  @stewart
 2026-09-23  PLT-5m8z A task's board buttons collapse into a menu that can also put it on the agenda  @stewart
-2026-09-23  PLT-6fbp An agenda item can be ticked off as the meeting works through it  @stewart

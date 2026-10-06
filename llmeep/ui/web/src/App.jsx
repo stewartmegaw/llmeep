@@ -133,8 +133,7 @@ export default function App() {
       const kept = {}
       for (const [key, rows] of Object.entries(sections)) {
         kept[key] = (rows || []).filter(
-          (t) => matches(query, t.id, t.title, t.assignee,
-                         (t.labels || []).map((l) => `#${l}`).join(' ')))
+          (t) => matches(query, [t.id, t.title, t.assignee], t.labels))
       }
       out[ledger] = kept
     }
@@ -275,9 +274,9 @@ export default function App() {
   // documents, `agendas` for the meetings.
   const otherHits = React.useMemo(() => {
     if (idle(query)) return 0
-    const docHits = browsable.filter((d) => matches(query, d.title, d.group)).length
+    const docHits = browsable.filter((d) => matches(query, [d.title, d.group])).length
     const agendaHits = (agendas || [])
-      .filter((a) => matches(query, a.title, a.name, a.text)).length
+      .filter((a) => matches(query, [a.title, a.name, a.text])).length
     return docHits + agendaHits
   }, [browsable, agendas, query])
 
@@ -445,10 +444,10 @@ export default function App() {
                  options={[
                    { value: 'decisions', label: 'Decisions',
                      count: browsable.filter((d) => d.group === 'Decisions'
-                       && matches(query, d.title, d.group)).length },
+                       && matches(query, [d.title, d.group])).length },
                    { value: 'ontology', label: 'Ontology',
                      count: browsable.filter((d) => d.group === 'Ontology'
-                       && matches(query, d.title, d.group)).length },
+                       && matches(query, [d.title, d.group])).length },
                    { value: 'agenda', label: 'Agenda' },
                  ]} />
         )}
@@ -824,8 +823,7 @@ function Notes({ base, onAsk, busy, reload, query, onCount, onPickLabel }) {
   // Filtered once here, and the number handed up.
   const hits = React.useMemo(
     () => (state?.notes || []).filter(
-      (n) => matches(query, n.id, n.text, n.source, n.task,
-                     (n.labels || []).map((l) => `#${l}`).join(' '))),
+      (n) => matches(query, [n.id, n.text, n.source, n.task], n.labels)),
     [state, query],
   )
   React.useEffect(() => { onCount?.(hits.length) }, [hits.length, onCount])
@@ -975,7 +973,7 @@ function Agenda({ base, busy, reload, onSet, onCreate, query }) {
   // Searched by title and by what is written in them — an agenda is mostly its
   // body, and the line you remember is rarely in the name.
   const all = (state.agendas || []).filter(
-    (a) => matches(query, a.title, a.name, a.text))
+    (a) => matches(query, [a.title, a.name, a.text]))
   // **The newest by default**, because the meeting you are in is almost always
   // the one most recently made. `open` only ever holds a deliberate choice.
   const showing = all.find((a) => a.name === open) || all[0]
