@@ -280,6 +280,29 @@ what is shown, so recounting from the visible lines reports a smaller backlog th
 a standup most needs to say out loud. And a standup carries no hint line: it is a report, not a
 menu.
 
+## Label
+
+**A word the adopter chose, and the only tag the tool has no opinion about** (`DEC-062`).
+
+`#ulster`, `#reporting`, `#q4` — a `#`, then up to 25 characters of letters, numbers, dot, dash
+or underscore. `tm` checks that shape and nothing else: there is no registry to add a label to
+and no allowlist to pass, because an adopter's vocabulary is their business and putting it under
+llmeep's governance is principle 7 the wrong way round. First use creates it; last removal
+retires it.
+
+**The `#` is load-bearing, not decoration.** Tags are read off the end of a line, so a tag that
+could be an ordinary English word turns the last word of a title into one — which is `PLT-jrtf`,
+where a title ending in "detail" blocked every commit in a repository until the parser was
+fixed. `WORD_TAGS` has exactly one member and keeping that true is why a label carries a sigil.
+
+**Labels survive `done`.** `detail` and `blocked:` are dropped at completion because they stop
+being *true* — a finished task has no blocker. A label stays true, and "what did we ship for
+Ulster" is a question about finished work, so the label rides on the `recent` line and into
+`history.tsv` in a column of its own, where `tm find` searches it.
+
+**Typos are the known cost.** Nothing detects `ulster` beside `ulsters`; refusing a registry is
+what buys that, and the bare listing is the whole mitigation. Accepted knowingly.
+
 ## Window
 
 The `recent` section of a Board: the last 15 completed Tasks, newest first.
@@ -334,7 +357,9 @@ step. See [`DEC-003`](https://github.com/stewartmegaw/llmeep/blob/main/decisions
 | `done` | `tm done [id]`       | Defaults to whatever is in progress. Moves to `recent`, prunes, appends to History, notifies. Run **before** committing. |
 | `detail` | `tm detail [id] [--folder]` | Writes the detail from `_template.md` and tags the board line. Defaults to what is in progress. Idempotent: an existing one is printed, not overwritten, and a line missing its tag is repaired. `--folder` for a task needing several artifacts (`DEC-046`). |
 | `drop` | `tm drop <id>`       | Removes a task that should not have been filed — the line and its detail. Writes **nothing** to History and sends nothing, because nothing happened. Acts immediately; the line it prints is the confirmation (`DEC-024`). |
-| `find` | `tm find <term>`     | Greps History explicitly.                                        |
+| `label` | `tm label [<id> <label...>]` | Adds labels, idempotently. **Bare, it lists every label in use with a count** — the vocabulary is the adopter's and nothing else writes it down, so the listing is what makes an existing word easier to reuse than a new one. |
+| `unlabel` | `tm unlabel <id> <label...>` | Takes them off. It exists because every transition has a verb: a label you could add and not remove would leave hand-editing the board as the only way back (`DEC-036`). |
+| `find` | `tm find <term>`     | Greps History explicitly — titles and labels.                    |
 | `review` | `tm review [--reply <text>]` | Sends HEAD — message, task detail, diff — to up to two configured LLMs. Marks the commit `reviewed: <diff hash> by <who>` only when every reviewer that answered has nothing left to say. Off unless `REVIEW` is set; it spends the adopter's own API budget (`DEC-039`). |
 | | `tm sync` (every command but `check`) | **A read of a private replica is not a read of the records.** Nothing consulted the remote, so a second writer saw a confident board off whatever was on disk (`PLT-zs7t`). Every command that touches a record fetches first — throttled to once a minute by a stamp in `.git/`, silent when there is no remote or no network, and a warning rather than a block so offline keeps working. It **fetches and never pulls**: merging is `git pull` or `tm resolve`, and both are asked for. `check` is exempt, because it runs in every commit hook. |
 | | `tm check --context` | Measures what an agent loads. A skill loads whole, so it is the only file with a standing cost; the models are read on demand and excluded. |

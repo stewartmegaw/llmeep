@@ -89,15 +89,22 @@ One line in the archive.
   sequential, so two branches cannot allocate the same one. The same reasoning as `PLT-006`.
 - **Capped at 200 characters.** A note is a line. Anything longer is a task or a decision
   wearing the wrong clothes.
-- **Tags:** `src:acme-call` records where it came from; `task:PLT-9puy` records where it went.
+- **Tags:** `src:acme-call` records where it came from; `task:PLT-9puy` records where it went;
+  `#ulster` is a label somebody chose.
+
+**A label is not a `src:`** (`DEC-062`). The tool writes provenance from where a capture came;
+a person writes a label to say what a note is about. They answer different questions and a note
+may carry both — an adopter with no labels was using `src:` for both, which meant a note from
+`ulster-call` could never be about anything else. Same shape as taskman's: a `#`, 25 characters,
+and the vocabulary is the adopter's. `nm label` bare lists what is in use.
 
 ```
 # notes
 
 ## 2026-08-01
 
-NTE-shmy  Acme want SSO before they will renew            src:acme-call  task:PLT-9wmv
-NTE-enu9  Sam owns the Stripe migration end to end        src:acme-call
+NTE-shmy  Acme want SSO before they will renew            src:acme-call  #renewal  task:PLT-9wmv
+NTE-enu9  Sam owns the Stripe migration end to end        src:acme-call  #billing
 ```
 
 **A promoted note is removed once its task ships** — from the window and from `history.tsv`.

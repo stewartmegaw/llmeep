@@ -1,4 +1,4 @@
-#date	id	ledger	title	who
+#date	id	ledger	title	who	labels
 2026-07-31	PLT-002	platform	Choose taskman tooling language and location
 2026-07-31	PLT-003	platform	Build tm executable: add, go, done
 2026-07-31	PLT-006	platform	Prevent next_id collisions across branches
@@ -150,3 +150,4 @@
 2026-10-06	PLT-2bbm	platform	A task row is a title, and says nothing where there is nothing to say	stewart
 2026-10-06	PLT-e4qt	platform	Filing a task has a button: a title, then the agent files it	stewart
 2026-10-06	PLT-t6wd	platform	A search box filters every tab in place, and each tab says how many it found	stewart
+2026-10-06	PLT-e4kn	platform	Tasks and notes carry labels an adopter chooses, and labels survive completion	stewart	ulster

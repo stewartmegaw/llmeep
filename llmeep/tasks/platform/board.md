@@ -19,9 +19,11 @@ PLT-hrpu An agenda holds nothing the repo keeps — decide whether it should exi
 PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; use typeable() so they stay typeable  filed:2026-09-12
 PLT-uqet The agenda tab lists past agendas and hands a new one to the agent  detail  filed:2026-09-23
 PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
+PLT-jpsc The app filters by label and shows the ones a record carries  filed:2026-10-06
 
 ## recent
 
+2026-10-06  PLT-e4kn Tasks and notes carry labels an adopter chooses, and labels survive completion  @stewart  #ulster
 2026-10-06  PLT-t6wd A search box filters every tab in place, and each tab says how many it found  @stewart
 2026-10-06  PLT-e4qt Filing a task has a button: a title, then the agent files it  @stewart
 2026-10-06  PLT-2bbm A task row is a title, and says nothing where there is nothing to say  @stewart
@@ -36,4 +38,3 @@ PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
 2026-09-23  PLT-5m8z A task's board buttons collapse into a menu that can also put it on the agenda  @stewart
 2026-09-23  PLT-6fbp An agenda item can be ticked off as the meeting works through it  @stewart
 2026-09-23  PLT-jrtf A title ending in the word detail is read back as the detail tag, and check then refuses the commit  @stewart
-2026-09-23  PLT-6v3m The agenda reaches the app: a tab in Other, editable from the chat, and an icon to remove a line  @stewart

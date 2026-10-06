@@ -50,9 +50,23 @@ SECTIONS = {"in progress": "in_progress",
             "prioritised": "prioritised",
             "backlog": "backlog"}
 
+# **A label is whatever the adopter says it is** (`DEC-062`). Every other tag
+# here means something to the tool; a label means something to the people using
+# it, and the tool's only opinions are its shape and that it round-trips.
+#
+# The `#` is not decoration. Tags are read off the end of a line, so a tag that
+# could be an ordinary English word turns the last word of a title into one —
+# which is exactly `PLT-jrtf`, where a title ending in "detail" blocked every
+# commit in a repository. `WORD_TAGS` has one member and that is worth keeping
+# true, so a label carries a sigil and can never be mistaken for prose.
+#
+# 25 characters after the `#`. Long enough for `ulster-meeting-prep`, short
+# enough that a board line stays a line.
+LABEL_RE = re.compile(r"^#[a-z0-9][a-z0-9._-]{0,24}$")
+
 TAG_RE = re.compile(r"^(detail|@[a-z0-9][a-z0-9._-]*|blocked:[A-Za-z]{3}-\S+"
                     r"|filed:\d{4}-\d{2}-\d{2}|since:[0-9a-f]{7,40}"
-                    r"|commits:\d+)$")
+                    r"|commits:\d+|#[a-z0-9][a-z0-9._-]{0,24})$")
 # Tags that are also ordinary English. Exactly one, and that is worth keeping
 # true: a tag with a sigil or a colon can never be the last word of a title.
 WORD_TAGS = {"detail"}
@@ -138,6 +152,33 @@ class Task:
                 return t[1:]
         return None
 
+    @property
+    def labels(self):
+        """In the order they were added. Order is not meaning, but a set would
+        reshuffle the line on every write and make a diff out of nothing."""
+        return [t[1:] for t in self.tags if t.startswith("#")]
+
+    def add_labels(self, names):
+        """Idempotent, and ordered before `filed:` like every other tag. Returns
+        the ones that were not already there, so the caller can say what it
+        actually did rather than claiming a change it did not make."""
+        added = []
+        for name in names:
+            tag = f"#{name}"
+            if tag in self.tags:
+                continue
+            at = next((i for i, t in enumerate(self.tags) if t.startswith("filed:")),
+                      len(self.tags))
+            self.tags.insert(at, tag)
+            added.append(name)
+        return added
+
+    def drop_labels(self, names):
+        wanted = {f"#{n}" for n in names}
+        gone = [t[1:] for t in self.tags if t in wanted]
+        self.tags = [t for t in self.tags if t not in wanted]
+        return gone
+
     def assign(self, who):
         self.unassign()
         if who:
@@ -157,8 +198,12 @@ class Task:
 
     def render_recent(self):
         line = f"{self.done_on}  {self.id:<9}{self.title}"
-        if self.assignee:
-            line = line.ljust(56) + f"  @{self.assignee}"
+        # Assignee then labels, both padded away from the title so `_split_tags`
+        # reads them back as tags rather than as the last words of it.
+        trailing = ([f"@{self.assignee}"] if self.assignee else []) \
+            + [f"#{n}" for n in self.labels]
+        if trailing:
+            line = line.ljust(56) + "  " + "  ".join(trailing)
         return line.rstrip()
 
 
@@ -286,9 +331,12 @@ class Board:
         done_on = tokens.pop(0)
         tid = tokens.pop(0)
         tokens, tags = self._split_tags(tokens, line)
-        # Keep the assignee; drop `detail`/`blocked:` — a completed task has no
-        # blocker, and its detail is found by id, not by a tag.
-        tags = [t for t in tags if t.startswith("@")]
+        # Keep the assignee and the labels; drop `detail`/`blocked:` — a
+        # completed task has no blocker, and its detail is found by id, not by a
+        # tag. **Labels outlive the work** (`DEC-062`): "what did we ship for
+        # Ulster" is a question about finished things, and a label that vanished
+        # at `done` could not answer it.
+        tags = [t for t in tags if t.startswith("@") or t.startswith("#")]
         return Task(tid, " ".join(tokens), tags, done_on=done_on)
 
     def all_ids(self):
@@ -344,7 +392,11 @@ def history_rows():
             if len(parts) >= 4:
                 # `who` is appended last so rows written before assignees
                 # existed still parse — zip simply stops short.
-                rows.append(dict(zip(("date", "id", "ledger", "title", "who"), parts)))
+                # `who` then `labels`, each appended after rows existed without
+                # them — `zip` stops short, so an older row simply has fewer
+                # keys and every reader already handles that.
+                rows.append(dict(zip(
+                    ("date", "id", "ledger", "title", "who", "labels"), parts)))
     return rows
 
 
@@ -355,9 +407,16 @@ def history_append(task, ledger):
     new = not os.path.exists(HISTORY)
     with open(HISTORY, "a") as fh:
         if new:
-            fh.write("#date\tid\tledger\ttitle\twho\n")
+            fh.write("#date\tid\tledger\ttitle\twho\tlabels\n")
         row = [task.done_on, task.id, ledger, task.title]
-        if task.assignee:
+        # `who` is written empty rather than omitted when there are labels,
+        # because a column is positional: labels in the fifth field would be
+        # read back as an assignee. Rows with neither are left exactly as they
+        # were, so nothing already written changes shape.
+        if task.labels:
+            row.append(task.assignee or "")
+            row.append(" ".join(task.labels))
+        elif task.assignee:
             row.append(task.assignee)
         fh.write("\t".join(row) + "\n")
 
@@ -368,7 +427,9 @@ def search(term, limit=MAX_HITS):
         return []
     scored = []
     for row in history_rows():
-        hay = f"{row['id']} {row['title']}".lower()
+        # Labels are searched too, which is most of why they survive `done`:
+        # "what did we ship for Ulster" is a question about finished work.
+        hay = f"{row['id']} {row['title']} {row.get('labels', '')}".lower()
         hits = sum(1 for w in words if w in hay)
         if hits:
             scored.append((hits, row["date"], row))
@@ -2314,7 +2375,7 @@ def cmd_prioritise(args):
 BOARD_HINT = "*start · prioritise · done · park · detail · drop · discuss*"
 
 
-def board_sections(recent=False):
+def board_sections(recent=False, labels=()):
     """The live board as `(heading, [line, …])` — the same shape the standup
     already renders from, so both go through one set of renderers (`PLT-jzhh`).
 
@@ -2326,17 +2387,22 @@ def board_sections(recent=False):
     """
     live = {"in progress": [], "prioritised": [], "backlog": []}
     done = []
+    want = list(labels)
+
+    def keep(task):
+        return all(name in task.labels for name in want)
+
     for ledger in LEDGERS:
         try:
             board = Board(ledger)
         except Fail:
             continue
-        live["in progress"] += [(board, t) for t in board.in_progress]
+        live["in progress"] += [(board, t) for t in board.in_progress if keep(t)]
         # Never reordered: position is the priority, so rearranging it
         # overwrites someone's decision.
-        live["prioritised"] += [(board, t) for t in board.prioritised]
-        live["backlog"] += [(board, t) for t in board.backlog]
-        done += [(board, t) for t in board.recent]
+        live["prioritised"] += [(board, t) for t in board.prioritised if keep(t)]
+        live["backlog"] += [(board, t) for t in board.backlog if keep(t)]
+        done += [(board, t) for t in board.recent if keep(t)]
     # Newest filed first, matching the standup. A view changes what is printed
     # and never what is in the file (`DEC-027`), and this is not a ranking —
     # there is no top of the backlog. Undated lines predate `filed:` and sort
@@ -2423,8 +2489,17 @@ def cmd_board(args):
     """
     as_json, chat = "--json" in args, "--chat" in args
     recent = "--recent" in args
+    # `--label x` narrows every section to the tasks carrying it, repeatable and
+    # ANDed — a second label narrows, which is what anyone typing one expects.
+    wanted, args = [], list(args)
+    while "--label" in args:
+        i = args.index("--label")
+        if i + 1 >= len(args):
+            raise Fail("--label needs a label")
+        wanted.append(clean_label(args[i + 1]))
+        args = args[:i] + args[i + 2:]
     if [a for a in args if a not in ("--json", "--chat", "--recent")] or (as_json and chat):
-        raise Fail("usage: tm board [--json | --chat [--recent]]")
+        raise Fail("usage: tm board [--label <label>] [--json | --chat [--recent]]")
     if recent and not chat:
         raise Fail("--recent renders the window; it needs --chat")
     if chat:
@@ -2434,8 +2509,13 @@ def cmd_board(args):
         # a worked example until `PLT-jzhh`, which every task session paid for
         # whether or not anyone asked to see the board — and which no agent
         # without that skill ever had.
-        print(render_board(board_sections(recent=recent)))
+        print(render_board(board_sections(recent=recent, labels=wanted)))
         return
+    # One predicate for every shape this command prints, so `--label` cannot
+    # mean one thing in JSON and another on a terminal.
+    def keep(task):
+        return all(name in task.labels for name in wanted)
+
     out = {}
     for ledger in LEDGERS:
         try:
@@ -2443,11 +2523,15 @@ def cmd_board(args):
         except Fail:
             continue
         out[ledger] = {
-            "in_progress": [task_json(board, ledger, t) for t in board.in_progress],
-            "prioritised": [task_json(board, ledger, t) for t in board.prioritised],
-            "backlog": [task_json(board, ledger, t) for t in board.backlog],
+            "in_progress": [task_json(board, ledger, t)
+                            for t in board.in_progress if keep(t)],
+            "prioritised": [task_json(board, ledger, t)
+                            for t in board.prioritised if keep(t)],
+            "backlog": [task_json(board, ledger, t)
+                        for t in board.backlog if keep(t)],
             "recent": [{"id": t.id, "title": t.title, "done_on": t.done_on,
-                        "assignee": t.assignee} for t in board.recent],
+                        "assignee": t.assignee, "labels": t.labels}
+                       for t in board.recent if keep(t)],
         }
     if as_json:
         print(json.dumps({"ledgers": out}, indent=2))
@@ -2477,6 +2561,7 @@ def task_json(board, ledger, task):
         "detail": os.path.relpath(detail, REPO) if detail else None,
         "commits": task.commits,
         "filed": task.filed,
+        "labels": task.labels,
     }
 
 
@@ -2653,7 +2738,12 @@ def cmd_done(args):
         # A task completed straight from `open` was never assigned; the person
         # finishing it is the honest answer, and matches the commit author.
         finisher = task.assignee or whoami()
-        task.tags = [f"@{finisher}"] if finisher else []
+        # **The labels come with it** (`DEC-062`). Everything else is dropped
+        # because it stops being true — a finished task has no blocker and is
+        # not in progress — but a label stays true, and "what did we ship for
+        # Ulster" is a question about finished work.
+        kept = [f"#{n}" for n in task.labels]
+        task.tags = ([f"@{finisher}"] if finisher else []) + kept
         task.done_on = date.today().isoformat()
         board.recent.insert(0, task)
         board.clear_blocker(task.id)
@@ -2751,6 +2841,99 @@ def print_feedback_pass():
           "\n  that always finds something is manufacturing noise."
           "\n  `tm feedback \"<what happened>\"` — nothing from this project: no code, file"
           f"\n  names, domain terms or task titles. Rubric: {rubric}, Feedback to llmeep.")
+
+
+def clean_label(word):
+    """What the user typed, as a label. The `#` is optional to type and always
+    stored, because a shell eats an unquoted one and nobody should have to know
+    that to file a label."""
+    name = slug(str(word).lstrip("#"))
+    if not name:
+        raise Fail(f"{word!r} is not a label — letters and numbers, please")
+    if not LABEL_RE.match(f"#{name}"):
+        raise Fail(f"`{name}` is {len(name)} characters; a label is 25 or fewer")
+    return name
+
+
+def labels_in_use():
+    """Every label on every board and in history, with a count. Reads only."""
+    seen = {}
+    for ledger in LEDGERS:
+        board = Board(ledger)
+        for task in board.in_progress + board.open + board.recent:
+            for name in task.labels:
+                seen[name] = seen.get(name, 0) + 1
+    for row in history_rows():
+        for name in (row.get("labels") or "").split():
+            seen[name] = seen.get(name, 0) + 1
+    return seen
+
+
+def _label_verb(args, adding):
+    """`label` and `unlabel`, which differ only in direction."""
+    verb = "label" if adding else "unlabel"
+    if not args:
+        if not adding:
+            raise Fail("usage: tm unlabel <id> <label...>")
+        # **A bare `label` lists what is in use.** An adopter's labels are a
+        # vocabulary nobody wrote down, and the way a vocabulary goes wrong is
+        # `ulster` beside `ulsters` — so the first thing the verb does, when
+        # asked for nothing, is show you what already exists to reuse.
+        seen = labels_in_use()
+        if not seen:
+            print("\n  no labels yet — `tm label <id> <label>` starts one\n")
+            return 0
+        print(f"\n  {len(seen)} label(s) in use\n")
+        for name, n in sorted(seen.items(), key=lambda kv: (-kv[1], kv[0])):
+            print(f"  #{name:<26}{n}")
+        print()
+        return 0
+
+    tid, words = args[0], args[1:]
+    if not words:
+        raise Fail(f"usage: tm {verb} <id> <label...>")
+    names = [clean_label(w) for w in words]
+    for ledger in LEDGERS:
+        board = Board(ledger)
+        task, _ = board.find(tid)
+        if not task:
+            continue
+        changed = task.add_labels(names) if adding else task.drop_labels(names)
+        board.save()
+        print(f"\n  {task.id}  {task.title}")
+        if changed:
+            print(f"  {'labelled' if adding else 'unlabelled'} "
+                  + " ".join(f"#{n}" for n in changed))
+        else:
+            # Said plainly rather than reported as a change. Running it twice is
+            # ordinary, and claiming an edit that did not happen is how a board
+            # and a diff stop agreeing.
+            print(f"  nothing to do — already {'' if adding else 'not '}"
+                  + " ".join(f"#{n}" for n in names))
+        here = task.labels
+        print("  labels: " + (" ".join(f"#{n}" for n in here) if here else "none") + "\n")
+        return 0
+    raise Fail(f"no task {tid}")
+
+
+def cmd_label(args):
+    """Add labels to a task, or list the ones in use.
+
+    **The vocabulary is the adopter's and the tool has no opinion on it**
+    (`DEC-062`, principle 7). `tm` validates the shape — a `#`, 25 characters,
+    no spaces — and nothing else. There is no registry to add a label to and no
+    allowlist to pass: the first use creates it and the last removal retires it,
+    which is the only model that survives an adopter whose vocabulary is their
+    own business and not ours.
+    """
+    return _label_verb(args, adding=True)
+
+
+def cmd_unlabel(args):
+    """Take labels off a task. The other direction, and it exists because
+    `DEC-036` says every transition has a verb — a label you could add and not
+    remove would leave hand-editing the board as the only way back."""
+    return _label_verb(args, adding=False)
 
 
 def cmd_detail(args):
@@ -4432,7 +4615,10 @@ USAGE = """tm — taskman
   tm retitle <id> <title...>    reword a task, keeping its id and its place
   tm drop <id>                  remove a task that should not have been filed
   tm detail [id] [--folder]     attach a detail to a task and tag its board line
-  tm find <term>                search every task ever completed
+  tm label <id> <label...>      label a task; bare, lists the labels in use
+  tm unlabel <id> <label...>    take labels off it
+  tm board --label <label>      only the tasks carrying it (repeatable, ANDed)
+  tm find <term>                search every task ever completed, labels included
   tm why <term|DEC-000>         search decisions, or explain one and its chain
   tm why --stale [--yes]        records nothing references; --yes prunes to a stub
   tm standup [--send] [--chat]  report the period's work (--send posts it, --chat
@@ -4670,7 +4856,9 @@ FLAGS = {
     "drop": (),
     "detail": ("--folder",),
     "status": (),
-    "board": ("--json", "--chat", "--recent"),
+    "board": ("--json", "--chat", "--recent", "--label"),
+    "label": (),
+    "unlabel": (),
     "retitle": (),
     "find": (),
     "why": ("--stale", "--yes"),
@@ -4691,7 +4879,7 @@ FLAGS = {
 # Flags whose value is the next argument. That value is whatever the user typed
 # — an agenda's prose, a reviewer's reply — so it is skipped rather than read as
 # a flag of its own.
-VALUE_FLAGS = ("-f", "--after", "--period", "--reply", "--set", "--msg")
+VALUE_FLAGS = ("-f", "--after", "--period", "--reply", "--set", "--msg", "--label")
 
 
 def reject_unknown_flags(name, args):
@@ -4721,6 +4909,7 @@ def main():
         "prioritise": cmd_prioritise, "prioritize": cmd_prioritise,
         "done": cmd_done, "drop": cmd_drop, "detail": cmd_detail,
         "status": cmd_status, "board": cmd_board, "retitle": cmd_retitle,
+        "label": cmd_label, "unlabel": cmd_unlabel,
         "find": cmd_find, "why": cmd_why,
         "standup": cmd_standup, "agenda": cmd_agenda, "ontology": cmd_ontology,
         "feedback": cmd_feedback, "audience": cmd_audience,

@@ -24,6 +24,9 @@ tm done [id] [--force]        # complete it
 tm retitle <id> <title...>    # reword one, keeping its id and its place
 tm drop <id>                  # remove one that should not have been filed
 tm detail [id] [--folder]     # attach a detail and tag the board line
+tm label [<id> <label...>]    # label a task; bare, lists the labels in use
+tm unlabel <id> <label...>    # take labels off it
+tm board --label <label>      # only the tasks carrying it (repeatable, ANDed)
 tm find <term>                # search every task ever completed
 tm board --chat [--recent]    # the board, rendered to pass on as it is
 tm review [--reply <text>]    # LLM review of HEAD before pushing
@@ -59,6 +62,7 @@ Speech that maps to a verb you would not guess from the list above. Everything e
 | "review this" / a push refused as unreviewed | `tm review` — then fix, or `--reply` to argue a point back |
 | "is the Telegram bot set up" / "post to the group instead" | `tm check --notify` — it lists every chat the bot can see; add `--send` only if they want a test message |
 | "our domain model is in docs/" / a commit says no ontology is recorded | `tm ontology <path>`, or `--none` |
+| "tag that as ulster" / "what is on for Ulster" | `tm label <id> ulster`, and `tm board --label ulster` to see it. A bare `tm label` lists what is already in use — **check it before inventing a word**, because `ulster` beside `ulsters` is the way a label vocabulary goes wrong and nothing detects it (`DEC-062`) |
 | "llmeep should really do X" / friction with the tooling itself | `tm feedback "<what happened>"` — it refuses if the switch is off, and says so |
 | "can I clear?" / "am I safe to start fresh" | `tm handover` — what this session holds that the records do not |
 

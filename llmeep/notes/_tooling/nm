@@ -41,7 +41,13 @@ TEXT_MAX = 200      # a note is a line, not a paragraph
 ALPHABET = "23456789abcdefghjkmnpqrstuvwxyz"  # no 0/1/i/l/o
 ID_LEN = 4
 ID_RE = re.compile(r"^NTE-\S+$")
-TAG_RE = re.compile(r"^(src:\S+|task:(PLT|BUS)-\S+)$")
+# `#label` joins `src:` and `task:`, and is deliberately not either of them
+# (`DEC-062`). `src:` is written by the tool and says where a capture came from;
+# a label is written by a person and says what it is about. An adopter was using
+# `src:` for both because there was nothing else to use.
+LABEL_RE = re.compile(r"^#[a-z0-9][a-z0-9._-]{0,24}$")
+
+TAG_RE = re.compile(r"^(src:\S+|task:(PLT|BUS)-\S+|#[a-z0-9][a-z0-9._-]{0,24})$")
 
 
 class Fail(Exception):
@@ -71,6 +77,29 @@ class Note:
             if t.startswith("task:"):
                 return t[5:]
         return None
+
+    @property
+    def labels(self):
+        return [t[1:] for t in self.tags if t.startswith("#")]
+
+    def add_labels(self, names):
+        """Idempotent. Labels sit before `task:`, which `promote` appends."""
+        added = []
+        for name in names:
+            tag = f"#{name}"
+            if tag in self.tags:
+                continue
+            at = next((i for i, t in enumerate(self.tags) if t.startswith("task:")),
+                      len(self.tags))
+            self.tags.insert(at, tag)
+            added.append(name)
+        return added
+
+    def drop_labels(self, names):
+        wanted = {f"#{n}" for n in names}
+        gone = [t[1:] for t in self.tags if t in wanted]
+        self.tags = [t for t in self.tags if t not in wanted]
+        return gone
 
     def render(self):
         line = f"{self.id:<9}{self.text}"
@@ -324,7 +353,7 @@ RENDER_LIST = 20
 NOTES_HINT = "*promote · drop · find · discuss*"
 
 
-def notes_sections(limit=RENDER_LIST, keep_source=False):
+def notes_sections(limit=RENDER_LIST, keep_source=False, labels=()):
     """The window as `(heading, [line, …])`, dates newest first, plus what the
     render has to say around it: how many captures are waiting, and how many
     notes the limit hid.
@@ -336,6 +365,10 @@ def notes_sections(limit=RENDER_LIST, keep_source=False):
     """
     archive = Archive()
     archive.notes.sort(key=lambda n: n.on or "", reverse=True)
+    want = list(labels)
+    if want:
+        archive.notes = [n for n in archive.notes
+                         if all(name in n.labels for name in want)]
     shown = archive.notes if limit is None else archive.notes[:limit]
     shipped = shipped_tasks() if any(n.task for n in shown) else set()
     sections, on = [], None
@@ -412,7 +445,7 @@ def render_notes_plain(sections, waiting, hidden):
     return "\n".join(out)
 
 
-def notes_export():
+def notes_export(labels=()):
     """The window as data, for something that is not a person.
 
     Same reasoning as `tm board --json` (`PLT-6yjz`): an interface reaches into
@@ -426,12 +459,88 @@ def notes_export():
     archive = Archive()
     archive.notes.sort(key=lambda n: n.on or "", reverse=True)
     shipped = shipped_tasks()
+    want = list(labels)
+    rows = [n for n in archive.notes
+            if all(name in n.labels for name in want)]
     return {
+        # `source` and `labels` are both here and are not the same field
+        # (`DEC-062`): one says where this came from, the other what it is
+        # about, and an interface should be able to show or filter either.
         "notes": [{"id": n.id, "text": n.text, "on": n.on, "source": n.source,
+                   "labels": n.labels,
                    "task": n.task, "shipped": bool(n.task and n.task in shipped)}
-                  for n in archive.notes],
+                  for n in rows],
         "waiting": len(capture_names()),
     }
+
+
+def clean_label(word):
+    """What was typed, as a label. The `#` is optional to type and always
+    stored — an unquoted one is eaten by the shell, and nobody should have to
+    know that to file a label."""
+    name = slug(str(word).lstrip("#"))
+    if not name:
+        raise Fail(f"{word!r} is not a label — letters and numbers, please")
+    if not LABEL_RE.match(f"#{name}"):
+        raise Fail(f"`{name}` is {len(name)} characters; a label is 25 or fewer")
+    return name
+
+
+def _label_verb(args, adding):
+    verb = "label" if adding else "unlabel"
+    archive = Archive()
+    if not args:
+        if not adding:
+            raise Fail("usage: nm unlabel <id> <label...>")
+        seen = {}
+        for note in archive.notes:
+            for name in note.labels:
+                seen[name] = seen.get(name, 0) + 1
+        if not seen:
+            print("\n  no labels yet — `nm label <id> <label>` starts one\n")
+            return 0
+        print(f"\n  {len(seen)} label(s) in use\n")
+        for name, n in sorted(seen.items(), key=lambda kv: (-kv[1], kv[0])):
+            print(f"  #{name:<26}{n}")
+        print()
+        return 0
+
+    nid, words = args[0], args[1:]
+    if not words:
+        raise Fail(f"usage: nm {verb} <id> <label...>")
+    names = [clean_label(w) for w in words]
+    note = archive.find(nid)
+    if not note:
+        raise Fail(f"no note {nid}")
+    changed = note.add_labels(names) if adding else note.drop_labels(names)
+    archive.save()
+    print(f"\n  {note.id}  {summarise(note.text, 60)}")
+    if changed:
+        print(f"  {'labelled' if adding else 'unlabelled'} "
+              + " ".join(f"#{n}" for n in changed))
+    else:
+        print(f"  nothing to do — already {'' if adding else 'not '}"
+              + " ".join(f"#{n}" for n in names))
+    here = note.labels
+    print("  labels: " + (" ".join(f"#{n}" for n in here) if here else "none") + "\n")
+    return 0
+
+
+def cmd_label(args):
+    """Label a note, or list the labels in use.
+
+    **A label is not `src:`** (`DEC-062`). Provenance is written by the tool and
+    says where a capture came from; a label is written by a person and says what
+    it is about. A note may want both, and an adopter using `src:` for both
+    could not have one without the other.
+    """
+    return _label_verb(args, adding=True)
+
+
+def cmd_unlabel(args):
+    """Take labels off a note. Every transition has a verb, so a label you could
+    add and not remove would leave hand-editing the archive as the way back."""
+    return _label_verb(args, adding=False)
 
 
 def cmd_notes(args):
@@ -444,15 +553,24 @@ def cmd_notes(args):
     """
     chat, all_of_it = "--chat" in args, "--all" in args
     keep_source = "--src" in args
+    # Repeatable and ANDed, like `tm board --label`.
+    wanted, args = [], list(args)
+    while "--label" in args:
+        i = args.index("--label")
+        if i + 1 >= len(args):
+            raise Fail("--label needs a label")
+        wanted.append(clean_label(args[i + 1]))
+        args = args[:i] + args[i + 2:]
     if [a for a in args if a not in ("--chat", "--all", "--src", "--json")]:
-        raise Fail("usage: nm notes [--chat | --json] [--all] [--src]")
+        raise Fail("usage: nm notes [--label <label>] [--chat | --json] [--all] [--src]")
     if "--json" in args:
         if chat:
             raise Fail("--json and --chat are two different readers")
-        print(json.dumps(notes_export(), indent=2))
+        print(json.dumps(notes_export(labels=wanted), indent=2))
         return 0
     sections, waiting, hidden = notes_sections(
-        limit=None if all_of_it else RENDER_LIST, keep_source=keep_source)
+        limit=None if all_of_it else RENDER_LIST, keep_source=keep_source,
+        labels=wanted)
     render = render_notes if chat else render_notes_plain
     print(render(sections, waiting, hidden))
     return 0
@@ -700,8 +818,11 @@ USAGE = """nm — notes
   nm drop <NTE-id | file>           remove a note, or a processed capture
   nm promote <NTE-id> [-b] [-n]     turn a note into a task
   nm unpromote <NTE-id>             undo that, keeping the note
+  nm label <NTE-id> <label...>      label a note; bare, lists the labels in use
+  nm unlabel <NTE-id> <label...>    take labels off it
   nm prune [--yes]                  bound raw/ and the archive
   nm notes [--chat] [--all]         the window; --chat renders it to pass on as it is
+  nm notes --label <label>          only the notes carrying it (repeatable, ANDed)
   nm notes --json                   the window as data, for an interface
   nm find <term>                    search every note ever captured
 
@@ -724,9 +845,11 @@ FLAGS = {
     "prune": ("--yes",),
     "find": (),
     "check": ("--quiet",),
-    "notes": ("--all", "--chat", "--json", "--src"),
+    "notes": ("--all", "--chat", "--json", "--src", "--label"),
+    "label": (),
+    "unlabel": (),
 }
-VALUE_FLAGS = ("--from",)
+VALUE_FLAGS = ("--from", "--label")
 
 
 def reject_unknown_flags(name, args):
@@ -752,7 +875,8 @@ def main():
         print(USAGE)
         return 0
     commands = {"add": cmd_add, "drop": cmd_drop, "promote": cmd_promote,
-                "unpromote": cmd_unpromote,
+                "unpromote": cmd_unpromote, "label": cmd_label,
+                "unlabel": cmd_unlabel,
                 "prune": cmd_prune, "find": cmd_find, "check": cmd_check,
                 "notes": cmd_notes}
     cmd = commands.get(argv[0])

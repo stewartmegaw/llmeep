@@ -3362,6 +3362,136 @@ class TestUnknownFlags(Fixture):
         self.assertIn("--the first item", self.tm(top, "agenda").stdout)
 
 
+class TestLabels(Fixture):
+    """`DEC-062`. Every tag the records carried meant something to the tool, so
+    an adopter wanting to say "this one is about Ulster" used the nearest thing
+    that would hold a word — `src:`, which `nm add --from` sets to record where
+    a capture came from. Provenance was doing a job it was not meant for, and
+    only for notes: a task had nowhere to put the word at all."""
+
+    def a_repo(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        return top
+
+    def board(self, top):
+        with open(os.path.join(self.install_root(top),
+                               "tasks", "platform", "board.md")) as fh:
+            return fh.read()
+
+    def history(self, top):
+        with open(os.path.join(self.install_root(top),
+                               "tasks", "_tooling", "history.tsv")) as fh:
+            return fh.read()
+
+    def test_a_label_round_trips_through_the_board(self):
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "Ship the pre-match report").stdout.strip()
+        self.tm(top, "label", tid, "ulster", "reporting")
+        self.assertIn("#ulster", self.board(top))
+        rows = json.loads(self.tm(top, "board", "--json").stdout)
+        task = rows["ledgers"]["platform"]["prioritised"][0]
+        self.assertEqual(task["labels"], ["ulster", "reporting"])
+        self.assertEqual(self.tm(top, "check").returncode, 0, self.board(top))
+
+    def test_the_title_is_not_eaten_by_a_label(self):
+        """The reason a label carries a sigil. `PLT-jrtf` is the same bug for
+        `detail`, and `WORD_TAGS` having exactly one member is what keeps it
+        fixed — so a title ending in a word that is also a label must survive."""
+        top = self.a_repo()
+        title = "Decide what we owe Ulster"
+        tid = self.tm(top, "add", "--id", "-n", title).stdout.strip()
+        self.tm(top, "label", tid, "ulster")
+        rows = json.loads(self.tm(top, "board", "--json").stdout)
+        task = rows["ledgers"]["platform"]["prioritised"][0]
+        self.assertEqual(task["title"], title, "the title lost its last word")
+        self.assertEqual(task["labels"], ["ulster"])
+
+    def test_labels_survive_done(self):
+        """The decision this exists for. `detail` and `blocked:` are dropped at
+        completion because they stop being true; a label stays true, and "what
+        did we ship for Ulster" is a question about finished work."""
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "Ship the pre-match report").stdout.strip()
+        self.tm(top, "label", tid, "ulster", "reporting")
+        self.tm(top, "go", tid)
+        self.tm(top, "done", tid)
+        self.assertIn("#ulster", self.board(top), "the recent line dropped the label")
+        row = [l for l in self.history(top).split("\n") if tid in l][0]
+        self.assertIn("ulster reporting", row, f"history dropped the labels: {row}")
+        found = self.tm(top, "find", "ulster").stdout
+        self.assertIn(tid, found, "a completed task was not findable by its label")
+
+    def test_a_row_without_labels_keeps_its_old_shape(self):
+        """`history.tsv` is append-only and read by zipping a fixed tuple over
+        the fields, so a sixth column is safe — but a task with no labels must
+        still be written exactly as it was, or every existing reader is being
+        asked to tolerate a change for nothing."""
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "Nothing to do with Ulster").stdout.strip()
+        self.tm(top, "go", tid)
+        self.tm(top, "done", tid)
+        row = [l for l in self.history(top).split("\n") if tid in l][0]
+        self.assertEqual(len(row.split("\t")), 5, f"an unlabelled row grew a column: {row!r}")
+
+    def test_unlabel_takes_it_off_and_both_are_idempotent(self):
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "Ship the pre-match report").stdout.strip()
+        self.tm(top, "label", tid, "ulster")
+        again = self.tm(top, "label", tid, "ulster")
+        self.assertEqual(again.returncode, 0)
+        self.assertIn("nothing to do", again.stdout)
+        self.assertEqual(self.board(top).count("#ulster"), 1, "labelled twice")
+        self.tm(top, "unlabel", tid, "ulster")
+        self.assertNotIn("#ulster", self.board(top))
+        self.assertIn("nothing to do", self.tm(top, "unlabel", tid, "ulster").stdout)
+
+    def test_the_length_cap_is_enforced(self):
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "Ship it").stdout.strip()
+        out = self.tm(top, "label", tid, "a" * 26)
+        self.assertNotEqual(out.returncode, 0)
+        self.assertIn("25 or fewer", out.stdout + out.stderr)
+        self.assertEqual(self.tm(top, "label", tid, "a" * 25).returncode, 0)
+
+    def test_the_board_filters_by_label(self):
+        top = self.a_repo()
+        mine = self.tm(top, "add", "--id", "-n", "Ship the pre-match report").stdout.strip()
+        other = self.tm(top, "add", "--id", "-n", "Something else entirely").stdout.strip()
+        self.tm(top, "label", mine, "ulster")
+        rows = json.loads(self.tm(top, "board", "--label", "ulster", "--json").stdout)
+        ids = [t["id"] for t in rows["ledgers"]["platform"]["prioritised"]]
+        self.assertEqual(ids, [mine], f"{other} should not be here")
+
+    def test_a_note_carries_a_label_and_a_source_at_once(self):
+        """The distinction the decision turns on: the tool records where a
+        capture came from, a person says what it is about, and an adopter with
+        no labels was using the first for the second."""
+        top = self.a_repo()
+        self.nm(top, "add", "--from", "ulster-call", "Push for live ticket sales data")
+        got = json.loads(self.nm(top, "notes", "--json").stdout)
+        nid = got["notes"][0]["id"]
+        self.nm(top, "label", nid, "reporting")
+        got = json.loads(self.nm(top, "notes", "--json").stdout)
+        note = got["notes"][0]
+        self.assertEqual(note["source"], "ulster-call")
+        self.assertEqual(note["labels"], ["reporting"])
+        narrowed = json.loads(self.nm(top, "notes", "--label", "reporting", "--json").stdout)
+        self.assertEqual([n["id"] for n in narrowed["notes"]], [nid])
+        self.assertEqual(self.nm(top, "check").returncode, 0)
+
+    def test_a_bare_label_lists_what_is_in_use(self):
+        """The whole mitigation for typos, so it has to actually work."""
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "Ship the pre-match report").stdout.strip()
+        self.assertIn("no labels yet", self.tm(top, "label").stdout)
+        self.tm(top, "label", tid, "ulster")
+        listed = self.tm(top, "label").stdout
+        self.assertIn("#ulster", listed)
+        self.assertIn("1", listed)
+
+
 class TestTitleEndingInATag(Fixture):
     """`PLT-jrtf`, reported by an adopter. `detail` is the only tag that is also
     an ordinary word — every other carries a sigil or a colon — so it is the only

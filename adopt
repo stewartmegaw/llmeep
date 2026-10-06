@@ -483,7 +483,7 @@ def reroot(top, into, report):
 # to be cut clean and every new record type joined a delete list. This is the
 # cheaper coupling (`DEC-035`).
 BOARD = "# {ledger}\n\n## in progress\n\n\n## prioritised\n\n\n## backlog\n\n\n## recent\n"
-TASK_HISTORY = "#date\tid\tledger\ttitle\twho\n"
+TASK_HISTORY = "#date\tid\tledger\ttitle\twho\tlabels\n"
 NOTE_HISTORY = "#date\tid\ttext\tsrc\ttask\n"
 ARCHIVE = "# notes\n"
 

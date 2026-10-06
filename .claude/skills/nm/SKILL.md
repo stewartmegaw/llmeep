@@ -16,8 +16,11 @@ llmeep/notes/_tooling/nm add [--from <src>] <text...>   # capture; reads stdin f
 llmeep/notes/_tooling/nm drop <NTE-id | file>           # remove a note, or a processed capture
 llmeep/notes/_tooling/nm promote <NTE-id> [-b] [-n]     # note becomes a task, linked both ways
 llmeep/notes/_tooling/nm unpromote <NTE-id>            # undo that, keeping the note
+llmeep/notes/_tooling/nm label [<NTE-id> <label...>]    # label a note; bare, lists the labels in use
+llmeep/notes/_tooling/nm unlabel <NTE-id> <label...>   # take labels off it
 llmeep/notes/_tooling/nm prune [--yes]                  # bound raw/, drop shipped notes; dry without --yes
 llmeep/notes/_tooling/nm notes [--chat] [--all]         # the window, rendered to pass on as it is
+llmeep/notes/_tooling/nm notes --label <label>          # only the notes carrying it (repeatable, ANDed)
 llmeep/notes/_tooling/nm find <term>                    # search every note ever captured
 ```
 
@@ -80,6 +83,8 @@ producing fifteen, you are transcribing rather than distilling.
 | "note that down" / "remember that" | `nm add <text>` |
 | "that should be a task" | `nm promote <NTE-id>` |
 | "that task was dropped" / a note pointing at nothing | `nm unpromote <NTE-id>` — clears the pointer, keeps the note, and it can be promoted again |
+| "tag that as ulster" / "what have we got on Ulster" | `nm label <NTE-id> ulster`, then `nm notes --label ulster`. A bare `nm label` lists what is in use — reuse a word rather than inventing a near-duplicate (`DEC-062`) |
+| "where did this note come from" | that is `src:`, set by `nm add --from`, and it is **not** a label: the tool records provenance, a person chooses a label, and a note can carry both |
 | "did we discuss X" / "what did they say about Y" | `nm find <term>` |
 | "what's in the inbox" | `ls llmeep/notes/raw/` |
 | "I've processed that file" | `nm drop <file>` |
