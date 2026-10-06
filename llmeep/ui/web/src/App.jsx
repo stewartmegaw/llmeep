@@ -48,6 +48,9 @@ export default function App() {
   const [canWrite, setCanWrite] = React.useState(false)
   // The title being typed for a new agenda, or null when nobody is typing one.
   const [naming, setNaming] = React.useState(null)
+  // `null` closed, a string open. Same shape as `naming` — the two dialogs ask
+  // the same question about different records.
+  const [filing, setFiling] = React.useState(null)
   const [tab, setTab] = React.useState('board')
   const [sub, setSub] = React.useState('decisions')
   // Everything on to begin with, and you switch off what you do not want. There
@@ -222,6 +225,31 @@ export default function App() {
     conversation.setText('New agenda: ')
   }, [conversation, canWrite])
 
+  // **The title is asked for here and the turn is run there.** Filing is the
+  // commonest thing anyone does to a board, and on a phone the text box is a
+  // paragraph of ceremony around one line — so the dialog asks for the one
+  // thing it cannot infer and hands the rest over.
+  //
+  // It **sends** rather than filling the composer, which is where this differs
+  // from `New agenda` above: a meeting's title is the start of a conversation
+  // about what the meeting needs, while a task's title is the whole request.
+  // There is nothing left to type, so stopping to let someone press send again
+  // would be ceremony of its own.
+  //
+  // Handed to the agent rather than calling `add` directly, because `add` is
+  // the verb and the judgement around it is not: which ledger this belongs in
+  // (`-b` is never the tool's to decide, principle 7), and whether the records
+  // already hold something like it — `add` searches History and only an agent
+  // reads the answer. A dialog wired straight to the verb would file duplicates
+  // into the wrong ledger, politely.
+  const fileTask = React.useCallback((title) => {
+    const said = title.trim()
+    if (!said) return
+    setFiling(null)
+    setTab('chat')
+    conversation.sendText(`New task: ${said}`)
+  }, [conversation])
+
   // A tab that only exists on a phone leaves a dangling selection when the
   // screen gets wider — a rotated tablet, a resized window — so the board takes
   // over, which is where the app opens anyway.
@@ -255,6 +283,21 @@ export default function App() {
               under it what reloading got you. When the records last changed, not
               when this tab last asked — the same answer for everyone looking at
               the same repo (`PLT-f4n6`). */}
+          {/* **Not in the pill row.** Filing is the commonest write on this
+              screen, so it gets a standing button — but the pills below are a
+              choice of view, and a verb sitting among them reads as one more
+              filter. It belongs up here with reload, the other control that
+              acts on the board rather than narrowing it.
+
+              Only where it can work: with no agent configured there is nothing
+              to hand the title to, and a button that silently does nothing is
+              worse than its absence. */}
+          {tab === 'board' && canWrite && (
+            <Button size="small" variant="outlined" onClick={() => setFiling('')}
+                    sx={{ textTransform: 'none', mr: 1, flexShrink: 0 }}>
+              + Task
+            </Button>
+          )}
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
             {tab === 'board' && (
               <IconButton onClick={load} aria-label="Reload the board" size="small"
@@ -311,6 +354,7 @@ export default function App() {
         {tab === 'board' && board && (
           <BoardFilters board={board} off={off} onToggle={toggle} />
         )}
+
         {error && (
           <Typography color="error" sx={{ mt: 3, whiteSpace: 'pre-wrap' }}>{error}</Typography>
         )}
@@ -351,6 +395,38 @@ export default function App() {
                         onFocus={() => setTab('chat')} />
       )}
       <DetailSheet head={detail} docs={docs} onClose={() => setDetail(null)} />
+      <Dialog open={filing !== null} onClose={() => setFiling(null)} fullWidth
+              maxWidth="xs">
+        <DialogTitle>New task</DialogTitle>
+        <DialogContent>
+          <TextField autoFocus fullWidth multiline maxRows={4} variant="standard"
+                     value={filing || ''}
+                     placeholder="What needs doing?"
+                     onChange={(e) => setFiling(e.target.value)}
+                     onKeyDown={(e) => {
+                       // Enter files it; Shift+Enter is a second line, because
+                       // the field wraps and a two-line title is ordinary.
+                       if (e.key === 'Enter' && !e.shiftKey) {
+                         e.preventDefault()
+                         if (filing?.trim()) fileTask(filing)
+                       }
+                     }} />
+          <Typography variant="caption" color="text.secondary"
+                      sx={{ display: 'block', mt: 1.5 }}>
+            Filed by the agent, so it picks the ledger and says if the records
+            already hold something like it.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setFiling(null)} sx={{ textTransform: 'none' }}>
+            Cancel
+          </Button>
+          <Button disabled={!filing?.trim()} sx={{ textTransform: 'none' }}
+                  onClick={() => fileTask(filing)}>
+            File it
+          </Button>
+        </DialogActions>
+      </Dialog>
       <Dialog open={naming !== null} onClose={() => setNaming(null)} fullWidth
               maxWidth="xs">
         <DialogTitle>New agenda</DialogTitle>
@@ -431,9 +507,11 @@ function useConversation(onDone, updatedAt) {
   const [busy, setBusy] = React.useState(false)
   const [turns, setTurns] = React.useState([])
 
-  const send = React.useCallback(() => {
-    if (!text.trim() || busy) return
-    const mine = text
+  // **Takes its text as an argument.** The composer is not the only thing that
+  // starts a turn — a dialog does too, and filling the box and calling `send`
+  // in the same tick reads the state from before the fill (`PLT-e4qt`).
+  const sendText = React.useCallback((mine) => {
+    if (!mine || !mine.trim() || busy) return
     setBusy(true)
     setTurns((t) => [...t, { who: 'you', text: mine }])
     setText('')
@@ -481,9 +559,11 @@ function useConversation(onDone, updatedAt) {
         setTurns((t) => [...t, { who: 'error', text: e.message, landed }])
       })
       .finally(() => setBusy(false))
-  }, [text, busy, onDone])
+  }, [busy, onDone])
 
-  return { text, setText, busy, turns, send, clear: () => setTurns([]) }
+  const send = React.useCallback(() => sendText(text), [sendText, text])
+
+  return { text, setText, busy, turns, send, sendText, clear: () => setTurns([]) }
 }
 
 // The exchange. Scrolls itself to the newest turn, because a reply you have to

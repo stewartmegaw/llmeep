@@ -185,6 +185,19 @@ contract is a thing to correct, not a turn to lose. It was one: `Extra data: lin
 reached a person as the whole of a failed turn, and the reply that caused it was logged nowhere
 (`PLT-z5dn`). It is logged now, truncated, when parsing fails.
 
+**Filing has a button of its own.** `+ Task` in the header asks for a title and nothing else,
+then sends it as a turn and switches to the conversation so you watch it land. It is the
+commonest write on the board, and typing a verb into the box to do the commonest thing is
+ceremony on a phone.
+
+It hands the title to the agent rather than calling `add`, because `add` is the verb and the
+judgement around it is not: which ledger this belongs in — never the tool's to decide
+(principle 7) — and whether the records already hold something like it, since `add` searches
+History and only an agent reads the answer. A dialog wired straight to the verb would file
+duplicates into the wrong ledger, politely. It differs from `New agenda`, which fills the
+composer instead of sending: a meeting's title starts a conversation about what the meeting
+needs, while a task's title is the whole request.
+
 **It cannot start a task.** Filing, ranking, parking, rewording and closing all say something
 true from a phone; starting is a claim to be working on something, and that happens at a
 terminal. A task started from here would sit in progress with nobody on it, and there is no

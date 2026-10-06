@@ -22,6 +22,7 @@ PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
 
 ## recent
 
+2026-10-06  PLT-e4qt Filing a task has a button: a title, then the agent files it  @stewart
 2026-10-06  PLT-2bbm A task row is a title, and says nothing where there is nothing to say  @stewart
 2026-10-02  PLT-5j6u The app's background is white, not the viewer's dark mode  @stewart
 2026-10-02  PLT-rwpq tm resolve must not revert a park the other side never touched  @stewart
@@ -36,4 +37,3 @@ PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
 2026-09-23  PLT-jrtf A title ending in the word detail is read back as the detail tag, and check then refuses the commit  @stewart
 2026-09-23  PLT-6v3m The agenda reaches the app: a tab in Other, editable from the chat, and an icon to remove a line  @stewart
 2026-09-21  PLT-zs7t A read never syncs, so a second writer sees a confident stale board with no hint it is behind  @stewart
-2026-09-21  PLT-f5e9 Dropping a promoted task leaves the note pointing at nothing, and nm check then blocks every commit in the repo  @stewart

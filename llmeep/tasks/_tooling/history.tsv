@@ -148,3 +148,4 @@
 2026-10-02	PLT-rwpq	platform	tm resolve must not revert a park the other side never touched	stewart
 2026-10-02	PLT-5j6u	platform	The app's background is white, not the viewer's dark mode	stewart
 2026-10-06	PLT-2bbm	platform	A task row is a title, and says nothing where there is nothing to say	stewart
+2026-10-06	PLT-e4qt	platform	Filing a task has a button: a title, then the agent files it	stewart
