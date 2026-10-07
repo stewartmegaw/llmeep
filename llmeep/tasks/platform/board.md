@@ -19,10 +19,10 @@ PLT-hrpu An agenda holds nothing the repo keeps — decide whether it should exi
 PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; use typeable() so they stay typeable  filed:2026-09-12
 PLT-uqet The agenda tab lists past agendas and hands a new one to the agent  detail  filed:2026-09-23
 PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
-PLT-5gfc A label keeps the same colour everywhere it appears  filed:2026-10-07
 
 ## recent
 
+2026-10-07  PLT-5gfc A label keeps the same colour everywhere it appears  @stewart
 2026-10-07  PLT-gtkj The header centres the search at any width, and filing stops stacking into the filters  @stewart
 2026-10-07  PLT-bu43 A reply is not a system notice: the transcript stops being a wall of tinted boxes  @stewart
 2026-10-07  PLT-henh The header is the search box; filing moves into the board it files into  @stewart
@@ -37,4 +37,3 @@ PLT-5gfc A label keeps the same colour everywhere it appears  filed:2026-10-07
 2026-10-06  PLT-2bbm A task row is a title, and says nothing where there is nothing to say  @stewart
 2026-10-02  PLT-5j6u The app's background is white, not the viewer's dark mode  @stewart
 2026-10-02  PLT-rwpq tm resolve must not revert a park the other side never touched  @stewart
-2026-10-02  PLT-z5dn A model reply with more than one JSON value must not fail the turn  @stewart

@@ -45,8 +45,24 @@ export default function Pills({ options, value, selected, onChange, sx, atLeast 
           disabled={o.disabled}
           onClick={o.disabled ? undefined : () => onChange(o.value)}
           variant={isOn(o) && !o.disabled ? 'filled' : 'outlined'}
-          color={isOn(o) && !o.disabled ? 'primary' : 'default'}
-          sx={{ flexShrink: 0, fontWeight: isOn(o) ? 600 : 400 }}
+          color={isOn(o) && !o.disabled || o.tint ? undefined : 'default'}
+          sx={{
+            flexShrink: 0, fontWeight: isOn(o) ? 600 : 400,
+            // **A tinted pill keeps its own colour and shows selection by
+            // filling** (`PLT-5gfc`). Labels carry a colour derived from the
+            // name so a pill and the chip on a card are recognisably the same
+            // thing; using the app's blue for "on" would throw that away at
+            // exactly the moment you are looking at it.
+            ...(o.tint && {
+              color: isOn(o) ? '#fff' : o.tint.fg,
+              bgcolor: isOn(o) ? o.tint.fg : o.tint.bg,
+              borderColor: o.tint.fg,
+              '&:hover': { bgcolor: isOn(o) ? o.tint.fg : o.tint.bg },
+            }),
+            ...(!o.tint && isOn(o) && !o.disabled && {
+              color: 'primary.contrastText', bgcolor: 'primary.main',
+            }),
+          }}
         />
       ))}
     </Box>

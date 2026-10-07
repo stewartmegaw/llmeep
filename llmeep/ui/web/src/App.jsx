@@ -7,6 +7,7 @@ import {
 } from '@mui/material'
 import Read, { Doc, size } from './Read.jsx'
 import { matches, idle } from './search.js'
+import labelColour from './labelColour.js'
 import Markdown from './Markdown.jsx'
 import Pills from './Pills.jsx'
 
@@ -23,12 +24,19 @@ const BASE = (window.LLMEEP_BASE || '').replace(/\/$/, '')
 // introducing a second filtering model beside it (`PLT-jpsc`).
 function LabelChips({ labels, onPick }) {
   if (!labels || !labels.length) return null
-  return labels.map((name) => (
-    <Chip key={name} size="small" variant="outlined" label={`#${name}`}
-          onClick={onPick ? () => onPick(name) : undefined}
-          sx={{ cursor: onPick ? 'pointer' : 'default',
-                borderStyle: 'dashed', color: 'text.secondary' }} />
-  ))
+  return labels.map((name) => {
+    // **The colour is the label's, everywhere it appears** (`PLT-5gfc`), so a
+    // card and the filter row above it agree without either being told.
+    const { fg, bg } = labelColour(name)
+    return (
+      <Chip key={name} size="small" label={`#${name}`}
+            onClick={onPick ? () => onPick(name) : undefined}
+            sx={{ cursor: onPick ? 'pointer' : 'default',
+                  color: fg, bgcolor: bg, fontWeight: 500,
+                  border: '1px solid', borderColor: fg, borderStyle: 'dashed',
+                  '&:hover': { bgcolor: bg } }} />
+    )
+  })
 }
 
 function found(query, label, n) {
@@ -515,7 +523,8 @@ export default function App() {
                  value={idle(query) ? null : query.trim().toLowerCase()}
                  onChange={(v) => setQuery(v === query.trim().toLowerCase() ? '' : v)}
                  options={labelsInUse.map(([name, n]) => ({
-                   value: `#${name}`, label: `#${name}`, count: n }))} />
+                   value: `#${name}`, label: `#${name}`, count: n,
+                   tint: labelColour(name) }))} />
         )}
 
         {/* **Between the filters and the board, pulled right** (`PLT-gtkj`). It

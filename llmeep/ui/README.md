@@ -188,6 +188,22 @@ The agent can label too, through `label` and `unlabel` in the tool table. It nam
 supplies a list of words; it never supplies a command, so a label is validated for shape and
 passed as its own argv entry, and which subsystem runs is decided by the id.
 
+## A label keeps its colour
+
+A label's colour comes from its name — twelve pairs of a readable text colour and a faint fill,
+chosen by a hash of the word. Nothing is stored: a colour that was *chosen* would be a field on
+every record, a verb to set it, and a merge rule for when two people picked differently, all to
+settle something nobody has an opinion about until they see it. Derived instead, the same label
+is the same colour on every card, in the filter row, on every device, for everyone.
+
+The cost is that nobody can choose, and that is the right trade: the colour is there to tell two
+labels apart at a glance, not to mean anything. A colour that had to mean something would be a
+second vocabulary on top of the first.
+
+The hash gets an avalanche finish before the modulo. FNV-1a alone is strong in its high bits and
+weak in its low ones, and the low bits are what a modulo reads — over a realistic set of twenty
+labels that put four of them on one colour.
+
 ## The transcript is asymmetric
 
 What you typed is short and gets a bubble; what came back is long, structured, and gets none.
