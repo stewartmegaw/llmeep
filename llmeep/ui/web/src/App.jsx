@@ -33,6 +33,8 @@ function LabelChips({ labels, onPick }) {
             onClick={onPick ? () => onPick(name) : undefined}
             sx={{ cursor: onPick ? 'pointer' : 'default',
                   color: fg, bgcolor: bg, fontWeight: 500,
+                  height: 22, fontSize: '0.72rem',
+                  '& .MuiChip-label': { px: 0.9 },
                   border: '1px solid', borderColor: fg, borderStyle: 'dashed',
                   '&:hover': { bgcolor: bg } }} />
     )
@@ -536,7 +538,7 @@ export default function App() {
             itself and a second model beside it would be two things to learn for
             one job (`PLT-wbhb`). Tapping the active one clears it. */}
         {tab === 'board' && labelsInUse.length > 0 && (
-          <Pills sx={{ mt: 0.5 }} atLeast={1}
+          <Pills sx={{ mt: 0.5 }} atLeast={1} dense
                  value={idle(query) ? null : query.trim().toLowerCase()}
                  onChange={(v) => setQuery(v === query.trim().toLowerCase() ? '' : v)}
                  options={labelsInUse.map(([name, n]) => ({

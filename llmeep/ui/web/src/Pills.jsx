@@ -15,7 +15,8 @@ import { Box, Chip } from '@mui/material'
 //
 // Wrapping is the conditional version of that original intent: one row wherever
 // the row fits, and a second only where it does not.
-export default function Pills({ options, value, selected, onChange, sx, atLeast = 2 }) {
+export default function Pills({ options, value, selected, onChange, sx, atLeast = 2,
+                               dense = false }) {
   // Two modes. `value` is one choice of several; `selected` is a set of
   // toggles, everything on to begin with, and you switch off what you do not
   // want to see. The board is the second: it should open showing all of it.
@@ -48,6 +49,12 @@ export default function Pills({ options, value, selected, onChange, sx, atLeast 
           color={isOn(o) && !o.disabled || o.tint ? undefined : 'default'}
           sx={{
             flexShrink: 0, fontWeight: isOn(o) ? 600 : 400,
+            // **Smaller, where the row is subordinate to the one above it**
+            // (`PLT-tphn`). The sections are llmeep's own words and the first
+            // cut anyone makes; the labels are a second, narrower pass. At the
+            // same size the two rows read as one block of equal choices.
+            ...(dense && { height: 24, fontSize: '0.75rem',
+                           '& .MuiChip-label': { px: 1 } }),
             // **A tinted pill keeps its own colour and shows selection by
             // filling** (`PLT-5gfc`). Labels carry a colour derived from the
             // name so a pill and the chip on a card are recognisably the same
