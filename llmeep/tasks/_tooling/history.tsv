@@ -163,3 +163,5 @@
 2026-10-07	PLT-wwyc	platform	Filing sits beside reload in the header, and says Add	stewart
 2026-10-07	PLT-tphn	platform	Labels read as quieter than the sections they sit under	stewart
 2026-10-07	PLT-dtbn	platform	The app says what happened to the records, not what happened in git	stewart
+2026-10-07	PLT-xs33	platform	The board refreshes when you come back to the tab, and the reload button goes	stewart
+2026-10-07	PLT-zcef	platform	A refetch never clears what you were typing or closes what you had open	stewart

@@ -130,7 +130,11 @@ export default function App() {
         setDocs(d.docs || [])
         if (d.unbrowsed) setUnbrowsed(d.unbrowsed)
       }).catch(() => {})
-  }, [])
+    // `notesAt` is the "records moved" counter — it ticks after every write
+    // this app makes and when coming back to the tab finds the repo ahead. The
+    // catalogue has to move with them or a task filed elsewhere has a detail
+    // this screen cannot open (`PLT-xs33`).
+  }, [notesAt])
 
   // A detail belongs to its task, so it is reached by tapping that task and
   // never by scrolling a list whose every title is a task title.
@@ -377,6 +381,41 @@ export default function App() {
 
   React.useEffect(load, [load])
 
+  // **Coming back to the tab is the refresh** (`PLT-xs33`). Nothing polled and
+  // nothing listened, so the only way an open tab learned that a terminal
+  // commit or somebody else's push had moved the records was a button — which
+  // asks the reader to know that the screen can be wrong, which is the thing a
+  // records screen must never be. Returning to it is the moment you are about
+  // to trust what it says.
+  //
+  // **It never interrupts you** (`PLT-zcef`). A refetch while a dialog is open
+  // replaces the document objects behind it, and `DetailSheet` keys off the one
+  // it was handed — so a refresh would bounce a reader out of an attachment and
+  // back to the parent. Unsent text and a turn in flight are the same
+  // violation one layer along. So it waits: the records are not going anywhere,
+  // and a screen that changes under your hands is worse than one a minute old.
+  const busyWith = asking || detail || filing !== null || naming !== null
+    || conversation.busy || conversation.text.trim().length > 0
+  const lastLook = React.useRef(0)
+  React.useEffect(() => {
+    const look = () => {
+      if (document.visibilityState === 'hidden' || busyWith) return
+      // Throttled, because a tab can be focused twice in a second by a stray
+      // click and this is a request each time.
+      const now = Date.now()
+      if (now - lastLook.current < 10000) return
+      lastLook.current = now
+      load()
+      setNotesAt((n) => n + 1)
+    }
+    window.addEventListener('focus', look)
+    document.addEventListener('visibilitychange', look)
+    return () => {
+      window.removeEventListener('focus', look)
+      document.removeEventListener('visibilitychange', look)
+    }
+  }, [load, busyWith])
+
   return (
     <Box sx={{ pb: wide ? 0 : `calc(${bottom}px + 24px)` }}>
       <AppBar position="sticky" color="default" elevation={0}
@@ -454,15 +493,9 @@ export default function App() {
                   Add
                 </Button>
               )}
-              {tab === 'board' && (
-                <IconButton onClick={load} aria-label="Reload the board" size="small"
-                          sx={GLYPH}>
-                  {loading ? <CircularProgress size={18} /> : <span aria-hidden>↻</span>}
-                </IconButton>
-              )}
             </Box>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-              {updated ? `updated ${ago(updated)}` : 'no records yet'}
+              {loading ? 'checking…' : updated ? `updated ${ago(updated)}` : 'no records yet'}
             </Typography>
           </Box>
         </Toolbar>
@@ -1601,9 +1634,12 @@ function DetailSheet({ head, task, docs, onClose }) {
   const open = shown || head
   const attachments = head ? docs.filter((d) => d.parent === head.id) : []
 
+  // Keyed on the id, not the object. A refetch hands back an equal-but-new
+  // document, and keying on identity reset the attachment you were reading
+  // every time the board refreshed behind the sheet (`PLT-zcef`).
   React.useEffect(() => {
     setShown(null)
-  }, [head])
+  }, [head?.id])
 
   React.useEffect(() => {
     setText(null)
