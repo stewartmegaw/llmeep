@@ -436,12 +436,29 @@ export default function App() {
               into three stacked words under the search (`PLT-gtkj`). */}
           <Box sx={{ flex: '1 1 0', display: 'flex', whiteSpace: 'nowrap',
                      flexDirection: 'column', alignItems: 'flex-end' }}>
-            {tab === 'board' && (
-              <IconButton onClick={load} aria-label="Reload the board" size="small"
-                        sx={GLYPH}>
-                {loading ? <CircularProgress size={18} /> : <span aria-hidden>↻</span>}
-              </IconButton>
-            )}
+            {/* **The two controls that act on the board, side by side**
+                (`PLT-wwyc`): one puts something on it, the other asks whether
+                anything else has. It spent a release in the board itself, which
+                put it directly above two rows of filled pills and read as one
+                of them — up here it is furniture beside furniture, and the
+                board below is only the board. */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              {tab === 'board' && canWrite && (
+                <Button variant="contained" disableElevation size="small"
+                        onClick={() => setFiling('')}
+                        startIcon={<span aria-hidden style={{ fontSize: 16, lineHeight: 1 }}>+</span>}
+                        sx={{ textTransform: 'none', borderRadius: 5, px: 1.75,
+                              '& .MuiButton-startIcon': { mr: 0.5 } }}>
+                  Add
+                </Button>
+              )}
+              {tab === 'board' && (
+                <IconButton onClick={load} aria-label="Reload the board" size="small"
+                          sx={GLYPH}>
+                  {loading ? <CircularProgress size={18} /> : <span aria-hidden>↻</span>}
+                </IconButton>
+              )}
+            </Box>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
               {updated ? `updated ${ago(updated)}` : 'no records yet'}
             </Typography>
@@ -527,20 +544,6 @@ export default function App() {
                    tint: labelColour(name) }))} />
         )}
 
-        {/* **Between the filters and the board, pulled right** (`PLT-gtkj`). It
-            sat above the filters and stacked into them: a filled blue button
-            directly over two rows of filled blue pills reads as the start of
-            the pill stack rather than as the one verb on this screen. On its
-            own line at the other edge it cannot be mistaken for one. */}
-        {tab === 'board' && canWrite && (
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1.5 }}>
-            <Button variant="contained" disableElevation size="small"
-                    onClick={() => setFiling('')}
-                    sx={{ textTransform: 'none', borderRadius: 5, px: 2 }}>
-              + New task
-            </Button>
-          </Box>
-        )}
         {error && (
           <Typography color="error" sx={{ mt: 3, whiteSpace: 'pre-wrap' }}>{error}</Typography>
         )}

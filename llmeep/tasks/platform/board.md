@@ -22,6 +22,7 @@ PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
 
 ## recent
 
+2026-10-07  PLT-wwyc Filing sits beside reload in the header, and says Add  @stewart
 2026-10-07  PLT-5gfc A label keeps the same colour everywhere it appears  @stewart
 2026-10-07  PLT-gtkj The header centres the search at any width, and filing stops stacking into the filters  @stewart
 2026-10-07  PLT-bu43 A reply is not a system notice: the transcript stops being a wall of tinted boxes  @stewart
@@ -36,4 +37,3 @@ PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
 2026-10-06  PLT-e4qt Filing a task has a button: a title, then the agent files it  @stewart
 2026-10-06  PLT-2bbm A task row is a title, and says nothing where there is nothing to say  @stewart
 2026-10-02  PLT-5j6u The app's background is white, not the viewer's dark mode  @stewart
-2026-10-02  PLT-rwpq tm resolve must not revert a park the other side never touched  @stewart
