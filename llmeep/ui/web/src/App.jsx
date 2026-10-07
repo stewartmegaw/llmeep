@@ -76,9 +76,15 @@ export default function App() {
   // thing being looked for is a thing, not a thing-in-a-tab — you rarely know
   // which tab wrote it down (`PLT-t6wd`).
   const [query, setQuery] = React.useState('')
-  // Notes fetch their own window, so their count is reported up rather than
-  // computed here. Everything else on this screen is already in App's hands.
-  const [noteHits, setNoteHits] = React.useState(0)
+  // **The notes window is fetched here, not inside the tab** (`PLT-gtsv`). It
+  // used to fetch itself and hand its match count up, which meant the count
+  // only existed while that tab was mounted — so `Notes 0` sat beside a board
+  // full of matches until you opened Notes, and then corrected itself. A count
+  // on a tab you are not looking at is the whole point of putting it there.
+  //
+  // This is where `/api/docs` and `/api/agenda` are already read, for the same
+  // reason: the header needs them whichever tab is in front.
+  const [notes, setNotes] = React.useState(null)
   const [tab, setTab] = React.useState('board')
   const [sub, setSub] = React.useState('decisions')
   // Everything on to begin with, and you switch off what you do not want. There
@@ -139,6 +145,24 @@ export default function App() {
     }
     return out
   }, [board, query])
+
+  // **Every label the board carries, with a count.** Off the unsearched board
+  // on purpose: a row that reshuffled itself as you typed would take away the
+  // labels you were about to tap, and the counts are what the board holds, not
+  // what the search left (`PLT-wbhb`).
+  const labelsInUse = React.useMemo(() => {
+    const seen = new Map()
+    for (const sections of Object.values(board || {})) {
+      for (const [key] of SECTIONS) {
+        for (const task of sections[key] || []) {
+          for (const name of task.labels || []) {
+            seen.set(name, (seen.get(name) || 0) + 1)
+          }
+        }
+      }
+    }
+    return [...seen.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+  }, [board])
 
   // Counted off `shown`, so the number above the rows is the number of rows.
   const boardHits = React.useMemo(() => {
@@ -268,6 +292,20 @@ export default function App() {
       .then((d) => setAgendas(d.agendas || []))
       .catch(() => setAgendas([]))
   }, [notesAt])
+
+  React.useEffect(() => {
+    fetch(`${BASE}/api/notes`)
+      .then((r) => (r.ok ? r.json() : r.text().then((t) => Promise.reject(new Error(t)))))
+      .then((d) => setNotes(d))
+      .catch(() => setNotes({ error: true }))
+  }, [notesAt])
+
+  // Counted here, so the label is right whichever tab is in front.
+  const noteHits = React.useMemo(
+    () => (notes?.notes || []).filter(
+      (n) => matches(query, [n.id, n.text, n.source, n.task], n.labels)).length,
+    [notes, query],
+  )
   // `Other` holds three things, and only one of them is on screen at a time —
   // so its count is of all three, or the tab would under-report whatever you
   // are not looking at. Both lists are already here: `browsable` for the
@@ -334,7 +372,7 @@ export default function App() {
       <AppBar position="sticky" color="default" elevation={0}
               sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Toolbar sx={{ minHeight: 72 }}>
-          <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', minWidth: 0 }}>
+          <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
             {/* The road runner the README opens with. It is fetched from the
                 same third-party CDN that README links, so it is the one request
                 this app makes to anywhere it does not control — and where this
@@ -348,49 +386,38 @@ export default function App() {
                    onError={() => setMarkFailed(true)}
                    sx={{ height: 45, width: 'auto', display: 'block' }} />
             )}
-            {/* **Beside the mark, and it searches everything.** One box rather
-                than one per tab: you are looking for a thing, and which tab
-                wrote it down is the question the search is meant to answer.
-                The tab you are on does not change — the counts on the labels
-                say where the rest of the matches are, and moving you there
-                would take the decision away (`PLT-t6wd`). */}
-            <TextField
-              value={query} onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search"
-              size="small" variant="outlined"
-              inputProps={{ 'aria-label': 'Search every tab' }}
-              InputProps={{
-                endAdornment: query ? (
-                  <IconButton size="small" aria-label="Clear the search"
-                              onClick={() => setQuery('')}
-                              sx={{ ...GLYPH, mr: -0.5 }}>
-                    <span aria-hidden style={{ fontSize: 15, lineHeight: 1 }}>✕</span>
-                  </IconButton>
-                ) : null,
-              }}
-              sx={{ ml: 1.5, flex: '1 1 auto', minWidth: 90, maxWidth: 260,
-                    '& .MuiOutlinedInput-root': { borderRadius: 5 } }}
-            />
           </Box>
+          {/* **The middle of the bar, and it searches everything.** One box
+              rather than one per tab: you are looking for a thing, and which tab
+              wrote it down is the question the search is meant to answer. The
+              tab you are on does not change — the counts on the labels say where
+              the rest of the matches are, and moving you there would take the
+              decision away (`PLT-t6wd`).
+
+              Centred rather than beside the mark, so it is the thing this header
+              is for: the mark and the freshness block hold the two ends and this
+              takes what is left (`PLT-henh`). */}
+          <TextField
+            value={query} onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search"
+            size="small" variant="outlined"
+            inputProps={{ 'aria-label': 'Search every tab' }}
+            InputProps={{
+              endAdornment: query ? (
+                <IconButton size="small" aria-label="Clear the search"
+                            onClick={() => setQuery('')}
+                            sx={{ ...GLYPH, mr: -0.5 }}>
+                  <span aria-hidden style={{ fontSize: 15, lineHeight: 1 }}>✕</span>
+                </IconButton>
+              ) : null,
+            }}
+            sx={{ mx: 1.5, flex: '1 1 auto', minWidth: 90, maxWidth: 320,
+                  '& .MuiOutlinedInput-root': { borderRadius: 5 } }}
+          />
           {/* Freshness sits with the control that changes it: reload above, and
               under it what reloading got you. When the records last changed, not
               when this tab last asked — the same answer for everyone looking at
               the same repo (`PLT-f4n6`). */}
-          {/* **Not in the pill row.** Filing is the commonest write on this
-              screen, so it gets a standing button — but the pills below are a
-              choice of view, and a verb sitting among them reads as one more
-              filter. It belongs up here with reload, the other control that
-              acts on the board rather than narrowing it.
-
-              Only where it can work: with no agent configured there is nothing
-              to hand the title to, and a button that silently does nothing is
-              worse than its absence. */}
-          {tab === 'board' && canWrite && (
-            <Button size="small" variant="outlined" onClick={() => setFiling('')}
-                    sx={{ textTransform: 'none', mr: 1, flexShrink: 0 }}>
-              + Task
-            </Button>
-          )}
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
             {tab === 'board' && (
               <IconButton onClick={load} aria-label="Reload the board" size="small"
@@ -451,6 +478,22 @@ export default function App() {
                    { value: 'agenda', label: 'Agenda' },
                  ]} />
         )}
+        {/* **In the board, above the thing it files into.** It was in the header
+            beside reload, which kept it clear of the filter pills but put the
+            one write on this screen in the furniture rather than in the board
+            (`PLT-henh`). Contained, so it still reads as the verb it is and not
+            as another pill.
+
+            Only where it can work: with no agent configured there is nothing to
+            hand a title to, and a button that silently does nothing is worse
+            than its absence. */}
+        {tab === 'board' && canWrite && (
+          <Button variant="contained" disableElevation size="small"
+                  onClick={() => setFiling('')}
+                  sx={{ textTransform: 'none', mt: 2, borderRadius: 5, px: 2 }}>
+            + New task
+          </Button>
+        )}
         {tab === 'board' && shown && (
           /* **Counted off the searched board.** These say how much of each
              section there is, so while a search is on they have to say how much
@@ -459,13 +502,26 @@ export default function App() {
              (`PLT-t6wd`). */
           <BoardFilters board={shown} off={off} onToggle={toggle} />
         )}
+        {/* **Under the section filters, and they are not the same kind of
+            thing.** Those are llmeep's own words — a section, a ledger — and
+            they toggle a view. These are the adopter's, and tapping one puts it
+            in the search box, because that is already where this screen narrows
+            itself and a second model beside it would be two things to learn for
+            one job (`PLT-wbhb`). Tapping the active one clears it. */}
+        {tab === 'board' && labelsInUse.length > 0 && (
+          <Pills sx={{ mt: 0.5 }} atLeast={1}
+                 value={idle(query) ? null : query.trim().toLowerCase()}
+                 onChange={(v) => setQuery(v === query.trim().toLowerCase() ? '' : v)}
+                 options={labelsInUse.map(([name, n]) => ({
+                   value: `#${name}`, label: `#${name}`, count: n }))} />
+        )}
 
         {error && (
           <Typography color="error" sx={{ mt: 3, whiteSpace: 'pre-wrap' }}>{error}</Typography>
         )}
         {tab === 'notes' && (
-          <Notes base={BASE} onAsk={setAsking} busy={acting} reload={notesAt}
-                 query={query} onCount={setNoteHits} onPickLabel={pickLabel} />
+          <Notes state={notes} onAsk={setAsking} busy={acting}
+                 query={query} onPickLabel={pickLabel} />
         )}
         {tab === 'other' && sub === 'agenda' && (
           <Agenda base={BASE} busy={acting} reload={notesAt} query={query}
@@ -510,14 +566,15 @@ export default function App() {
         <BottomComposer conversation={conversation} onHeight={setBottom}
                         onFocus={() => setTab('chat')} />
       )}
-      <DetailSheet head={detail} docs={docs} onClose={() => setDetail(null)} />
+      <DetailSheet head={detail?.doc} task={detail?.task} docs={docs}
+                   onClose={() => setDetail(null)} />
       <Dialog open={filing !== null} onClose={() => setFiling(null)} fullWidth
               maxWidth="xs">
         <DialogTitle>New task</DialogTitle>
         <DialogContent>
           <TextField autoFocus fullWidth multiline maxRows={4} variant="standard"
                      value={filing || ''}
-                     placeholder="What needs doing?"
+                     placeholder="Task short description"
                      onChange={(e) => setFiling(e.target.value)}
                      onKeyDown={(e) => {
                        // Enter files it; Shift+Enter is a second line, because
@@ -808,27 +865,20 @@ function ConversationPane({ conversation }) {
 // task or it goes. The rows come from `nm notes --json`, so what is a note, what
 // it was promoted to and whether that shipped are all decided in one place
 // (`PLT-pudy`).
-function Notes({ base, onAsk, busy, reload, query, onCount, onPickLabel }) {
-  const [state, setState] = React.useState(null)
-  const [error, setError] = React.useState(null)
-
-  React.useEffect(() => {
-    fetch(`${base}/api/notes`)
-      .then((r) => (r.ok ? r.json() : r.text().then((t) => Promise.reject(new Error(t)))))
-      .then((d) => { setState(d); setError(null) })
-      .catch((e) => setError(e.message))
-  }, [base, reload])
-
-  // The window fetches itself, so the tab label cannot count it from outside.
-  // Filtered once here, and the number handed up.
+function Notes({ state, onAsk, busy, query, onPickLabel }) {
+  // **Handed the window rather than fetching it** (`PLT-gtsv`). App reads
+  // `/api/notes` so the tab label can count matches while this tab is closed;
+  // fetching here as well would be a second request for the same document and a
+  // second answer to disagree with.
   const hits = React.useMemo(
     () => (state?.notes || []).filter(
       (n) => matches(query, [n.id, n.text, n.source, n.task], n.labels)),
     [state, query],
   )
-  React.useEffect(() => { onCount?.(hits.length) }, [hits.length, onCount])
 
-  if (error) return <Typography color="error" sx={{ mt: 3 }}>{error}</Typography>
+  if (state?.error) {
+    return <Typography color="error" sx={{ mt: 3 }}>Could not read the notes.</Typography>
+  }
   if (!state) return <Box sx={{ mt: 4, textAlign: 'center' }}><CircularProgress size={22} /></Box>
   if (!state.notes.length && !state.waiting) {
     return (
@@ -1336,7 +1386,7 @@ function Task({ task, docs, onDetail, section, onAsk, onAct, onAgenda, agendas, 
               <Button
                 size="small" variant="outlined" startIcon={<Clip />}
                 disabled={!head}
-                onClick={head ? () => onDetail(head) : undefined}
+                onClick={head ? () => onDetail({ doc: head, task }) : undefined}
                 sx={{ mb: 1, textTransform: 'none', py: 0.25 }}
               >
                 {items ? `Attachments ${items}` : 'Attachments'}
@@ -1429,10 +1479,47 @@ function Turn({ turn }) {
   )
 }
 
+// The gate, at the top of the sheet. Nothing is invented here: `tm` decides
+// what a criterion is and which are met, because an interface re-reading the
+// markdown would be a second implementation of that rule (`DEC-003`).
+function Outstanding({ task }) {
+  const state = task.acceptance || {}
+  const left = state.outstanding || []
+  const done = state.done || 0
+  // **Silent when there is nothing to say.** A task with no acceptance section
+  // has no gate, and a band announcing "0 outstanding" over every such detail
+  // is the kind of furniture that trains people to skip the top of the page.
+  if (!left.length && !done) return null
+
+  const banked = task.commits > 0
+    ? `${task.commits} commit${task.commits === 1 ? '' : 's'} in · ` : ''
+  return (
+    <Alert severity={left.length ? 'warning' : 'success'} variant="outlined"
+           icon={false} sx={{ mb: 2, borderRadius: 2 }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+        {banked}
+        {left.length
+          ? `${left.length} outstanding${done ? ` · ${done} met` : ''}`
+          : `all ${done} met`}
+      </Typography>
+      {left.length > 0 && (
+        <Box component="ul" sx={{ m: 0, mt: 1, pl: 2.5 }}>
+          {left.map((item, i) => (
+            <Typography key={i} component="li" variant="body2"
+                        sx={{ lineHeight: 1.5, mb: 0.25 }}>
+              {item}
+            </Typography>
+          ))}
+        </Box>
+      )}
+    </Alert>
+  )
+}
+
 // A detail, opened over the board rather than instead of it. Its attachments
 // are listed underneath and open in the same sheet, so a folder detail is one
 // thing to read and one thing to close.
-function DetailSheet({ head, docs, onClose }) {
+function DetailSheet({ head, task, docs, onClose }) {
   const [shown, setShown] = React.useState(null)
   const [text, setText] = React.useState(null)
 
@@ -1472,6 +1559,17 @@ function DetailSheet({ head, docs, onClose }) {
         </IconButton>
       </DialogTitle>
       <DialogContent dividers>
+        {/* **What is left, before the document that contains it** (`PLT-zvdu`).
+            Acceptance is the gate `done` enforces and with no reviewer it is the
+            only quality gate there is — but it sat under Outcome, three
+            headings down, so the question anyone opens a detail to answer
+            ("what is still outstanding on this?") was the one thing they had to
+            scroll for.
+
+            Only on the detail itself, never on an attachment: the criteria
+            belong to the task, and repeating them over a spreadsheet inside its
+            folder would say they were that file's. */}
+        {!shown && task && <Outstanding task={task} />}
         <Doc doc={doc} base={BASE} />
         {!shown && attachments.length > 0 && (
           <Box sx={{ mt: 3 }}>

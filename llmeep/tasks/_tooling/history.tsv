@@ -153,3 +153,7 @@
 2026-10-06	PLT-e4kn	platform	Tasks and notes carry labels an adopter chooses, and labels survive completion	stewart
 2026-10-06	PLT-jpsc	platform	The app filters by label and shows the ones a record carries	stewart
 2026-10-06	PLT-n4wq	platform	A label term matches that label, not every label containing it	stewart
+2026-10-07	PLT-zvdu	platform	A detail opens on what is outstanding, not on the top of the file	stewart
+2026-10-07	PLT-gtsv	platform	A tab's result count is right before you open the tab	stewart
+2026-10-07	PLT-wbhb	platform	Labels in use sit under the section filters, one tap to narrow the board	stewart
+2026-10-07	PLT-henh	platform	The header is the search box; filing moves into the board it files into	stewart

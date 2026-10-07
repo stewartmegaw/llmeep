@@ -22,6 +22,10 @@ PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
 
 ## recent
 
+2026-10-07  PLT-henh The header is the search box; filing moves into the board it files into  @stewart
+2026-10-07  PLT-wbhb Labels in use sit under the section filters, one tap to narrow the board  @stewart
+2026-10-07  PLT-gtsv A tab's result count is right before you open the tab  @stewart
+2026-10-07  PLT-zvdu A detail opens on what is outstanding, not on the top of the file  @stewart
 2026-10-06  PLT-n4wq A label term matches that label, not every label containing it  @stewart
 2026-10-06  PLT-jpsc The app filters by label and shows the ones a record carries  @stewart
 2026-10-06  PLT-e4kn Tasks and notes carry labels an adopter chooses, and labels survive completion  @stewart
@@ -33,7 +37,3 @@ PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
 2026-10-02  PLT-z5dn A model reply with more than one JSON value must not fail the turn  @stewart
 2026-10-02  PLT-3awu The app's agenda read must not list private agendas  @stewart
 2026-09-25  PLT-pm22 An install older than the image says so, instead of a JSON parse error  @stewart
-2026-09-23  PLT-y7xy An agenda is shared unless you say otherwise  @stewart
-2026-09-23  PLT-xkrc The app never shows a private agenda  @stewart
-2026-09-23  PLT-49p8 An agenda is a record: private on this machine, shared in the repo  @stewart
-2026-09-23  PLT-5m8z A task's board buttons collapse into a menu that can also put it on the agenda  @stewart

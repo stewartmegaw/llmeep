@@ -15,12 +15,17 @@ import { Box, Chip } from '@mui/material'
 //
 // Wrapping is the conditional version of that original intent: one row wherever
 // the row fits, and a second only where it does not.
-export default function Pills({ options, value, selected, onChange, sx }) {
+export default function Pills({ options, value, selected, onChange, sx, atLeast = 2 }) {
   // Two modes. `value` is one choice of several; `selected` is a set of
   // toggles, everything on to begin with, and you switch off what you do not
   // want to see. The board is the second: it should open showing all of it.
   const isOn = (o) => (selected ? selected.has(o.value) : o.value === value)
-  if (options.length < 2) return null
+  // **One pill is usually nothing to choose between**, so a row of one is
+  // hidden rather than shown as a control that cannot change anything. Labels
+  // are the exception and pass `atLeast={1}`: a single label in use is still a
+  // narrowing worth one tap, and the row appearing the moment a first label
+  // exists is how anyone discovers the feature (`PLT-wbhb`).
+  if (options.length < atLeast) return null
   return (
     <Box
       sx={{

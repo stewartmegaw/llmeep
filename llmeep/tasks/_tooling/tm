@@ -635,7 +635,32 @@ def detail_extras(path):
     return [f for f in sorted(os.listdir(path)) if f != "README.md"]
 
 
-def unchecked_acceptance(path):
+def acceptance_state(path):
+    """`(outstanding, done)` for a task's detail — the criteria not yet met, and
+    how many are.
+
+    **One parser, here.** `unchecked_acceptance` already knows what a criterion
+    is and which of them are blank form; an interface that re-read the markdown
+    to show the same list would be a second implementation of that rule,
+    drifting the first time the template changes (`DEC-003`). So the tool
+    exports and the interface renders (`PLT-zvdu`).
+    """
+    doc = detail_doc(path)
+    if not doc:
+        return [], 0
+    done, section = 0, False
+    with open(doc) as fh:
+        for line in fh:
+            if line.startswith("## "):
+                section = line[3:].strip().lower() == "acceptance"
+                continue
+            if section and line.strip().startswith("- [x]"):
+                if line.strip()[5:].strip():
+                    done += 1
+    return unchecked_acceptance(path, full=True), done
+
+
+def unchecked_acceptance(path, full=False):
     """Acceptance is optional. Where it exists, it is the gate — with no
     reviewer, it is the only quality gate there is.
 
@@ -657,7 +682,10 @@ def unchecked_acceptance(path):
             if section and line.strip().startswith("- [ ]"):
                 text = line.strip()[5:].strip()
                 if text:
-                    pending.append(summarise(text))
+                    # Summarised for a terminal list, whole for a reader with a
+                    # screen: the same criteria, and the screen has the room
+                    # (`PLT-zvdu`).
+                    pending.append(text if full else summarise(text))
     return pending
 
 
@@ -2562,6 +2590,10 @@ def task_json(board, ledger, task):
         "commits": task.commits,
         "filed": task.filed,
         "labels": task.labels,
+        # What is left to do and how much is already met. The board carries it
+        # so a reader opening the detail sees the gate first (`PLT-zvdu`).
+        "acceptance": dict(zip(("outstanding", "done"),
+                               acceptance_state(detail_path(ledger, task.id)))),
     }
 
 
