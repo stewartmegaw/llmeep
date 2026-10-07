@@ -372,7 +372,11 @@ export default function App() {
       <AppBar position="sticky" color="default" elevation={0}
               sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Toolbar sx={{ minHeight: 72 }}>
-          <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+          {/* **The two ends take equal space, so the middle is the middle.**
+              They used to be shrink-to-fit with the search growing after them,
+              which packed the whole row against the left of a wide window and
+              left the rest of the bar empty (`PLT-gtkj`). */}
+          <Box sx={{ flex: '1 1 0', display: 'flex', alignItems: 'center' }}>
             {/* The road runner the README opens with. It is fetched from the
                 same third-party CDN that README links, so it is the one request
                 this app makes to anywhere it does not control — and where this
@@ -411,14 +415,19 @@ export default function App() {
                 </IconButton>
               ) : null,
             }}
-            sx={{ mx: 1.5, flex: '1 1 auto', minWidth: 90, maxWidth: 320,
+            sx={{ mx: 1.5, flex: '0 1 420px', minWidth: 90,
                   '& .MuiOutlinedInput-root': { borderRadius: 5 } }}
           />
           {/* Freshness sits with the control that changes it: reload above, and
               under it what reloading got you. When the records last changed, not
               when this tab last asked — the same answer for everyone looking at
               the same repo (`PLT-f4n6`). */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+          {/* No `minWidth: 0` and the text never wraps, so this side cannot be
+              squeezed narrower than what it says — the search gives way
+              instead. With both set to shrink, a narrow window crushed this
+              into three stacked words under the search (`PLT-gtkj`). */}
+          <Box sx={{ flex: '1 1 0', display: 'flex', whiteSpace: 'nowrap',
+                     flexDirection: 'column', alignItems: 'flex-end' }}>
             {tab === 'board' && (
               <IconButton onClick={load} aria-label="Reload the board" size="small"
                         sx={GLYPH}>
@@ -487,13 +496,6 @@ export default function App() {
             Only where it can work: with no agent configured there is nothing to
             hand a title to, and a button that silently does nothing is worse
             than its absence. */}
-        {tab === 'board' && canWrite && (
-          <Button variant="contained" disableElevation size="small"
-                  onClick={() => setFiling('')}
-                  sx={{ textTransform: 'none', mt: 2, borderRadius: 5, px: 2 }}>
-            + New task
-          </Button>
-        )}
         {tab === 'board' && shown && (
           /* **Counted off the searched board.** These say how much of each
              section there is, so while a search is on they have to say how much
@@ -516,6 +518,20 @@ export default function App() {
                    value: `#${name}`, label: `#${name}`, count: n }))} />
         )}
 
+        {/* **Between the filters and the board, pulled right** (`PLT-gtkj`). It
+            sat above the filters and stacked into them: a filled blue button
+            directly over two rows of filled blue pills reads as the start of
+            the pill stack rather than as the one verb on this screen. On its
+            own line at the other edge it cannot be mistaken for one. */}
+        {tab === 'board' && canWrite && (
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1.5 }}>
+            <Button variant="contained" disableElevation size="small"
+                    onClick={() => setFiling('')}
+                    sx={{ textTransform: 'none', borderRadius: 5, px: 2 }}>
+              + New task
+            </Button>
+          </Box>
+        )}
         {error && (
           <Typography color="error" sx={{ mt: 3, whiteSpace: 'pre-wrap' }}>{error}</Typography>
         )}
