@@ -1780,18 +1780,21 @@ function DetailSheet({ head, task, docs, onClose }) {
   const doc = text && text.id === open.id ? text : open
   return (
     <Dialog open fullScreen onClose={onClose}>
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, pr: 1 }}>
-        {shown && (
-          <IconButton size="small" onClick={() => setShown(null)} aria-label="Back to the detail">
-            <span aria-hidden>←</span>
-          </IconButton>
-        )}
+      {/* **One back arrow, top left, and it means back** (`PLT-ccjj`). The
+          sheet is full screen, so there is nowhere to tap past it and a close
+          at the far corner was the only way out — on a phone that is the corner
+          a thumb cannot reach, and it read as "discard" beside a document.
+          Going back from an attachment and going back from the detail are the
+          same gesture, so they are the same control: it returns to the detail
+          if you are inside one, and to the board if you are not. */}
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, pl: 0.5 }}>
+        <IconButton onClick={shown ? () => setShown(null) : onClose}
+                    aria-label={shown ? 'Back to the detail' : 'Back to the board'}>
+          <span aria-hidden>←</span>
+        </IconButton>
         <Box sx={{ flexGrow: 1, fontSize: '1rem', overflowWrap: 'anywhere' }}>
           {open.title}
         </Box>
-        <IconButton onClick={onClose} aria-label="Close">
-          <span aria-hidden>✕</span>
-        </IconButton>
       </DialogTitle>
       <DialogContent dividers>
         {/* **What is left, before the document that contains it** (`PLT-zvdu`).
