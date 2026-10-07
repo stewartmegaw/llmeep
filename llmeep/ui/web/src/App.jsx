@@ -742,6 +742,10 @@ function useConversation(onDone, updatedAt) {
         setTurns((t) => [...t, d.error
           ? { who: 'error', text: d.error }
           : { who: 'llmeep', text: d.answer, used: d.used, changed: d.changed,
+              // Saved and shared, or just saved. With no remote there is no
+              // team to have reached, and claiming one would be a lie dressed
+              // as reassurance (`PLT-dtbn`).
+              pushed: d.pushed,
               // Whether it is live for anyone else. A change that committed and
               // did not push is not a failure and not a success (`PLT-xxcu`).
               note: d.note }])
@@ -1528,9 +1532,15 @@ function Turn({ turn }) {
           {(turn.used || []).map((u, i) => (
             <Chip key={i} size="small" variant="outlined" label={u} />
           ))}
+          {/* **What happened to the records, not what happened in git**
+              (`PLT-dtbn`). "committed and pushed" names two git verbs for a
+              change that reaches no build, to someone the whole app exists so
+              that they never need a terminal. The ontology bounds git for them
+              to one question — is your project live — and a record going out is
+              not that question. */}
           {turn.changed && !turn.note && (
             <Typography variant="caption" color="success.main" sx={{ fontWeight: 600 }}>
-              committed and pushed
+              {turn.pushed ? 'saved for the team' : 'saved'}
             </Typography>
           )}
           {turn.note && (

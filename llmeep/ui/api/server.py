@@ -1015,21 +1015,32 @@ def push_after_commit():
     try:
         state = json.loads(tm("unpushed", "--json")).get("state")
     except Exception as exc:                           # noqa: BLE001
-        return False, f"committed, but the push state could not be read: {exc}"
+        return False, f"saved here. Whether it reached anyone else is unclear: {exc}"
     if state == "no upstream":
-        return False, "committed. This branch tracks no remote, so there is nowhere to push."
+        # **Nothing about pushing**, which is what the ontology's table has said
+        # for this state all along — there is nowhere to push to, so saying so
+        # names a mechanism to answer a question nobody asked. It used to
+        # return "this branch tracks no remote", and a test held it there
+        # (`PLT-dtbn`). Not pushed, because nothing was; silent, because there
+        # is nothing to tell.
+        return False, None
     if state == "code":
-        # The app cannot resolve this one: its tools write records and nothing
-        # else, so it has no verb for pushing someone's project. `DEC-042` has
-        # the agent ask; here the honest move is to say why it stopped.
-        return False, ("committed. Not pushed: there are code changes waiting to go out too, "
-                       "and a push is where a deploy starts — that one is yours to make.")
+        # The one place git is allowed to surface, and only as *is your project
+        # live* — the price of editing code, which **The one git word a
+        # non-coder sees** bounds it to. The app cannot resolve it: its tools
+        # write records and nothing else, so it has no verb for shipping
+        # somebody's project. Said without naming the command.
+        return False, ("saved. Your project's own changes are waiting to go out with it, and "
+                       "sending those is what puts them live — so that one is yours to do.")
     if state == "clear":
         return True, None
     try:
         git("push")
     except Exception as exc:                           # noqa: BLE001
-        return False, f"committed, but the push failed: {exc}"
+        # What they can act on is that it is written down here and nobody else
+        # has it yet. The reason is for whoever reads the log.
+        sys.stderr.write(f"  push failed: {exc}\n")
+        return False, "saved here, but it has not reached anyone else yet."
     return True, None
 
 
