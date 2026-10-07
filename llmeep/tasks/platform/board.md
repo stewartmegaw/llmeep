@@ -22,6 +22,7 @@ PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
 
 ## recent
 
+2026-10-07  PLT-bu43 A reply is not a system notice: the transcript stops being a wall of tinted boxes  @stewart
 2026-10-07  PLT-henh The header is the search box; filing moves into the board it files into  @stewart
 2026-10-07  PLT-wbhb Labels in use sit under the section filters, one tap to narrow the board  @stewart
 2026-10-07  PLT-gtsv A tab's result count is right before you open the tab  @stewart
@@ -36,4 +37,3 @@ PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
 2026-10-02  PLT-rwpq tm resolve must not revert a park the other side never touched  @stewart
 2026-10-02  PLT-z5dn A model reply with more than one JSON value must not fail the turn  @stewart
 2026-10-02  PLT-3awu The app's agenda read must not list private agendas  @stewart
-2026-09-25  PLT-pm22 An install older than the image says so, instead of a JSON parse error  @stewart

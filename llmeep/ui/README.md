@@ -188,6 +188,23 @@ The agent can label too, through `label` and `unlabel` in the tool table. It nam
 supplies a list of words; it never supplies a command, so a label is validated for shape and
 passed as its own argv entry, and which subsystem runs is decided by the id.
 
+## The transcript is asymmetric
+
+What you typed is short and gets a bubble; what came back is long, structured, and gets none.
+A bubble around four hundred words of markdown wastes the width and nests a border around every
+list and code block inside it — symmetric bubbles are a messaging pattern and they suit short
+turns, not this.
+
+Every reply used to be a MUI `Alert` tinted by severity, so an ordinary answer arrived looking
+like a system warning and the whole exchange was a wall of coloured boxes. `Alert` is now kept
+for the one thing that is actually a notice: an error.
+
+**What a turn did is said in words, under what it said, not carried by a colour.** Green meant
+the records changed and amber that a commit had not pushed — but a tint cannot say which it is,
+and a reader has to learn the code before it means anything. The verbs stay as chips beside it.
+That the unpushed case is worth naming at all is `PLT-xxcu`: a change that committed and did not
+push is neither a failure nor a success.
+
 ## It is light
 
 One palette, not the viewer's. The theme followed `prefers-color-scheme` and most phones are on

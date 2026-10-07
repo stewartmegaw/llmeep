@@ -1433,49 +1433,84 @@ function Task({ task, docs, onDetail, section, onAsk, onAct, onAgenda, agendas, 
 // An exchange, because the agent can ask. What it did is shown under what it
 // said: the verbs are the constraint, so seeing them is seeing the boundary.
 function Turn({ turn }) {
+  // **Asymmetric, which is what a chat is now.** What you typed is short and
+  // gets a bubble; what came back is long, structured and gets none. A bubble
+  // around four hundred words of markdown wastes the width, and nests a border
+  // around every code block and list inside it. Symmetric bubbles are a
+  // messaging pattern and they suit short turns, not this (`PLT-bu43`).
   if (turn.who === 'you') {
     return (
-      <Typography sx={{ textAlign: 'right', color: 'text.secondary', mb: 1 }}>
-        {turn.text}
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1.5 }}>
+        <Box sx={{
+          maxWidth: '85%', bgcolor: 'action.hover', borderRadius: 3,
+          borderTopRightRadius: 6, px: 1.75, py: 1,
+        }}>
+          <Typography sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere',
+                            lineHeight: 1.45 }}>
+            {turn.text}
+          </Typography>
+        </Box>
+      </Box>
     )
   }
+
+  // **An error is the only thing that is actually a notice.** Every reply used
+  // to be a MUI `Alert`, tinted by severity, so an ordinary answer arrived
+  // looking like a system warning and the transcript was a wall of coloured
+  // boxes. `Alert` is for the case that genuinely is one.
+  if (turn.who === 'error') {
+    return (
+      <Alert severity="error" icon={false} sx={{ mb: 1.5, borderRadius: 2 }}>
+        <Typography sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+          {turn.text}
+        </Typography>
+        {turn.landed && (
+          <Typography variant="body2" sx={{ mt: 1, fontWeight: 600 }}>
+            The records changed while that was in flight, so the work landed — the board
+            above is current. Do not send it again.
+          </Typography>
+        )}
+      </Alert>
+    )
+  }
+
   return (
-    <Alert severity={turn.who === 'error' ? 'error'
-             : turn.note ? 'warning' : turn.changed ? 'success' : 'info'}
-           icon={false} sx={{ mb: 1 }}>
+    <Box sx={{ mb: 2.5 }}>
       {/* **The agent writes markdown, because everything it reads is markdown.**
           Flat text put `**bold**` and `- a list` on the screen as typed, and
           folded every line break into a space — the same defect the notes had,
           one layer along. What a person typed stays flat: they did not mean
           `*` to be emphasis (`PLT-naj8`). */}
-      {turn.who === 'llmeep' ? (
-        <Box sx={{ '& > :first-of-type': { mt: 0 }, '& > :last-child': { mb: 0 },
-                   overflowWrap: 'anywhere' }}>
-          <Markdown text={turn.text} />
-        </Box>
-      ) : (
-        <Typography sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-          {turn.text}
-        </Typography>
-      )}
-      {turn.note && (
-        <Typography variant="body2" sx={{ mt: 1, opacity: 0.9 }}>{turn.note}</Typography>
-      )}
-      {turn.landed && (
-        <Typography variant="body2" sx={{ mt: 1, fontWeight: 600 }}>
-          The records changed while that was in flight, so the work landed — the board
-          above is current. Do not send it again.
-        </Typography>
-      )}
-      {turn.used?.length > 0 && (
-        <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
-          {turn.used.map((u, i) => (
+      <Box sx={{ '& > :first-of-type': { mt: 0 }, '& > :last-child': { mb: 0 },
+                 overflowWrap: 'anywhere', lineHeight: 1.55 }}>
+        <Markdown text={turn.text} />
+      </Box>
+      {/* **What it did, under what it said, in words rather than a colour.**
+          The tint used to carry this: green meant the records changed, amber
+          that a commit had not pushed. Colour cannot say *which* of those it
+          is, and a reader has to learn the code before it means anything — so
+          it is a line now, and the verbs stay chips. `PLT-xxcu` is why the
+          unpushed case is worth saying at all: a change that committed and did
+          not push is neither a failure nor a success. */}
+      {(turn.changed || turn.note || turn.used?.length > 0) && (
+        <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap"
+               alignItems="center" sx={{ mt: 1.25 }}>
+          {(turn.used || []).map((u, i) => (
             <Chip key={i} size="small" variant="outlined" label={u} />
           ))}
+          {turn.changed && !turn.note && (
+            <Typography variant="caption" color="success.main" sx={{ fontWeight: 600 }}>
+              committed and pushed
+            </Typography>
+          )}
+          {turn.note && (
+            <Typography variant="caption" color="warning.main" sx={{ fontWeight: 600 }}>
+              {turn.note}
+            </Typography>
+          )}
         </Stack>
       )}
-    </Alert>
+    </Box>
   )
 }
 
