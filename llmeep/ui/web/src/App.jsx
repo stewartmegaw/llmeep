@@ -116,6 +116,9 @@ export default function App() {
   // What is being dragged and where it is hovering: `{ id, from, over, where }`.
   const [drag, setDrag] = React.useState(null)
   const [detail, setDetail] = React.useState(null)
+  // The record whose labels are being edited — a task or a note, since a label
+  // means the same thing on both and `tool_for` picks the subsystem by id.
+  const [labelling, setLabelling] = React.useState(null)
   // How much room the composer is taking, so nothing ends up underneath it.
   // Measured rather than guessed: a long message grows it.
   const [bottom, setBottom] = React.useState(0)
@@ -584,7 +587,7 @@ export default function App() {
         )}
         {tab === 'notes' && (
           <Notes state={notes} onAsk={setAsking} busy={acting}
-                 query={query} onPickLabel={pickLabel} />
+                 query={query} onPickLabel={pickLabel} onLabels={setLabelling} />
         )}
         {tab === 'other' && sub === 'agenda' && (
           <Agenda base={BASE} busy={acting} reload={notesAt} query={query}
@@ -613,6 +616,7 @@ export default function App() {
           <Ledger key={ledger} name={ledger} sections={sections} off={off}
                   docs={docs} onDetail={setDetail} onAsk={setAsking} onAct={runTool}
                   onAgenda={ontoAgenda} agendas={agendas} onPickLabel={pickLabel}
+                  onLabels={setLabelling}
                   busy={acting} drag={drag} onDrag={setDrag} onDrop={dropped} />
         ))}
       </Container>
@@ -631,6 +635,9 @@ export default function App() {
       )}
       <DetailSheet head={detail?.doc} task={detail?.task} docs={docs}
                    onClose={() => setDetail(null)} />
+      <LabelEditor open={Boolean(labelling)} record={labelling} busy={acting}
+                   inUse={labelsInUse.map(([name]) => name)}
+                   onApply={runTool} onClose={() => setLabelling(null)} />
       <Dialog open={filing !== null} onClose={() => setFiling(null)} fullWidth
               maxWidth="xs">
         <DialogTitle>New task</DialogTitle>
@@ -932,7 +939,7 @@ function ConversationPane({ conversation }) {
 // task or it goes. The rows come from `nm notes --json`, so what is a note, what
 // it was promoted to and whether that shipped are all decided in one place
 // (`PLT-pudy`).
-function Notes({ state, onAsk, busy, query, onPickLabel }) {
+function Notes({ state, onAsk, busy, query, onPickLabel, onLabels }) {
   // **Handed the window rather than fetching it** (`PLT-gtsv`). App reads
   // `/api/notes` so the tab label can count matches while this tab is closed;
   // fetching here as well would be a second request for the same document and a
@@ -986,6 +993,19 @@ function Notes({ state, onAsk, busy, query, onPickLabel }) {
                 sx={{ py: 1.25 }}
                 secondaryAction={(
                   <Stack direction="row" spacing={0.25}>
+                    {/* A note takes labels exactly as a task does — `#` is the
+                        same tag in both subsystems and the app routes by id
+                        (`PLT-tdub`). The glyph rather than a word, because this
+                        row already has two and a third verb spelled out would
+                        push the text into a column. */}
+                    {onLabels && (
+                      <IconButton size="small" disabled={busy} sx={GLYPH}
+                                  aria-label={`Labels on ${n.id}`}
+                                  onClick={() => onLabels({ id: n.id, title: n.text,
+                                                            labels: n.labels })}>
+                        <span aria-hidden style={{ fontSize: 15 }}>#</span>
+                      </IconButton>
+                    )}
                     {/* A note that is already a task has nowhere to be promoted
                         to, and promoting it twice would file the same idea
                         again under a second id. */}
@@ -1211,7 +1231,7 @@ function Confirm({ asking, busy, onClose, onYes }) {
 
 // `off` holds the pills that have been switched off — a ledger name or a
 // section key. Empty means show everything, which is where it starts.
-function Ledger({ name, sections, off, docs, onDetail, onAsk, onAct, onAgenda, agendas, busy, drag, onDrag, onDrop, onPickLabel }) {
+function Ledger({ name, sections, off, docs, onDetail, onAsk, onAct, onAgenda, agendas, busy, drag, onDrag, onDrop, onPickLabel, onLabels }) {
   if (off.has(name)) return null
   const live = SECTIONS.filter(([key]) => !off.has(key) && sections[key]?.length)
   if (!live.length) return null
@@ -1229,6 +1249,7 @@ function Ledger({ name, sections, off, docs, onDetail, onAsk, onAct, onAgenda, a
               <Task key={task.id} task={task} docs={docs} onDetail={onDetail}
                     section={key} onAsk={onAsk} onAct={onAct} busy={busy}
                     onAgenda={onAgenda} agendas={agendas} onPickLabel={onPickLabel}
+                    onLabels={onLabels}
                     drag={drag} onDrag={onDrag} onDrop={onDrop}
                     divider={i < sections[key].length - 1} />
             ))}
@@ -1277,7 +1298,7 @@ function Clip(props) {
   )
 }
 
-function Task({ task, docs, onDetail, section, onAsk, onAct, onAgenda, agendas, busy, drag, onDrag, onDrop, divider, onPickLabel }) {
+function Task({ task, docs, onDetail, section, onAsk, onAct, onAgenda, agendas, busy, drag, onDrag, onDrop, divider, onPickLabel, onLabels }) {
   // **One button instead of four.** Every action but the drag handle lives
   // behind it: four glyphs in a row on a phone are four small targets nobody
   // can tell apart, and the row grew every time the board learned a verb. A
@@ -1397,6 +1418,12 @@ function Task({ task, docs, onDetail, section, onAsk, onAct, onAgenda, agendas, 
             {/* `done` closes a task from any open section, so this is on all of
                 them — the board is a list of things that are not finished, and
                 saying one is finished is the commonest thing anyone does to it. */}
+            {/* Not behind a confirmation: a label is cheap, reversible in the
+                same dialog, and tells nobody. `done` and `drop` are asked
+                about because they write history or destroy a record. */}
+            {onLabels && (
+              <MenuItem onClick={pick(() => onLabels(task))}>Labels…</MenuItem>
+            )}
             <MenuItem onClick={pick(() => onAsk({
               tool: 'done', args: { id: task.id }, verb: 'Mark done',
               title: task.title,
@@ -1584,6 +1611,103 @@ function Turn({ turn }) {
         </Stack>
       )}
     </Box>
+  )
+}
+
+// Labels on one record, added and taken off.
+//
+// **The vocabulary is offered before the box** (`PLT-tdub`). `DEC-062` refuses
+// a registry, so nothing stops `ulster` being filed beside `ulsters` and nothing
+// detects it afterwards — the whole mitigation is making the word that already
+// exists the easier one to pick. So the labels in use are buttons, and typing
+// is what you do when none of them is right.
+function LabelEditor({ open, record, inUse, busy, onApply, onClose }) {
+  const [mine, setMine] = React.useState([])
+  const [typed, setTyped] = React.useState('')
+  React.useEffect(() => {
+    setMine(record?.labels || [])
+    setTyped('')
+  }, [record?.id])
+
+  if (!open || !record) return null
+
+  const clean = (w) => String(w).trim().replace(/^#/, '').toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 25)
+
+  const add = async (word) => {
+    const name = clean(word)
+    if (!name || mine.includes(name)) return setTyped('')
+    // Optimistic, then corrected by the reload the write triggers. A chip that
+    // appears only after a round trip reads as a tap that did nothing.
+    setMine((l) => [...l, name])
+    setTyped('')
+    await onApply('label', { id: record.id, labels: [name] })
+  }
+  const drop = async (name) => {
+    setMine((l) => l.filter((x) => x !== name))
+    await onApply('unlabel', { id: record.id, labels: [name] })
+  }
+
+  const spare = (inUse || []).filter((n) => !mine.includes(n))
+  return (
+    <Dialog open onClose={onClose} fullWidth maxWidth="xs">
+      <DialogTitle sx={{ pb: 1 }}>Labels</DialogTitle>
+      <DialogContent>
+        <Typography variant="body2" color="text.secondary"
+                    sx={{ mb: 1.5, lineHeight: 1.45 }}>
+          {record.title}
+        </Typography>
+        <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mb: 2 }}>
+          {mine.length === 0 && (
+            <Typography variant="body2" color="text.secondary">None yet.</Typography>
+          )}
+          {mine.map((name) => {
+            const { fg, bg } = labelColour(name)
+            return (
+              <Chip key={name} size="small" label={`#${name}`} disabled={busy}
+                    onDelete={() => drop(name)}
+                    sx={{ color: fg, bgcolor: bg, fontWeight: 500,
+                          border: '1px solid', borderColor: fg,
+                          '& .MuiChip-deleteIcon': { color: fg } }} />
+            )
+          })}
+        </Stack>
+        {spare.length > 0 && (
+          <>
+            <Typography variant="caption" color="text.secondary"
+                        sx={{ display: 'block', mb: 0.75 }}>
+              Already in use — tap to add
+            </Typography>
+            <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mb: 2 }}>
+              {spare.map((name) => {
+                const { fg } = labelColour(name)
+                return (
+                  <Chip key={name} size="small" variant="outlined" label={`#${name}`}
+                        disabled={busy} onClick={() => add(name)}
+                        sx={{ color: fg, borderColor: fg, cursor: 'pointer' }} />
+                )
+              })}
+            </Stack>
+          </>
+        )}
+        <TextField
+          fullWidth size="small" variant="outlined" value={typed} disabled={busy}
+          placeholder="New label"
+          onChange={(e) => setTyped(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); add(typed) }
+          }}
+          helperText="Letters, numbers and dashes, up to 25 characters"
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => add(typed)} disabled={busy || !clean(typed)}
+                sx={{ textTransform: 'none' }}>
+          Add
+        </Button>
+        <Button onClick={onClose} sx={{ textTransform: 'none' }}>Done</Button>
+      </DialogActions>
+    </Dialog>
   )
 }
 

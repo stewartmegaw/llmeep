@@ -165,3 +165,5 @@
 2026-10-07	PLT-dtbn	platform	The app says what happened to the records, not what happened in git	stewart
 2026-10-07	PLT-xs33	platform	The board refreshes when you come back to the tab, and the reload button goes	stewart
 2026-10-07	PLT-zcef	platform	A refetch never clears what you were typing or closes what you had open	stewart
+2026-10-07	PLT-ccjj	platform	A detail closes with a back arrow where you expect one	stewart
+2026-10-07	PLT-tdub	platform	Labels can be added and taken off from the app	stewart
