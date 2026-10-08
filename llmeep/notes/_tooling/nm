@@ -840,7 +840,12 @@ Model: notes/_tooling/ontology.md"""
 FLAGS = {
     "add": ("--from",),
     "drop": (),
-    "promote": ("--id",),
+    # **Everything it forwards, not just what it reads.** `promote` hands its
+    # remaining arguments straight to `tm add`, so `-b`, `-n` and `-f` have
+    # always been part of its usage — this table listed only the `--id` it uses
+    # internally, and from the release that added the check onwards the
+    # documented call was refused (`PLT-sna3`).
+    "promote": ("-b", "-n", "-f", "--id"),
     "unpromote": (),
     "prune": ("--yes",),
     "find": (),
@@ -849,7 +854,7 @@ FLAGS = {
     "label": (),
     "unlabel": (),
 }
-VALUE_FLAGS = ("--from", "--label")
+VALUE_FLAGS = ("--from", "--label", "-f")
 
 
 def reject_unknown_flags(name, args):

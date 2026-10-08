@@ -3852,6 +3852,39 @@ class TestBoardExport(Fixture):
             self.assertEqual(fh.read(), before, "board --json wrote to the board")
 
 
+class TestPromoteForwardsFlags(Fixture):
+    """`PLT-sna3`, a regression I shipped. `promote` hands its remaining
+    arguments straight to `tm add`, so `-b`, `-n` and `-f` have always been part
+    of its usage and its own error message says so. The flag table added with the
+    unknown-flag check listed only the `--id` it uses internally, so from that
+    release onwards the documented call was refused."""
+
+    def a_repo(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        return top
+
+    def test_the_flags_its_own_usage_names_are_accepted(self):
+        top = self.a_repo()
+        self.nm(top, "add", "Something worth doing")
+        nid = json.loads(self.nm(top, "notes", "--json").stdout)["notes"][0]["id"]
+        out = self.nm(top, "promote", nid, "-n", "-f", "sam")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        board = json.loads(self.tm(top, "board", "--json").stdout)
+        ranked = board["ledgers"]["platform"]["prioritised"]
+        self.assertEqual(len(ranked), 1, "-n did not rank it")
+        self.assertEqual(ranked[0]["assignee"], "sam", "-f did not assign it")
+
+    def test_a_flag_it_really_does_not_take_is_still_refused(self):
+        top = self.a_repo()
+        self.nm(top, "add", "Something else")
+        nid = json.loads(self.nm(top, "notes", "--json").stdout)["notes"][0]["id"]
+        out = self.nm(top, "promote", nid, "--nope")
+        self.assertNotEqual(out.returncode, 0)
+        self.assertIn("does not take", out.stdout + out.stderr)
+
+
 class TestOrphanedNote(Fixture):
     """`PLT-f5e9`. Reported by an adopter whose repository could not commit
     anything. `tm drop` on a promoted task leaves the note pointing at an id

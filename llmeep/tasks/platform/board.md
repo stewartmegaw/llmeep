@@ -2,6 +2,7 @@
 
 ## in progress
 
+PLT-s7kh Completing a task says which note it resolved    @stewart  filed:2026-10-08
 
 ## prioritised
 
@@ -19,9 +20,11 @@ PLT-hrpu An agenda holds nothing the repo keeps — decide whether it should exi
 PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; use typeable() so they stay typeable  filed:2026-09-12
 PLT-uqet The agenda tab lists past agendas and hands a new one to the agent  detail  filed:2026-09-23
 PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
+PLT-dz2x Marking a task done asks in the chat whether to clear its note  filed:2026-10-08
 
 ## recent
 
+2026-10-08  PLT-sna3 nm promote refused the flags it forwards to tm add  @stewart
 2026-10-08  PLT-rfvs A note shows its id, the way a task does  @stewart
 2026-10-08  PLT-vwkw The chat can see which labels are in use  @stewart
 2026-10-08  PLT-2cht A turn says what it did in words, not in verb names  @stewart
@@ -36,4 +39,3 @@ PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
 2026-10-07  PLT-tphn Labels read as quieter than the sections they sit under  @stewart
 2026-10-07  PLT-wwyc Filing sits beside reload in the header, and says Add  @stewart
 2026-10-07  PLT-5gfc A label keeps the same colour everywhere it appears  @stewart
-2026-10-07  PLT-gtkj The header centres the search at any width, and filing stops stacking into the filters  @stewart
