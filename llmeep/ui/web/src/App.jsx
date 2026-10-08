@@ -1058,8 +1058,21 @@ function Notes({ state, onAsk, busy, query, onPickLabel, onLabels }) {
                 <ListItemText
                   primary={n.text}
                   primaryTypographyProps={{ sx: { lineHeight: 1.35, overflowWrap: 'anywhere' } }}
-                  secondary={(n.task || n.source || n.labels?.length) && (
-                    <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 0.75 }}>
+                  secondary={(
+                    <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap"
+                           alignItems="center" sx={{ mt: 0.25 }}>
+                      {/* **Always, like a task's** (`PLT-rfvs`). A board row has
+                          carried its id since the row was built and a note's
+                          was nowhere on screen, so the one record you could be
+                          asked to name was the one you had to go and look up.
+                          Same treatment: the quietest thing on the line,
+                          because every note has one and a constant is not a
+                          signal. */}
+                      <Box component="span"
+                           sx={{ fontFamily: 'ui-monospace, monospace', fontSize: 12,
+                                 color: 'text.disabled', letterSpacing: 0 }}>
+                        {n.id}
+                      </Box>
                       {n.task && (
                         // A tick means the task shipped, so the note is awaiting
                         // removal rather than hidden — `nm prune` is what clears

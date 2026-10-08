@@ -22,6 +22,7 @@ PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
 
 ## recent
 
+2026-10-08  PLT-rfvs A note shows its id, the way a task does  @stewart
 2026-10-08  PLT-vwkw The chat can see which labels are in use  @stewart
 2026-10-08  PLT-2cht A turn says what it did in words, not in verb names  @stewart
 2026-10-08  PLT-m4p2 A task opens as a sheet: its verbs are buttons and its labels are inline  @stewart
@@ -36,4 +37,3 @@ PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
 2026-10-07  PLT-wwyc Filing sits beside reload in the header, and says Add  @stewart
 2026-10-07  PLT-5gfc A label keeps the same colour everywhere it appears  @stewart
 2026-10-07  PLT-gtkj The header centres the search at any width, and filing stops stacking into the filters  @stewart
-2026-10-07  PLT-bu43 A reply is not a system notice: the transcript stops being a wall of tinted boxes  @stewart
