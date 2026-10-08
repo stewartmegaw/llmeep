@@ -2883,6 +2883,51 @@ except Exception as exc:
         self.assertIn("error", got, got)
 
 
+    def test_the_project_is_readable_and_its_secrets_are_not(self):
+        """The boundary, asserted from both sides. `git ls-files` is what makes
+        the second half true by construction rather than by a list."""
+        top = self.a_repo()
+        with open(os.path.join(top, "llmeep", ".env"), "w") as fh:
+            fh.write("CHROME_KEY=sk-should-never-be-read\n")
+        with open(os.path.join(top, "README.md"), "w") as fh:
+            fh.write("# Their project\n\nIt ingests ticket sales.\n")
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "-c", "user.name=t", "-c", "user.email=t@t",
+           "commit", "-qm", "readme", cwd=top)
+
+        listed = self.call(top, "files", {})
+        self.assertNotIn("error", listed, listed)
+        self.assertIn("README.md", listed["ok"])
+        self.assertNotIn(".env", listed["ok"], "a secret was listed")
+
+        got = self.call(top, "file", {"path": "README.md"})
+        self.assertIn("ingests ticket sales", got["ok"])
+
+        for path in ("llmeep/.env", "../../../etc/passwd", "/etc/passwd"):
+            blocked = self.call(top, "file", {"path": path})
+            self.assertNotIn("sk-should-never-be-read", json.dumps(blocked),
+                             f"{path} was read")
+            self.assertIn("not a file this app can read", blocked["ok"], path)
+
+    def test_an_untracked_file_is_not_readable(self):
+        """Tracked is the boundary, so a file that has not been committed is
+        outside it — correct, and it will surprise somebody."""
+        top = self.a_repo()
+        with open(os.path.join(top, "scratch.md"), "w") as fh:
+            fh.write("not committed yet\n")
+        got = self.call(top, "file", {"path": "scratch.md"})
+        self.assertIn("not a file this app can read", got["ok"])
+
+    def test_reading_commits_nothing(self):
+        """`only_looks` covers them, so a question never writes a commit."""
+        top = self.a_repo()
+        before = sh("git", "rev-list", "--count", "HEAD", cwd=top).stdout.strip()
+        self.call(top, "files", {})
+        self.call(top, "file", {"path": "README.md"})
+        after = sh("git", "rev-list", "--count", "HEAD", cwd=top).stdout.strip()
+        self.assertEqual(before, after, "a read committed something")
+
+
 class TestTurnHeartbeat(Fixture):
     """`PLT-mrt8`. One HTTP request was held open for a whole turn with nothing
     written until the answer, which hands every proxy in front of the app the

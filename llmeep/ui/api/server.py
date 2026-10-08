@@ -168,7 +168,8 @@ TOOLS = {
 }
 
 # Tools that change nothing, so a turn using only these commits nothing.
-READ_ONLY = {"board", "audience", "notes", "find", "why", "open"}
+READ_ONLY = {"board", "audience", "notes", "find", "why",
+             "open", "files", "file"}
 
 # **Tools this app answers itself.** Every other entry shells out to `tm` or
 # `nm`, because every other entry is a records verb and `DEC-003` keeps those in
@@ -177,6 +178,8 @@ READ_ONLY = {"board", "audience", "notes", "find", "why", "open"}
 # is no executable to defer to (`PLT-3say`, `PLT-ugtz`).
 LOCAL = {
     "open": lambda a: open_document(a["id"]),
+    "files": lambda a: list_project_files(a.get("match")),
+    "file": lambda a: read_project_file(a["path"]),
 }
 # An agenda used to be gitignored whatever happened to it, so a turn that only
 # touched one committed nothing. It is a record now and a shared one lives in
@@ -249,6 +252,17 @@ say so and stop: starting is a claim to be working on something, and that
 happens at a terminal. Filing it, ranking it, parking it or closing it are all
 fine.
 
+**The project's own files are for working out the answer, never for quoting.**
+`files` and `file` read what the repo tracks so you can say what something does,
+where it is handled, or whether it is there at all. Answer in your own words,
+in a sentence or two. Never paste a file, a function or a snippet into a reply,
+and never reply with a code block: they are reading this on a phone, they may
+not be a developer, and the file is already in the repo for anyone who needs the
+text of it. Naming a path is fine — showing its contents is not.
+
+You cannot change those files. There is no verb for it and asking for one will
+not produce it; say that the change is theirs to make at a terminal.
+
 They may not be a developer, and they are reading this on a phone.
 
 ----------------------------------------------------------------------------
@@ -265,6 +279,9 @@ TOOL_ARGS = {
     "find": '{"term": "..."}', "why": '{"term": "..."}',
     "open": '{"id": "PLT-… for that task\'s detail, or a document id this tool '
             'gave you"}  reads a detail and lists what else its folder holds',
+    "files": '{"match": "..."}  paths of the project\'s own files, filtered; '
+             'omit match for all of them',
+    "file": '{"path": "..."}  one of those files, to read',
     "add": '{"title": "...", "ledger": "platform|business", "prioritise": bool}',
     "label": '{"id": "PLT-… or NTE-…", "labels": ["ulster", "reporting"]}',
     "unlabel": '{"id": "PLT-… or NTE-…", "labels": ["ulster"]}',
@@ -612,6 +629,74 @@ def locate(doc_id):
     return entry, full
 
 
+# **What the repo would hand anyone who cloned it, and nothing else**
+# (`DEC-063`). `git ls-files` is the boundary: tracked means committed, and a
+# commit of this repo already reaches every teammate and the remote. Anything
+# gitignored — `.env` first among them, which holds the model key and the
+# review keys — is outside it by construction rather than by a list somebody
+# has to keep correct.
+#
+# The belt to that brace is `SECRETISH`: a repo where somebody once committed a
+# key should not hand it to a screen with no login in front of it.
+SECRETISH = (".env", ".envrc", ".netrc", ".pem", ".key", ".p12", ".pfx",
+             "id_rsa", "id_ed25519", "credentials", "secrets")
+FILE_CHARS = 12000
+FILE_LIST = 300
+
+
+def project_files():
+    """Every tracked file this app will read, repo-relative."""
+    out = git("ls-files", "-z") or ""
+    keep = []
+    for rel in out.split("\0"):
+        rel = rel.strip()
+        if not rel:
+            continue
+        low = os.path.basename(rel).lower()
+        if any(mark in low for mark in SECRETISH):
+            continue
+        keep.append(rel)
+    return keep
+
+
+def list_project_files(match=None):
+    """The project's files, for an agent working out where to look."""
+    paths = project_files()
+    needle = str(match or "").strip().lower()
+    if needle:
+        paths = [p for p in paths if needle in p.lower()]
+    if not paths:
+        return "Nothing tracked matches that."
+    shown = paths[:FILE_LIST]
+    more = len(paths) - len(shown)
+    return ("\n".join(shown)
+            + (f"\n…and {more} more; narrow it with `match`." if more else ""))
+
+
+def read_project_file(rel):
+    """One tracked file, by exact path.
+
+    **An allowlist lookup, not path arithmetic.** The path has to appear
+    verbatim in `git ls-files`, so `../` and absolute paths and symlinks out of
+    the tree all simply fail to match — there is no traversal to defend against
+    because nothing is joined until after the path is known to be one of ours.
+    """
+    rel = str(rel).strip().lstrip("./")
+    tracked = project_files()
+    if rel not in tracked:
+        near = [p for p in tracked if p.lower().endswith(rel.lower())][:5]
+        hint = ("\n\nDid you mean:\n" + "\n".join(near)) if near else ""
+        return (f"{rel} is not a file this app can read. It reads what the repo "
+                f"tracks, and nothing it ignores.{hint}")
+    full = os.path.join(REPO, rel)
+    if os.path.getsize(full) > 2_000_000:
+        return f"{rel} is too big to read here."
+    with open(full, errors="replace") as fh:
+        text = fh.read(FILE_CHARS + 1)
+    clipped = "\n\n[…truncated]" if len(text) > FILE_CHARS else ""
+    return f"{rel}:\n{text[:FILE_CHARS]}{clipped}"
+
+
 def open_document(wanted):
     """A task's detail, or any one catalogued document, as text for the agent.
 
@@ -790,6 +875,14 @@ def act(text, session="default"):
             continue
         if step.get("say") or step.get("done"):
             answer = str(step.get("say", "")).strip() or "Done."
+            # Only where the project was actually read. A turn about the records
+            # keeps whatever shape it chose (`PLT-ugtz`).
+            if "file" in used:
+                answer, dropped = without_code(answer)
+                if dropped:
+                    sys.stderr.write("  a reply quoted project source; the block "
+                                     "was removed before it was shown\n")
+                answer = answer or "Done."
             log.append({"role": "assistant", "content": json.dumps(step)})
             sha = commit_used(used) if changed else None
             pushed, note = push_after_commit() if sha else (False, None)
@@ -1118,6 +1211,29 @@ def push_after_commit():
         return False, "saved here, but it has not reached anyone else yet."
     return True, None
 
+
+
+def without_code(text):
+    """Fenced blocks out of an answer, replaced by a line that says why.
+
+    **The backstop to a prompt rule, for the turn that read the project**
+    (`PLT-ugtz`). The instruction not to quote is an instruction, and a model
+    that ignores it drops a wall of somebody's source into a phone screen. This
+    is mechanical and narrow: only fenced blocks, only on a turn that actually
+    read a project file, so an ordinary reply keeps its backticks and its ids.
+    """
+    out, fenced = [], False
+    dropped = False
+    for line in text.split("\n"):
+        if line.lstrip().startswith("```"):
+            if not fenced:
+                out.append("_(the code is in the repo, not repeated here)_")
+                dropped = True
+            fenced = not fenced
+            continue
+        if not fenced:
+            out.append(line)
+    return ("\n".join(out).strip(), dropped)
 
 
 def ask_model(log):

@@ -232,6 +232,30 @@ This is a records screen read in short glances, and the records are black on whi
 else they are read. Nothing here is a brand, and a theme switch would be the first thing in this
 app that was a preference rather than a record.
 
+## It reads the project, and never quotes it
+
+The chat can open a task's detail — and whatever else is in its folder — by task id, and it can
+read the project's own files to answer a question about them. `files` lists what is there,
+`file` reads one.
+
+**What it may read is what the repo tracks** (`DEC-063`). `git ls-files` is the boundary:
+tracked means committed, and a commit already reaches every teammate and the remote, so reading
+it through the app discloses nothing the repo was keeping. Everything gitignored is outside it
+by construction — `llmeep/.env`, which holds your model key, first among them — rather than by a
+denylist somebody has to keep correct. A path is matched verbatim against that set, so `../`
+and absolute paths fail by not matching rather than by being caught. A second check refuses
+anything whose name reads like a credential.
+
+**It reads to answer, not to quote.** A phone is not where anyone reads source, and the person
+asking may not be a developer: the reply says what the code does and where it lives, never what
+it says. On a turn that read a project file, fenced blocks are stripped from the answer and
+replaced by a line pointing at the repo — a backstop, because the rule itself is a prompt
+instruction.
+
+**It cannot write them.** `WRITABLE` is unchanged: three record trees, through verbs. A file
+that has just been written and not committed is not readable either, which is correct and will
+surprise somebody.
+
 ## It is a wrapper, not a second implementation
 
 One text box takes anything — a thought, a call transcript, a question, a correction — and the
