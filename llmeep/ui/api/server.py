@@ -168,7 +168,16 @@ TOOLS = {
 }
 
 # Tools that change nothing, so a turn using only these commits nothing.
-READ_ONLY = {"board", "audience", "notes", "find", "why"}
+READ_ONLY = {"board", "audience", "notes", "find", "why", "open"}
+
+# **Tools this app answers itself.** Every other entry shells out to `tm` or
+# `nm`, because every other entry is a records verb and `DEC-003` keeps those in
+# the executables. These three read — a catalogued document, the list of tracked
+# files, one tracked file — and none of them is a thing a skill does, so there
+# is no executable to defer to (`PLT-3say`, `PLT-ugtz`).
+LOCAL = {
+    "open": lambda a: open_document(a["id"]),
+}
 # An agenda used to be gitignored whatever happened to it, so a turn that only
 # touched one committed nothing. It is a record now and a shared one lives in
 # the repo (`PLT-49p8`), so writing one commits like anything else — and a
@@ -254,6 +263,8 @@ TOOL_ARGS = {
               '{"title": "..."} starts one; omit both to read them all back',
 
     "find": '{"term": "..."}', "why": '{"term": "..."}',
+    "open": '{"id": "PLT-… for that task\'s detail, or a document id this tool '
+            'gave you"}  reads a detail and lists what else its folder holds',
     "add": '{"title": "...", "ledger": "platform|business", "prioritise": bool}',
     "label": '{"id": "PLT-… or NTE-…", "labels": ["ulster", "reporting"]}',
     "unlabel": '{"id": "PLT-… or NTE-…", "labels": ["ulster"]}',
@@ -392,6 +403,11 @@ UNBROWSED = "Task details"
 # What renders in place, and what is offered as a download. Everything is
 # served; the only question is whether a browser can show it (`PLT-6yjz`).
 INLINE_KINDS = ("text", "table", "image", "pdf")
+
+# How much of a document reaches the model. A detail is a page; a spec in a
+# folder can be much longer, and a turn that spends its whole context on one
+# attachment has nothing left to answer with.
+DOC_CHARS = 12000
 
 # A blank form is not a document. `_template.md` and `domain-template.md` are
 # there to be copied, and listing them offers a reader "<EntityName>" as though
@@ -596,6 +612,53 @@ def locate(doc_id):
     return entry, full
 
 
+def open_document(wanted):
+    """A task's detail, or any one catalogued document, as text for the agent.
+
+    **The catalogue is still the boundary** — this takes an id and looks it up,
+    exactly as `read_doc` does, so it can only ever open what `catalogue()`
+    chose. A task id is resolved through the board to the detail's path and then
+    through the catalogue, so even that route ends at the same list (`PLT-3say`).
+
+    The chat could say a task had a detail and had no way to read it, which made
+    "what does the spec say about X" a question only a terminal could answer.
+    """
+    wanted = str(wanted).strip()
+    docs = catalogue()
+    row = next((d for d in docs if d["id"] == wanted), None)
+
+    if row is None and ID_RE.match(wanted):
+        board = json.loads(tm("board", "--json"))["ledgers"]
+        task = next((t for s in board.values() for rows in s.values()
+                     for t in rows if t.get("id", "").lower() == wanted.lower()), None)
+        if task is None:
+            raise RuntimeError(f"no task {wanted} on the board")
+        if not task.get("detail"):
+            return f"{task['id']} has no detail. `tm detail {task['id']}` starts one."
+        row = next((d for d in docs if d.get("path") == task["detail"]), None)
+        if row is None:
+            raise RuntimeError(f"{task['id']} names a detail that is not there")
+
+    if row is None:
+        raise RuntimeError(f"nothing here with the id {wanted!r}")
+
+    kids = [d for d in docs if d.get("parent") == row["id"]]
+    if row.get("kind") not in ("text", "table"):
+        # An image or a PDF has nothing to hand a model. Named rather than
+        # silently skipped, so the agent can say what is there.
+        head = f"{row['title']} is a {row.get('kind', 'file')} and cannot be read here."
+    else:
+        _, full = locate(row["id"])
+        with open(full, errors="replace") as fh:
+            head = without_frontmatter(fh.read())[:DOC_CHARS]
+
+    if kids:
+        head += "\n\nAlso in this folder, each openable by its id:\n"
+        head += "\n".join(f"- {k['title']} ({k.get('kind', 'file')}) — id {k['id']}"
+                           for k in kids)
+    return head
+
+
 def read_doc(doc_id):
     """Open one catalogued document. The catalogue is rebuilt and the id looked
     up in it, so an id that is not on the list opens nothing."""
@@ -767,8 +830,20 @@ def run_tool(name, args):
     """Validate, then run. Nothing here trusts what came back from the model:
     the tool must be in the table, and any id must look like an id before it
     reaches a subprocess that never sees a shell."""
-    if name not in TOOLS:
+    if name not in TOOLS and name not in LOCAL:
         raise RuntimeError(f"not a tool this app has: {name}")
+    if name == "open":
+        # Not run through `ID_RE` below: this one also takes a catalogue id,
+        # which is a hash and not a record id. The lookup is the check.
+        args["id"] = str(args.get("id", "")).strip()
+        if not args["id"]:
+            raise RuntimeError("open needs an id")
+        return open_document(args["id"])
+    if name in LOCAL:
+        for key in ("path", "match"):
+            if key in args and args[key] is not None:
+                args[key] = str(args[key]).strip()
+        return LOCAL[name](args)
     for key in ("id", "after"):
         if key in args and args[key] is not None:
             tid = str(args[key]).strip()

@@ -19,9 +19,11 @@ PLT-hrpu An agenda holds nothing the repo keeps — decide whether it should exi
 PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; use typeable() so they stay typeable  filed:2026-09-12
 PLT-uqet The agenda tab lists past agendas and hands a new one to the agent  detail  filed:2026-09-23
 PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
+PLT-ugtz The chat reads the project to answer, and never quotes it back  filed:2026-10-08
 
 ## recent
 
+2026-10-08  PLT-3say The chat can open a task's detail and what its folder holds  @stewart
 2026-10-07  PLT-tdub Labels can be added and taken off from the app  @stewart
 2026-10-07  PLT-ccjj A detail closes with a back arrow where you expect one  @stewart
 2026-10-07  PLT-zcef A refetch never clears what you were typing or closes what you had open  @stewart
@@ -36,4 +38,3 @@ PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
 2026-10-07  PLT-wbhb Labels in use sit under the section filters, one tap to narrow the board  @stewart
 2026-10-07  PLT-gtsv A tab's result count is right before you open the tab  @stewart
 2026-10-07  PLT-zvdu A detail opens on what is outstanding, not on the top of the file  @stewart
-2026-10-06  PLT-n4wq A label term matches that label, not every label containing it  @stewart
