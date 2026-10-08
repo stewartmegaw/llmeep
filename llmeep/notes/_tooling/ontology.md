@@ -107,6 +107,13 @@ NTE-shmy  Acme want SSO before they will renew            src:acme-call  #renewa
 NTE-enu9  Sam owns the Stripe migration end to end        src:acme-call  #billing
 ```
 
+**`tm done` says which note a task answered** (`PLT-s7kh`). It names it and names `nm prune`,
+and removes nothing: `prune` is the only thing that deletes a note, and it lists what it would
+take before it takes anything. `drop` had named the note it orphaned since `PLT-f5e9` while
+`done` said nothing at all, so a note whose idea had shipped sat in the archive until somebody
+happened to run `prune` — one idea in two ledgers, which is the state this whole section exists
+to end.
+
 **A promoted note is removed once its task ships** — from the window and from `history.tsv`.
 Until then it stays: a task can be parked or dropped, and the note is the only record the idea
 existed. Once the task has a permanent row of its own, the note is a second record of one idea,

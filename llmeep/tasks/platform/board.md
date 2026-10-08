@@ -2,7 +2,6 @@
 
 ## in progress
 
-PLT-s7kh Completing a task says which note it resolved    @stewart  filed:2026-10-08
 
 ## prioritised
 
@@ -24,6 +23,7 @@ PLT-dz2x Marking a task done asks in the chat whether to clear its note  filed:2
 
 ## recent
 
+2026-10-08  PLT-s7kh Completing a task says which note it resolved  @stewart
 2026-10-08  PLT-sna3 nm promote refused the flags it forwards to tm add  @stewart
 2026-10-08  PLT-rfvs A note shows its id, the way a task does  @stewart
 2026-10-08  PLT-vwkw The chat can see which labels are in use  @stewart
@@ -38,4 +38,3 @@ PLT-dz2x Marking a task done asks in the chat whether to clear its note  filed:2
 2026-10-07  PLT-dtbn The app says what happened to the records, not what happened in git  @stewart
 2026-10-07  PLT-tphn Labels read as quieter than the sections they sit under  @stewart
 2026-10-07  PLT-wwyc Filing sits beside reload in the header, and says Add  @stewart
-2026-10-07  PLT-5gfc A label keeps the same colour everywhere it appears  @stewart

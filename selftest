@@ -3852,6 +3852,55 @@ class TestBoardExport(Fixture):
             self.assertEqual(fh.read(), before, "board --json wrote to the board")
 
 
+class TestResolvedNote(Fixture):
+    """`PLT-s7kh`. `drop` has named the note it orphaned since `PLT-f5e9`;
+    `done` said nothing at all, so a note whose idea had shipped sat in the
+    archive until somebody happened to run `prune` — one idea in two ledgers,
+    which is what `DEC-023` exists to stop."""
+
+    def a_repo(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        return top
+
+    def promoted(self, top):
+        self.nm(top, "add", "Ticket sales feed should be listened to")
+        nid = json.loads(self.nm(top, "notes", "--json").stdout)["notes"][0]["id"]
+        out = self.nm(top, "promote", nid, "-n")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        tid = re.search(r"PLT-[a-z0-9]+", out.stdout).group(0)
+        return nid, tid
+
+    def test_done_names_the_note_and_the_verb_that_clears_it(self):
+        top = self.a_repo()
+        nid, tid = self.promoted(top)
+        self.tm(top, "go", tid)
+        said = self.tm(top, "done", tid).stdout
+        self.assertIn(nid, said, f"the note was not named:\n{said}")
+        self.assertIn("nm prune", said)
+
+    def test_it_removes_nothing(self):
+        """Named, not removed. `prune` is the only thing that deletes a note and
+        it shows what it would take first; taking a record away as a side effect
+        of a different verb is not a trade this makes."""
+        top = self.a_repo()
+        nid, tid = self.promoted(top)
+        self.tm(top, "go", tid)
+        self.tm(top, "done", tid)
+        still = json.loads(self.nm(top, "notes", "--json").stdout)["notes"]
+        self.assertEqual([n["id"] for n in still], [nid], "done removed the note")
+        self.assertTrue(still[0]["shipped"], "the note should read as shipped")
+
+    def test_a_task_with_no_note_behind_it_says_nothing(self):
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "Filed straight in").stdout.strip()
+        self.tm(top, "go", tid)
+        said = self.tm(top, "done", tid).stdout
+        self.assertNotIn("nm prune", said)
+        self.assertNotIn("NTE-", said)
+
+
 class TestPromoteForwardsFlags(Fixture):
     """`PLT-sna3`, a regression I shipped. `promote` hands its remaining
     arguments straight to `tm add`, so `-b`, `-n` and `-f` have always been part

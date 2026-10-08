@@ -2786,6 +2786,19 @@ def cmd_done(args):
         who = f" · {task.assignee}" if task.assignee else ""
         print(f"  {ledger}{who} · {task.done_on}"
               + (f" · {sent} sent" if sent else ""))
+        # **Say which note this resolved** (`PLT-s7kh`). `drop` has named the
+        # note it orphaned since `PLT-f5e9`; `done` said nothing, so a note
+        # whose idea had shipped sat in the archive until somebody happened to
+        # run `prune` — one idea in two ledgers, which is what `DEC-023` exists
+        # to stop. Named, not removed: `prune` is the only thing that deletes a
+        # note, it shows what it would do before it does it, and taking a
+        # record away as a side effect of a different verb is not a trade this
+        # makes.
+        resolved = note_pointing_at(task.id)
+        if resolved:
+            print(f"\n  this came from {resolved}, so that note is answered now"
+                  f"\n  `nm prune` removes it — it lists what it would take before "
+                  "it takes anything")
         print(f'\n  commit with:  closes {task.id}')
         # The one moment worth saying this unasked: board, history and code are
         # about to land together, so by construction the session is holding
