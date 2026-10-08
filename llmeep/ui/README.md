@@ -173,6 +173,22 @@ titles are loaded until you open one. No request is made — a round trip to ask
 records it has already sent would be slower, would fail offline, and would need a verb that does
 not exist.
 
+## A task opens as a sheet
+
+Tapping a row opens it — full screen where there is no room beside it, a panel where there is,
+and a back arrow either way. Everything the task can do is a row of buttons above the title, and
+the row on the board keeps only the handle that reorders it.
+
+The verbs used to sit behind a `⋯` on every row, which is three taps to close a task and a menu
+that has to be opened before it says what is in it. A row is for scanning; the sheet is for
+acting.
+
+Labels are edited in place, as an autocomplete over the labels already in use — picking an
+existing word is the whole mitigation for a vocabulary with no registry (`DEC-062`), and typing
+is what you do when none of them fits. The change is held until **Save label changes**, because
+an autocomplete that wrote on every keystroke would file a label for every prefix of the word
+you were typing.
+
 ## Labels are chips, and a chip is a filter
 
 A record's labels sit with the other things its line says about itself, drawn dashed so they

@@ -22,6 +22,7 @@ PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
 
 ## recent
 
+2026-10-08  PLT-m4p2 A task opens as a sheet: its verbs are buttons and its labels are inline  @stewart
 2026-10-08  PLT-ugtz The chat reads the project to answer, and never quotes it back  @stewart
 2026-10-08  PLT-3say The chat can open a task's detail and what its folder holds  @stewart
 2026-10-07  PLT-tdub Labels can be added and taken off from the app  @stewart
@@ -36,4 +37,3 @@ PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
 2026-10-07  PLT-bu43 A reply is not a system notice: the transcript stops being a wall of tinted boxes  @stewart
 2026-10-07  PLT-henh The header is the search box; filing moves into the board it files into  @stewart
 2026-10-07  PLT-wbhb Labels in use sit under the section filters, one tap to narrow the board  @stewart
-2026-10-07  PLT-gtsv A tab's result count is right before you open the tab  @stewart

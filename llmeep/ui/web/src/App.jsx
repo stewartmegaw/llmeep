@@ -1,6 +1,6 @@
 import React from 'react'
 import {
-  Alert, AppBar, Box, Button, Checkbox, Chip, CircularProgress, Container, Dialog,
+  Alert, AppBar, Autocomplete, Box, Button, Checkbox, Chip, CircularProgress, Container, Dialog,
   DialogActions, DialogContent, DialogTitle, Divider, IconButton, List, ListItem,
   ListItemButton, ListItemText, Menu, MenuItem, Paper, Snackbar, Stack, Tab, Tabs, TextField,
   Toolbar, Typography, useMediaQuery, useTheme,
@@ -68,6 +68,19 @@ const TWO_COLUMNS = 'md'
 // ripple and the hover circle came out 25 wide by 34 high with a 50% radius.
 // Squared here rather than per button, because there are seven of them and the
 // eighth would be the one that got missed (`PLT-4spu`).
+// The board's current copy of a task, by id. The sheet holds the one it was
+// opened with; after a write the board is refetched and this is how the sheet
+// sees the result without being closed and opened again (`PLT-m4p2`).
+function fresh(board, id) {
+  for (const sections of Object.values(board || {})) {
+    for (const [key] of SECTIONS) {
+      const found = (sections[key] || []).find((t) => t.id === id)
+      if (found) return { ...found, section: key }
+    }
+  }
+  return null
+}
+
 const GLYPH = { width: 34, height: 34 }
 
 export default function App() {
@@ -118,6 +131,11 @@ export default function App() {
   const [detail, setDetail] = React.useState(null)
   // The record whose labels are being edited — a task or a note, since a label
   // means the same thing on both and `tool_for` picks the subsystem by id.
+  // The task whose sheet is open. Re-read from the board on every render so
+  // a label saved inside it is reflected without closing and reopening.
+  const [opened, setOpened] = React.useState(null)
+  // Notes keep the small editor: a note has no sheet, and its row already
+  // carries the two verbs it has.
   const [labelling, setLabelling] = React.useState(null)
   // How much room the composer is taking, so nothing ends up underneath it.
   // Measured rather than guessed: a long message grows it.
@@ -367,6 +385,9 @@ export default function App() {
   // the chip says and what `tm label` stores.
   const pickLabel = React.useCallback((name) => setQuery(`#${name}`), [])
 
+  // The open task as the board has it now, not as it was when it was tapped.
+  const live = opened && (fresh(board, opened.id) || opened)
+
   const fileTask = React.useCallback((title) => {
     const said = title.trim()
     if (!said) return
@@ -614,9 +635,7 @@ export default function App() {
         )}
         {tab === 'board' && shown && Object.entries(shown).map(([ledger, sections]) => (
           <Ledger key={ledger} name={ledger} sections={sections} off={off}
-                  docs={docs} onDetail={setDetail} onAsk={setAsking} onAct={runTool}
-                  onAgenda={ontoAgenda} agendas={agendas} onPickLabel={pickLabel}
-                  onLabels={setLabelling}
+                  onPickLabel={pickLabel} onOpen={setOpened}
                   busy={acting} drag={drag} onDrag={setDrag} onDrop={dropped} />
         ))}
       </Container>
@@ -635,6 +654,10 @@ export default function App() {
       )}
       <DetailSheet head={detail?.doc} task={detail?.task} docs={docs}
                    onClose={() => setDetail(null)} />
+      <TaskSheet task={live} section={live?.section} docs={docs} busy={acting}
+                 onClose={() => setOpened(null)} onAsk={setAsking} onAct={runTool}
+                 onAgenda={ontoAgenda} agendas={agendas} onDetail={setDetail}
+                 inUse={labelsInUse.map(([name]) => name)} onPickLabel={pickLabel} />
       <LabelEditor open={Boolean(labelling)} record={labelling} busy={acting}
                    inUse={labelsInUse.map(([name]) => name)}
                    onApply={runTool} onClose={() => setLabelling(null)} />
@@ -1231,7 +1254,7 @@ function Confirm({ asking, busy, onClose, onYes }) {
 
 // `off` holds the pills that have been switched off — a ledger name or a
 // section key. Empty means show everything, which is where it starts.
-function Ledger({ name, sections, off, docs, onDetail, onAsk, onAct, onAgenda, agendas, busy, drag, onDrag, onDrop, onPickLabel, onLabels }) {
+function Ledger({ name, sections, off, busy, drag, onDrag, onDrop, onPickLabel, onOpen }) {
   if (off.has(name)) return null
   const live = SECTIONS.filter(([key]) => !off.has(key) && sections[key]?.length)
   if (!live.length) return null
@@ -1246,10 +1269,9 @@ function Ledger({ name, sections, off, docs, onDetail, onAsk, onAct, onAgenda, a
           <List data-section={key} data-ledger={name} disablePadding
                 sx={{ border: 1, borderColor: 'divider', borderRadius: 2 }}>
             {sections[key].map((task, i) => (
-              <Task key={task.id} task={task} docs={docs} onDetail={onDetail}
-                    section={key} onAsk={onAsk} onAct={onAct} busy={busy}
-                    onAgenda={onAgenda} agendas={agendas} onPickLabel={onPickLabel}
-                    onLabels={onLabels}
+              <Task key={task.id} task={task} section={key} busy={busy}
+                    onPickLabel={onPickLabel}
+                    onOpen={onOpen && ((t) => onOpen({ ...t, section: key }))}
                     drag={drag} onDrag={onDrag} onDrop={onDrop}
                     divider={i < sections[key].length - 1} />
             ))}
@@ -1298,16 +1320,7 @@ function Clip(props) {
   )
 }
 
-function Task({ task, docs, onDetail, section, onAsk, onAct, onAgenda, agendas, busy, drag, onDrag, onDrop, divider, onPickLabel, onLabels }) {
-  // **One button instead of four.** Every action but the drag handle lives
-  // behind it: four glyphs in a row on a phone are four small targets nobody
-  // can tell apart, and the row grew every time the board learned a verb. A
-  // menu also has room for words, so `↑` stops having to mean "prioritise".
-  const [menu, setMenu] = React.useState(null)
-  // The second menu: which agenda. Only when there is a choice to make — with
-  // one open, asking which would be a question with a single answer.
-  const [which, setWhich] = React.useState(null)
-  const pick = (go) => () => { setMenu(null); setWhich(null); go() }
+function Task({ task, section, busy, drag, onDrag, onDrop, divider, onPickLabel, onOpen }) {
   // **Pointer events, not HTML5 drag.** `dragstart` never fires on touch, and
   // this screen is a phone first. Dragging begins on the handle only, so a drag
   // never competes with scrolling the board with a thumb (`PLT-4spu`).
@@ -1354,108 +1367,29 @@ function Task({ task, docs, onDetail, section, onAsk, onAct, onAgenda, agendas, 
   const line = drag && drag.over?.task === task.id && drag.id !== task.id
     ? (drag.over.below ? 'bottom' : 'top') : null
 
-  // The board's `detail` is a path; the catalogue's id is what opens it.
-  const head = task.detail && docs.find((d) => d.path === task.detail)
-  // Everything openable for this task: the detail itself, plus whatever else
-  // is in its folder. Never zero — the chip only exists when there is one.
-  const items = head ? 1 + docs.filter((d) => d.parent === head.id).length : null
   return (
     <ListItem divider={divider} alignItems="flex-start" data-task-id={task.id}
+      onClick={onOpen ? () => onOpen(task) : undefined}
       sx={{ py: 1, opacity: held ? 0.4 : 1,
+            ...(onOpen && { cursor: 'pointer',
+                            '&:hover': { bgcolor: 'action.hover' } }),
             ...(line && { [`border${line === 'top' ? 'Top' : 'Bottom'}`]: 2,
                           borderColor: 'primary.main' }) }}
-      secondaryAction={onAsk && (
-        <Stack direction="row" spacing={0.25} alignItems="center">
-          {/* **Only the queue.** Dragging is for arranging an order, and the
-              queue is the only section that has one — the pool is unordered by
-              definition (`DEC-027`) and work in progress is neither. */}
-          {onDrag && section === 'prioritised' && (
-            <Box component="span" aria-label={`Move ${task.id}`} role="button"
-                 onPointerDown={grab} onPointerMove={move}
-                 onPointerUp={let_go} onPointerCancel={let_go}
-                 sx={{ ...GLYPH, cursor: 'grab', color: 'text.disabled',
-                       display: 'inline-flex', alignItems: 'center',
-                       justifyContent: 'center', touchAction: 'none',
-                       userSelect: 'none', fontSize: 18, lineHeight: 1 }}>
-              <span aria-hidden>⠿</span>
-            </Box>
-          )}
-          <IconButton size="small" disabled={busy} sx={GLYPH}
-                      aria-label={`What can be done with ${task.id}`}
-                      aria-haspopup="menu"
-                      onClick={(e) => setMenu(e.currentTarget)}>
-            <span aria-hidden style={{ fontSize: 17, lineHeight: 1 }}>⋯</span>
-          </IconButton>
-          <Menu anchorEl={menu} open={Boolean(menu)} onClose={() => setMenu(null)}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
-            {/* **A section is a click, not a drag.** Up ranks it, down returns
-                it to the pool. Neither asks first: both are cheap, and the
-                other one undoes it. */}
-            {section === 'backlog' && (
-              <MenuItem onClick={pick(() => onAct('prioritise', { id: task.id }))}>
-                Move to the queue
-              </MenuItem>
-            )}
-            {section === 'prioritised' && (
-              <MenuItem onClick={pick(() => onAct('park', { id: task.id }))}>
-                Back to the pool
-              </MenuItem>
-            )}
-            {/* An id and a title, because an agenda is read aloud and `PLT-5m8z`
-                on its own tells the room nothing. */}
-            {onAgenda && agendas?.length === 1 && (
-              <MenuItem onClick={pick(() =>
-                onAgenda(agendas[0].name, `- ${task.id} — ${task.title}`))}>
-                Add to the agenda
-              </MenuItem>
-            )}
-            {onAgenda && agendas?.length > 1 && (
-              <MenuItem onClick={(e) => setWhich(e.currentTarget)}>
-                Add to an agenda…
-              </MenuItem>
-            )}
-            {/* `done` closes a task from any open section, so this is on all of
-                them — the board is a list of things that are not finished, and
-                saying one is finished is the commonest thing anyone does to it. */}
-            {/* Not behind a confirmation: a label is cheap, reversible in the
-                same dialog, and tells nobody. `done` and `drop` are asked
-                about because they write history or destroy a record. */}
-            {onLabels && (
-              <MenuItem onClick={pick(() => onLabels(task))}>Labels…</MenuItem>
-            )}
-            <MenuItem onClick={pick(() => onAsk({
-              tool: 'done', args: { id: task.id }, verb: 'Mark done',
-              title: task.title,
-              body: 'Done, and the team is told.',
-            }))}>
-              Mark it done
-            </MenuItem>
-            {/* **Not on work in progress.** `drop` writes no history — the task
-                was never filed — so dropping something started would erase the
-                only record that anyone had touched it, including the commit
-                count that says how much is behind it (`DEC-047`). */}
-            {section !== 'in_progress' && (
-              <MenuItem onClick={pick(() => onAsk({
-                tool: 'drop', args: { id: task.id }, verb: 'Archive it',
-                title: task.title,
-                body: 'Archived, not deleted.',
-              }))}>
-                Archive it
-              </MenuItem>
-            )}
-          </Menu>
-          <Menu anchorEl={which} open={Boolean(which)} onClose={() => setWhich(null)}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
-            {(agendas || []).map((a) => (
-              <MenuItem key={a.name} onClick={pick(() =>
-                onAgenda(a.name, `- ${task.id} — ${task.title}`))}>
-                {a.title || a.name}
-              </MenuItem>
-            ))}
-          </Menu>
-        </Stack>
+      secondaryAction={onDrag && section === 'prioritised' && (
+        /* **The only icon left on a row** (`PLT-m4p2`). Dragging is for
+           arranging an order and the queue is the only section that has one
+           (`DEC-027`); every other verb moved into the sheet, because a row is
+           for scanning and a menu that must be opened before it says what is
+           in it is not. */
+        <Box component="span" aria-label={`Move ${task.id}`} role="button"
+             onPointerDown={grab} onPointerMove={move}
+             onPointerUp={let_go} onPointerCancel={let_go}
+             sx={{ ...GLYPH, cursor: 'grab', color: 'text.disabled',
+                   display: 'inline-flex', alignItems: 'center',
+                   justifyContent: 'center', touchAction: 'none',
+                   userSelect: 'none', fontSize: 18, lineHeight: 1 }}>
+          <span aria-hidden>⠿</span>
+        </Box>
       )}
     >
       <ListItemText
@@ -1468,37 +1402,6 @@ function Task({ task, docs, onDetail, section, onAsk, onAct, onAgenda, agendas, 
         primaryTypographyProps={{ sx: { lineHeight: 1.35, overflowWrap: 'anywhere' } }}
         secondary={
           <Box sx={{ mt: 0.25 }}>
-            {task.detail && (
-              // On its own line above the rest, and a button rather than a
-              // chip. Everything else on this card is a label describing the
-              // task; this is the one thing that does something, and it should
-              // not have to be told apart from four things that do not.
-              //
-              // It opens where you are — sending someone to another tab to read
-              // what they just tapped asks them to hold a place in their head
-              // and come back to it.
-              <Button
-                size="small" variant="outlined" startIcon={<Clip />}
-                disabled={!head}
-                onClick={head ? () => onDetail({ doc: head, task }) : undefined}
-                sx={{ mb: 1, textTransform: 'none', py: 0.25 }}
-              >
-                {items ? `Attachments ${items}` : 'Attachments'}
-              </Button>
-            )}
-            {/* **A chip on every row is not a signal.** Every pool task is
-                unassigned — `add` files them that way and `park` unassigns —
-                so "unassigned" was drawn on every line of a twenty-task
-                backlog, carrying nothing and costing each card a second row
-                of 32px chips. The three chips left are exceptions: somebody
-                owns this, somebody has worked on it, something is in its way.
-                They are worth seeing precisely because most rows have none,
-                which is only true once the constant one is gone (`PLT-2bbm`).
-
-                The id is not an exception — every task has one — so it is the
-                quietest thing on the card rather than a bordered chip at the
-                end of the row. It stays because people say it out loud and
-                type it at a terminal. */}
             <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap"
                    alignItems="center">
               <Box component="span"
@@ -1611,6 +1514,189 @@ function Turn({ turn }) {
         </Stack>
       )}
     </Box>
+  )
+}
+
+// A task, opened. **Everything it can do is a button above the title**
+// (`PLT-m4p2`).
+//
+// The verbs lived behind a `⋯` on every row, which is three taps to close a
+// task — open the menu, find the word, confirm — and a menu that has to be
+// opened before it says what is in it. A row is for scanning; this is for
+// acting, so the row keeps only the handle that reorders it and everything
+// else moved here.
+//
+// Full screen where there is no room beside it and a panel where there is: the
+// same `TWO_COLUMNS` the conversation pane uses, so the app has one answer to
+// "is this screen wide" rather than two.
+function TaskSheet({ task, docs, section, onClose, onAsk, onAct, onAgenda, agendas,
+                     onDetail, busy, inUse, onPickLabel }) {
+  const wide = useMediaQuery(useTheme().breakpoints.up(TWO_COLUMNS))
+  const [labels, setLabels] = React.useState([])
+  const [which, setWhich] = React.useState(null)
+  React.useEffect(() => { setLabels(task?.labels || []) }, [task?.id])
+  if (!task) return null
+
+  const head = task.detail && docs.find((d) => d.path === task.detail)
+  const extras = head ? docs.filter((d) => d.parent === head.id) : []
+  // Compared as sets, so reordering the chips is not a change to save.
+  const was = [...(task.labels || [])].sort().join(" ")
+  const now = [...labels].sort().join(" ")
+  const moved = was !== now
+
+  const act = (fn) => () => { fn(); onClose() }
+  const saveLabels = async () => {
+    const added = labels.filter((l) => !(task.labels || []).includes(l))
+    const gone = (task.labels || []).filter((l) => !labels.includes(l))
+    if (added.length) await onAct('label', { id: task.id, labels: added })
+    if (gone.length) await onAct('unlabel', { id: task.id, labels: gone })
+  }
+
+  return (
+    <Dialog open fullScreen={!wide} fullWidth maxWidth="sm" onClose={onClose}
+            scroll="paper">
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, pl: 0.5, pb: 1 }}>
+        <IconButton onClick={onClose} aria-label="Back to the board">
+          <span aria-hidden>←</span>
+        </IconButton>
+        <Box component="span" sx={{ fontFamily: 'ui-monospace, monospace',
+                                   fontSize: 13, color: 'text.disabled' }}>
+          {task.id}
+        </Box>
+      </DialogTitle>
+      <DialogContent dividers>
+        {/* Above the title, because they are why you opened it. */}
+        <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mb: 2 }}>
+          {section === 'backlog' && (
+            <Button size="small" variant="outlined" disabled={busy}
+                    sx={{ textTransform: 'none' }}
+                    onClick={act(() => onAct('prioritise', { id: task.id }))}>
+              Move to the queue
+            </Button>
+          )}
+          {section === 'prioritised' && (
+            <Button size="small" variant="outlined" disabled={busy}
+                    sx={{ textTransform: 'none' }}
+                    onClick={act(() => onAct('park', { id: task.id }))}>
+              Back to the pool
+            </Button>
+          )}
+          <Button size="small" variant="outlined" disabled={busy}
+                  sx={{ textTransform: 'none' }}
+                  onClick={act(() => onAsk({
+                    tool: 'done', args: { id: task.id }, verb: 'Mark done',
+                    title: task.title, body: 'Done, and the team is told.',
+                  }))}>
+            Mark it done
+          </Button>
+          {/* **Not on work in progress.** `drop` writes no history, so dropping
+              something started erases the only record anyone touched it,
+              commit count included (`DEC-047`). */}
+          {section !== 'in_progress' && (
+            <Button size="small" variant="outlined" color="inherit" disabled={busy}
+                    sx={{ textTransform: 'none' }}
+                    onClick={act(() => onAsk({
+                      tool: 'drop', args: { id: task.id }, verb: 'Archive it',
+                      title: task.title, body: 'Archived, not deleted.',
+                    }))}>
+              Archive it
+            </Button>
+          )}
+          {onAgenda && agendas?.length === 1 && (
+            <Button size="small" variant="outlined" disabled={busy}
+                    sx={{ textTransform: 'none' }}
+                    onClick={act(() => onAgenda(agendas[0].name,
+                                                `- ${task.id} — ${task.title}`))}>
+              Add to the agenda
+            </Button>
+          )}
+          {onAgenda && agendas?.length > 1 && (
+            <Button size="small" variant="outlined" disabled={busy}
+                    sx={{ textTransform: 'none' }}
+                    onClick={(e) => setWhich(e.currentTarget)}>
+              Add to an agenda…
+            </Button>
+          )}
+          <Menu anchorEl={which} open={Boolean(which)} onClose={() => setWhich(null)}>
+            {(agendas || []).map((a) => (
+              <MenuItem key={a.name} onClick={() => {
+                setWhich(null)
+                onAgenda(a.name, `- ${task.id} — ${task.title}`)
+                onClose()
+              }}>
+                {a.title || a.name}
+              </MenuItem>
+            ))}
+          </Menu>
+        </Stack>
+
+        <Typography sx={{ fontSize: '1.15rem', fontWeight: 600, lineHeight: 1.3,
+                          overflowWrap: 'anywhere', mb: 1 }}>
+          {task.title}
+        </Typography>
+        <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mb: 2.5 }}>
+          {task.assignee && <Chip size="small" label={`@${task.assignee}`} />}
+          {task.commits > 0 && (
+            <Chip size="small" color="success" variant="outlined"
+                  label={`${task.commits} commit${task.commits === 1 ? '' : 's'} in`} />
+          )}
+          {task.blocked_by && (
+            <Chip size="small" color="warning" variant="outlined" label="blocked" />
+          )}
+        </Stack>
+
+        {/* **Labels are edited where the task is, not in a dialog of its own.**
+            Picking from what exists is the whole mitigation for a vocabulary
+            with no registry (`DEC-062`), so the options are the labels already
+            in use and typing is what you do when none of them fits. Held until
+            you save, because an autocomplete that wrote on every keystroke
+            would file a label for every prefix of the word you were typing. */}
+        <Autocomplete
+          multiple freeSolo size="small" disabled={busy}
+          options={inUse || []}
+          value={labels}
+          onChange={(_, picked) => setLabels([...new Set(picked
+            .map((w) => String(w).trim().replace(/^#/, '').toLowerCase()
+              .replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 25))
+            .filter(Boolean))])}
+          renderTags={(value, getProps) => value.map((name, i) => {
+            const { fg, bg } = labelColour(name)
+            const { key, ...rest } = getProps({ index: i })
+            return <Chip key={key} {...rest} size="small" label={`#${name}`}
+                         sx={{ color: fg, bgcolor: bg, fontWeight: 500,
+                               border: '1px solid', borderColor: fg,
+                               '& .MuiChip-deleteIcon': { color: fg } }} />
+          })}
+          renderInput={(params) => (
+            <TextField {...params} label="Labels" placeholder="Add a label" />
+          )}
+        />
+        {moved && (
+          <Box sx={{ mt: 1.5 }}>
+            <Button size="small" variant="contained" disableElevation disabled={busy}
+                    onClick={saveLabels} sx={{ textTransform: 'none' }}>
+              Save label changes
+            </Button>
+            <Button size="small" disabled={busy} sx={{ textTransform: 'none', ml: 1 }}
+                    onClick={() => setLabels(task.labels || [])}>
+              Undo
+            </Button>
+          </Box>
+        )}
+
+        {head && (
+          <Box sx={{ mt: 3 }}>
+            <Divider sx={{ mb: 1.5 }} />
+            <Outstanding task={task} />
+            <Button size="small" variant="outlined" startIcon={<Clip />}
+                    onClick={() => onDetail({ doc: head, task })}
+                    sx={{ textTransform: 'none' }}>
+              {extras.length ? `Attachments ${1 + extras.length}` : 'Read the detail'}
+            </Button>
+          </Box>
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }
 
