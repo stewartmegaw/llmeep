@@ -169,7 +169,7 @@ TOOLS = {
 
 # Tools that change nothing, so a turn using only these commits nothing.
 READ_ONLY = {"board", "audience", "notes", "find", "why",
-             "open", "files", "file"}
+             "open", "files", "file", "labels"}
 
 # **Tools this app answers itself.** Every other entry shells out to `tm` or
 # `nm`, because every other entry is a records verb and `DEC-003` keeps those in
@@ -178,6 +178,7 @@ READ_ONLY = {"board", "audience", "notes", "find", "why",
 # is no executable to defer to (`PLT-3say`, `PLT-ugtz`).
 LOCAL = {
     "open": lambda a: open_document(a["id"]),
+    "labels": lambda a: labels_in_use(),
     "files": lambda a: list_project_files(a.get("match")),
     "file": lambda a: read_project_file(a["path"]),
 }
@@ -279,6 +280,8 @@ TOOL_ARGS = {
     "find": '{"term": "..."}', "why": '{"term": "..."}',
     "open": '{"id": "PLT-… for that task\'s detail, or a document id this tool '
             'gave you"}  reads a detail and lists what else its folder holds',
+    "labels": '{}  every label in use, with counts — read this before inventing '
+              'a new one, so the word that exists gets reused',
     "files": '{"match": "..."}  paths of the project\'s own files, filtered; '
              'omit match for all of them',
     "file": '{"path": "..."}  one of those files, to read',
@@ -347,6 +350,9 @@ def records_root():
 TOOL_PATHS = {"tm": ("tasks", "_tooling", "tm"), "nm": ("notes", "_tooling", "nm")}
 
 
+BANNER_RE = re.compile(r"\A\s*·[^\n]*\n?")
+
+
 def run_record_tool(tool, argv, stdin=None):
     """Run `tm` or `nm` in the mounted repo, optionally piping text in.
 
@@ -357,7 +363,13 @@ def run_record_tool(tool, argv, stdin=None):
                          capture_output=True, text=True, timeout=TIMEOUT)
     if out.returncode != 0:
         raise RuntimeError(explain(argv, out))
-    return out.stdout
+    # **The audience banner is not part of the answer** (`PLT-vwkw`). `tm`
+    # prints `· coder — bullets, not prose` above most commands, addressed to an
+    # agent reading a terminal. This app has its own prompt and asks about the
+    # audience with its own tool, so riding it in on every result hands the
+    # model an instruction it did not ask for, wearing the clothes of data.
+    # `--json` calls were already exempt inside `tm`; the bare ones are not.
+    return BANNER_RE.sub("", out.stdout, count=1).lstrip("\n")
 
 
 def tm(*args):
@@ -695,6 +707,23 @@ def read_project_file(rel):
         text = fh.read(FILE_CHARS + 1)
     clipped = "\n\n[…truncated]" if len(text) > FILE_CHARS else ""
     return f"{rel}:\n{text[:FILE_CHARS]}{clipped}"
+
+
+def labels_in_use():
+    """Every label on the records, with how many carry it.
+
+    **Counted by the executables, not here** (`DEC-003`). A bare `tm label` and
+    a bare `nm label` already do this — over both boards and the completed
+    history for one, over the archive for the other — so this runs them and puts
+    the two answers together rather than walking the records a third time.
+
+    The agent needs it for the reason a person does: the vocabulary has no
+    registry (`DEC-062`), so the only thing standing between `ulster` and
+    `ulsters` is that the word which already exists is the easier one to reach.
+    An agent that cannot see the list cannot reach for it (`PLT-vwkw`).
+    """
+    return (f"On tasks:\n{tm('label').strip()}\n\n"
+            f"On notes:\n{nm('label').strip()}")
 
 
 def open_document(wanted):
