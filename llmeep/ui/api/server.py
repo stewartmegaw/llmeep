@@ -1164,7 +1164,23 @@ def records_changed():
     return out or None
 
 
-def act_directly(name, args):
+NOTE_ID_RE = re.compile(r"NTE-[A-Za-z0-9]+")
+
+
+def resolved_note(said):
+    """The note a `done` just answered, from what `tm done` said.
+
+    **Read off our own tool's output, which is narrow enough to be safe**:
+    `done` prints exactly one `NTE-` id, and only when the task was promoted
+    from a note. The alternative is this app re-deriving which note points at
+    which task, which is `note_pointing_at` written a second time in a second
+    language — the thing `DEC-003` exists to prevent (`PLT-dz2x`).
+    """
+    found = NOTE_ID_RE.search(said or "")
+    return found.group(0) if found else None
+
+
+def act_directly(name, args, session=None):
     """One named verb, run, committed and pushed — the same ending a turn has.
 
     Reads are answered and nothing is committed for them, so tapping something
@@ -1185,8 +1201,27 @@ def act_directly(name, args):
         return {"said": said, "changed": False, "commit": None, "pushed": False, "note": None}
     sha = commit_used([name])
     pushed, note = push_after_commit() if sha else (False, None)
-    return {"said": said, "changed": bool(sha), "commit": sha,
-            "pushed": pushed, "note": note}
+    out = {"said": said, "changed": bool(sha), "commit": sha,
+           "pushed": pushed, "note": note}
+
+    # **A tap that answered a note asks about it, in the conversation**
+    # (`PLT-dz2x`). `done` names the note, but a tap has nowhere to say so —
+    # and the one place a yes or no is cheap is the box that is already there.
+    #
+    # The question goes into the session log as well as back to the screen,
+    # because otherwise the model never saw it and "yes" would arrive with
+    # nothing to agree to.
+    if name == "done":
+        nid = resolved_note(said)
+        if nid:
+            ask = (f"That answers {nid}, the note it came from. "
+                   "Shall I clear that note? Say yes and I will — the task keeps "
+                   "the record either way, and git keeps the note.")
+            if session is not None:
+                history_for(session).append(
+                    {"role": "assistant", "content": json.dumps({"say": ask, "done": True})})
+            out["ask"] = ask
+    return out
 
 
 def push_after_commit():
@@ -1534,7 +1569,8 @@ class Handler(BaseHTTPRequestHandler):
                 args = sent.get("args") or {}
             except Exception:                          # noqa: BLE001
                 return self.send_json(400, {"error": 'send {"tool": "...", "args": {…}}'})
-            return self.send_json_from(lambda: act_directly(name, args))
+            session = str(sent.get("session", "default"))[:64] or "default"
+            return self.send_json_from(lambda: act_directly(name, args, session))
         if path != "/api/intent":
             return self.send_json(404, {"error": "nothing here"})
         try:

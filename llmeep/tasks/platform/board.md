@@ -19,10 +19,10 @@ PLT-hrpu An agenda holds nothing the repo keeps — decide whether it should exi
 PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; use typeable() so they stay typeable  filed:2026-09-12
 PLT-uqet The agenda tab lists past agendas and hands a new one to the agent  detail  filed:2026-09-23
 PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
-PLT-dz2x Marking a task done asks in the chat whether to clear its note  filed:2026-10-08
 
 ## recent
 
+2026-10-08  PLT-dz2x Marking a task done asks in the chat whether to clear its note  @stewart
 2026-10-08  PLT-s7kh Completing a task says which note it resolved  @stewart
 2026-10-08  PLT-sna3 nm promote refused the flags it forwards to tm add  @stewart
 2026-10-08  PLT-rfvs A note shows its id, the way a task does  @stewart
@@ -37,4 +37,3 @@ PLT-dz2x Marking a task done asks in the chat whether to clear its note  filed:2
 2026-10-07  PLT-xs33 The board refreshes when you come back to the tab, and the reload button goes  @stewart
 2026-10-07  PLT-dtbn The app says what happened to the records, not what happened in git  @stewart
 2026-10-07  PLT-tphn Labels read as quieter than the sections they sit under  @stewart
-2026-10-07  PLT-wwyc Filing sits beside reload in the header, and says Add  @stewart

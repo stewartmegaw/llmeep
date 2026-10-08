@@ -3901,6 +3901,62 @@ class TestResolvedNote(Fixture):
         self.assertNotIn("NTE-", said)
 
 
+class TestDoneAsksAboutTheNote(Fixture):
+    """`PLT-dz2x`. `tm done` names the note a task answered, but a tap on the
+    board has nowhere to say so — and the one place a yes or no is cheap is the
+    box that is already there."""
+
+    DRIVER = """import json, os, sys
+sys.path.insert(0, os.path.join(sys.argv[1], "llmeep", "ui", "api"))
+import server
+out = server.act_directly(sys.argv[2], json.loads(sys.argv[3]), "s1")
+print(json.dumps({"out": out, "log": server.history_for("s1")}))
+"""
+
+    def a_repo(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "-c", "user.name=t", "-c", "user.email=t@t",
+           "commit", "-qm", "adopt", cwd=top)
+        return top
+
+    def tap(self, top, tool, args):
+        script = self.path("drive_done.py")
+        with open(script, "w") as fh:
+            fh.write(self.DRIVER)
+        env = dict(os.environ, LLMEEP_REPO=top, LLMEEP_AUTH_HANDLED="yes")
+        out = sh(sys.executable, script, self.working_copy(), tool, json.dumps(args),
+                 cwd=top, env=env)
+        self.assertTrue(out.stdout.strip(), out.stderr)
+        return json.loads(out.stdout.strip().split("\n")[-1])
+
+    def test_the_question_reaches_the_screen_and_the_model(self):
+        """Both, or neither is any use: shown only, and a `yes` arrives with
+        nothing to agree to; logged only, and nobody was asked."""
+        top = self.a_repo()
+        self.nm(top, "add", "Ticket sales feed should be listened to")
+        nid = json.loads(self.nm(top, "notes", "--json").stdout)["notes"][0]["id"]
+        tid = re.search(r"PLT-[a-z0-9]+",
+                        self.nm(top, "promote", nid, "-n").stdout).group(0)
+        self.tm(top, "go", tid)
+
+        got = self.tap(top, "done", {"id": tid})
+        self.assertIn("ask", got["out"], got["out"])
+        self.assertIn(nid, got["out"]["ask"])
+        self.assertTrue(any(nid in str(m.get("content")) for m in got["log"]),
+                        f"the model never saw the question: {got['log']}")
+
+    def test_a_task_with_no_note_asks_nothing(self):
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "Filed straight in").stdout.strip()
+        self.tm(top, "go", tid)
+        got = self.tap(top, "done", {"id": tid})
+        self.assertNotIn("ask", got["out"], got["out"])
+        self.assertEqual(got["log"], [], "nothing was asked, so nothing was logged")
+
+
 class TestPromoteForwardsFlags(Fixture):
     """`PLT-sna3`, a regression I shipped. `promote` hands its remaining
     arguments straight to `tm add`, so `-b`, `-n` and `-f` have always been part

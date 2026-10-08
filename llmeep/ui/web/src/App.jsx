@@ -134,6 +134,8 @@ export default function App() {
   // The task whose sheet is open. Re-read from the board on every render so
   // a label saved inside it is reflected without closing and reopening.
   const [opened, setOpened] = React.useState(null)
+  // A question a tap raised, waiting to be put in the conversation.
+  const [asked, setAsked] = React.useState(null)
   // Notes keep the small editor: a note has no sheet, and its row already
   // carries the two verbs it has.
   const [labelling, setLabelling] = React.useState(null)
@@ -231,13 +233,16 @@ export default function App() {
       const r = await fetch(`${BASE}/api/do`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tool, args }),
+        body: JSON.stringify({ tool, args, session: SESSION }),
       })
       if (!r.ok) throw new Error(`llmeep answered ${r.status}`)
       const d = await r.json()
       if (d.error) throw new Error(d.error)
       load()
       setNotesAt((n) => n + 1)
+      // Held rather than shown here: `conversation` is built further down, and
+      // an effect below hands it over once it exists.
+      if (d.ask) setAsked(d.ask)
       // `note` is how a commit says it did not reach anybody else (`DEC-053`),
       // and is worth showing for a tap exactly as it is for a turn.
       if (d.note) setFlash(d.note)
@@ -384,6 +389,18 @@ export default function App() {
   // box rather than a filter of its own. `#` is included because that is what
   // the chip says and what `tm label` stores.
   const pickLabel = React.useCallback((name) => setQuery(`#${name}`), [])
+
+  // **A tap can start a conversation.** Marking something done from the board
+  // can answer a note, and the only cheap place to settle that is the box that
+  // is already there — so the question goes into the transcript and the reader
+  // answers it in words (`PLT-dz2x`). On a phone the chat is a tab, so it comes
+  // forward; on a wide screen the pane is always there and nothing moves.
+  React.useEffect(() => {
+    if (!asked) return
+    conversation.say(asked)
+    if (!wide && canWrite) setTab('chat')
+    setAsked(null)
+  }, [asked, conversation, wide, canWrite])
 
   // The open task as the board has it now, not as it was when it was tapped.
   const live = opened && (fresh(board, opened.id) || opened)
@@ -833,7 +850,14 @@ function useConversation(onDone, updatedAt) {
 
   const send = React.useCallback(() => sendText(text), [sendText, text])
 
-  return { text, setText, busy, turns, send, sendText, clear: () => setTurns([]) }
+  // Put a turn in the transcript that did not come from a round trip. The
+  // server has already put the same words in the session log, so the model
+  // sees what the reader sees and a "yes" has something to agree to.
+  const say = React.useCallback((t) => {
+    setTurns((all) => [...all, { who: 'llmeep', text: t }])
+  }, [])
+
+  return { text, setText, busy, turns, send, sendText, say, clear: () => setTurns([]) }
 }
 
 // The exchange. Scrolls itself to the newest turn, because a reply you have to

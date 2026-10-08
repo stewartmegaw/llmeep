@@ -173,6 +173,20 @@ titles are loaded until you open one. No request is made — a round trip to ask
 records it has already sent would be slower, would fail offline, and would need a verb that does
 not exist.
 
+## A tap can start a conversation
+
+Marking a task done can answer the note it came from, and a tap has nowhere to say so. So the
+question goes into the transcript — *that answers NTE-xxxx; shall I clear it?* — and you answer
+in words. On a phone the chat comes forward; on a wide screen the pane is already there and
+nothing moves.
+
+The question is written into the session log as well as onto the screen. Shown only, and a
+`yes` would arrive with nothing to agree to; logged only, and nobody was asked.
+
+Nothing is removed by the asking, and nothing is removed by `done`. The task carries the record
+either way and git keeps the note regardless — `DEC-023` is about one idea not sitting in two
+ledgers, not about losing it.
+
 ## A task opens as a sheet
 
 Tapping a row opens it — full screen where there is no room beside it, a panel where there is,
