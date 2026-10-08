@@ -804,7 +804,7 @@ function useConversation(onDone, updatedAt) {
       .then((d) => {
         setTurns((t) => [...t, d.error
           ? { who: 'error', text: d.error }
-          : { who: 'llmeep', text: d.answer, used: d.used, changed: d.changed,
+          : { who: 'llmeep', text: d.answer, changed: d.changed,
               // Saved and shared, or just saved. With no remote there is no
               // team to have reached, and claiming one would be a lie dressed
               // as reassurance (`PLT-dtbn`).
@@ -1482,19 +1482,23 @@ function Turn({ turn }) {
                  overflowWrap: 'anywhere', lineHeight: 1.55 }}>
         <Markdown text={turn.text} />
       </Box>
-      {/* **What it did, under what it said, in words rather than a colour.**
-          The tint used to carry this: green meant the records changed, amber
-          that a commit had not pushed. Colour cannot say *which* of those it
-          is, and a reader has to learn the code before it means anything — so
-          it is a line now, and the verbs stay chips. `PLT-xxcu` is why the
-          unpushed case is worth saying at all: a change that committed and did
+      {/* **Only where something changed, and only in words.**
+          The verbs the turn used were chips here — `board`, `detail`, `label` —
+          which made the boundary visible to whoever already knew the verbs, and
+          meant nothing to the person this screen is for. On a turn that only
+          read, they were a row of jargon under an answer that had not touched
+          anything (`PLT-2cht`). The reply already says what it did; this says
+          only the thing the reply cannot know, which is whether it is anywhere
+          but here.
+
+          The tint used to carry that: green meant the records changed, amber
+          that a commit had not pushed. Colour cannot say which, and a reader
+          has to learn the code before it means anything. `PLT-xxcu` is why the
+          unpushed case is worth saying at all — a change that committed and did
           not push is neither a failure nor a success. */}
-      {(turn.changed || turn.note || turn.used?.length > 0) && (
+      {(turn.changed || turn.note) && (
         <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap"
                alignItems="center" sx={{ mt: 1.25 }}>
-          {(turn.used || []).map((u, i) => (
-            <Chip key={i} size="small" variant="outlined" label={u} />
-          ))}
           {/* **What happened to the records, not what happened in git**
               (`PLT-dtbn`). "committed and pushed" names two git verbs for a
               change that reaches no build, to someone the whole app exists so

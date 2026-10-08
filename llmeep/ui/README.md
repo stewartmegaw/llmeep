@@ -231,11 +231,15 @@ Every reply used to be a MUI `Alert` tinted by severity, so an ordinary answer a
 like a system warning and the whole exchange was a wall of coloured boxes. `Alert` is now kept
 for the one thing that is actually a notice: an error.
 
-**What a turn did is said in words, under what it said, not carried by a colour.** Green meant
-the records changed and amber that a commit had not pushed — but a tint cannot say which it is,
-and a reader has to learn the code before it means anything. The verbs stay as chips beside it.
-That the unpushed case is worth naming at all is `PLT-xxcu`: a change that committed and did not
-push is neither a failure nor a success.
+**Only a turn that changed something says anything, and it says it in words.** The verbs a turn
+used were chips here — `board`, `detail`, `label` — which showed the boundary to whoever already
+knew the verbs and meant nothing to the person this screen is for; on a turn that only read they
+were a row of jargon under an answer that had touched nothing. The reply already says what it
+did, so this says only the part the reply cannot know: whether it is anywhere but here.
+
+Not carried by a colour either. Green meant the records changed and amber that a commit had not
+pushed, and a tint cannot say which it is. That the unpushed case is worth naming at all is
+`PLT-xxcu`: a change that committed and did not push is neither a failure nor a success.
 
 ## It is light
 
