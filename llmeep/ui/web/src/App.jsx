@@ -365,6 +365,7 @@ export default function App() {
   const startAgenda = React.useCallback(() => {
     if (!canWrite) return setNaming('')
     setTab('chat')
+    conversation.setDoing('Starting an agenda')
     conversation.setText('New agenda: ')
   }, [conversation, canWrite])
 
@@ -398,6 +399,7 @@ export default function App() {
   React.useEffect(() => {
     if (!asked) return
     conversation.say(asked)
+    conversation.setDoing('Clearing a note')
     if (!wide && canWrite) setTab('chat')
     setAsked(null)
   }, [asked, conversation, wide, canWrite])
@@ -410,6 +412,7 @@ export default function App() {
     if (!said) return
     setFiling(null)
     setTab('chat')
+    conversation.setDoing('Creating task')
     conversation.sendText(`New task: ${said}`)
   }, [conversation])
 
@@ -571,6 +574,8 @@ export default function App() {
       <Container maxWidth="sm" sx={{ px: 2 }}>
         {tab === 'chat' && (
           <Box sx={{ mt: 2 }}>
+            <Doing what={conversation.doing}
+                   onEnd={() => conversation.setDoing(null)} />
             <Transcript turns={conversation.turns} busy={conversation.busy}
                         onClear={conversation.clear}
                         empty="Ask anything — a thought, a transcript, a question." />
@@ -850,6 +855,14 @@ function useConversation(onDone, updatedAt) {
 
   const send = React.useCallback(() => sendText(text), [sendText, text])
 
+  // **What this exchange is in the middle of**, if anything (`PLT-mccf`). A
+  // process can start somewhere else on this screen — a dialog, a tap on the
+  // board — and finish here, and arriving in a transcript with no idea which
+  // of those you are answering is how a reply ends up meaning nothing. It is
+  // a headline, not a status: it says what is being done, and it clears when
+  // the doing stops.
+  const [doing, setDoing] = React.useState(null)
+
   // Put a turn in the transcript that did not come from a round trip. The
   // server has already put the same words in the session log, so the model
   // sees what the reader sees and a "yes" has something to agree to.
@@ -857,11 +870,36 @@ function useConversation(onDone, updatedAt) {
     setTurns((all) => [...all, { who: 'llmeep', text: t }])
   }, [])
 
-  return { text, setText, busy, turns, send, sendText, say, clear: () => setTurns([]) }
+  return { text, setText, busy, turns, send, sendText, say, doing, setDoing,
+           clear: () => { setTurns([]); setDoing(null) } }
 }
 
 // The exchange. Scrolls itself to the newest turn, because a reply you have to
 // scroll to find is one you will assume never came.
+// What this exchange is in the middle of, said once at the top of it.
+//
+// **A headline, not a status line** (`PLT-mccf`). It names the process a tap
+// started somewhere else and handed over — filing a task, clearing a note —
+// so a reader arriving in the transcript knows which question they are
+// answering. It sits where `saved for the team` used to be the only clue, and
+// that line said what had happened to a record rather than what was going on.
+function Doing({ what, onEnd }) {
+  if (!what) return null
+  return (
+    <Box sx={{
+      display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, px: 1.5, py: 0.75,
+      borderRadius: 2, bgcolor: 'action.hover',
+    }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 600, flexGrow: 1 }}>
+        {what}
+      </Typography>
+      <Button size="small" onClick={onEnd} sx={{ textTransform: 'none', minWidth: 0 }}>
+        Done
+      </Button>
+    </Box>
+  )
+}
+
 function Transcript({ turns, busy, onClear, empty }) {
   const tail = React.useRef(null)
   React.useEffect(() => {
@@ -970,6 +1008,7 @@ function ConversationPane({ conversation }) {
              borderTop: 0, borderRight: 0, borderBottom: 0,
            }}>
       <Box sx={{ flexGrow: 1, overflowY: 'auto', px: 2, pt: 1 }}>
+        <Doing what={conversation.doing} onEnd={() => conversation.setDoing(null)} />
         <Transcript turns={conversation.turns} busy={conversation.busy}
                     onClear={conversation.clear}
                     empty="Ask anything — a thought, a transcript, a question." />
@@ -1533,20 +1572,19 @@ function Turn({ turn }) {
           has to learn the code before it means anything. `PLT-xxcu` is why the
           unpushed case is worth saying at all — a change that committed and did
           not push is neither a failure nor a success. */}
-      {(turn.changed || turn.note) && (
+      {/* **Only when it did not reach anybody** (`PLT-mccf`). `saved for the
+          team` sat under every turn that wrote something, telling the reader
+          the ordinary thing had happened ordinarily — and the banner above the
+          exchange now says what is going on, which is the question that line
+          was badly answering.
+
+          The warning stays, because it is the half anyone can act on: a change
+          that committed and did not push is neither a failure nor a success
+          (`PLT-xxcu (The app commits but never pushes)`), and silence about it
+          would read as success. */}
+      {turn.note && (
         <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap"
                alignItems="center" sx={{ mt: 1.25 }}>
-          {/* **What happened to the records, not what happened in git**
-              (`PLT-dtbn`). "committed and pushed" names two git verbs for a
-              change that reaches no build, to someone the whole app exists so
-              that they never need a terminal. The ontology bounds git for them
-              to one question — is your project live — and a record going out is
-              not that question. */}
-          {turn.changed && !turn.note && (
-            <Typography variant="caption" color="success.main" sx={{ fontWeight: 600 }}>
-              {turn.pushed ? 'saved for the team' : 'saved'}
-            </Typography>
-          )}
           {turn.note && (
             <Typography variant="caption" color="warning.main" sx={{ fontWeight: 600 }}>
               {turn.note}
