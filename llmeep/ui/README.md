@@ -173,6 +173,18 @@ titles are loaded until you open one. No request is made — a round trip to ask
 records it has already sent would be slower, would fail offline, and would need a verb that does
 not exist.
 
+## A prompt typed during a turn waits its turn
+
+The box was disabled while a turn was in flight, so a thought you had while reading an answer
+had to be held in your head until the spinner stopped — and on a phone, where a turn can take a
+minute, it was usually lost. Typing now queues: the prompts show as dashed bubbles under the
+exchange, each with a way to take it back out, and they go in order as the turn ahead finishes.
+
+One turn at a time is still the constraint. The next message often depends on the answer, so
+these are never sent in parallel — queueing keeps the rule and drops the cost of it. Shown
+rather than swallowed, because a prompt that left the box and appeared nowhere reads as a send
+that failed, and the reader types it again.
+
 ## A tap can start a conversation
 
 Marking a task done can answer the note it came from, and a tap has nowhere to say so. So the

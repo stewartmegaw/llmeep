@@ -577,7 +577,8 @@ export default function App() {
             <Doing what={conversation.doing}
                    onEnd={() => conversation.setDoing(null)} />
             <Transcript turns={conversation.turns} busy={conversation.busy}
-                        onClear={conversation.clear}
+                        onClear={conversation.clear} queued={conversation.queued}
+                        onUnqueue={conversation.unqueue}
                         empty="Ask anything — a thought, a transcript, a question." />
           </Box>
         )}
@@ -794,6 +795,7 @@ function useConversation(onDone, updatedAt) {
   const [text, setText] = React.useState('')
   const [busy, setBusy] = React.useState(false)
   const [turns, setTurns] = React.useState([])
+  const [queued, setQueued] = React.useState([])
 
   // **Takes its text as an argument.** The composer is not the only thing that
   // starts a turn — a dialog does too, and filling the box and calling `send`
@@ -853,7 +855,32 @@ function useConversation(onDone, updatedAt) {
       .finally(() => setBusy(false))
   }, [busy, onDone])
 
-  const send = React.useCallback(() => sendText(text), [sendText, text])
+  // **A prompt typed during a turn waits its turn** (`PLT-ggg2`). The box was
+  // disabled while one was in flight, so a thought you had while reading an
+  // answer had to be held in your head until the spinner stopped — and on a
+  // phone, where a turn can take a minute, it was usually lost. One turn at a
+  // time is still a real constraint: the next message often depends on the
+  // answer, so these are sent in order and never in parallel.
+  const send = React.useCallback(() => {
+    const mine = text.trim()
+    if (!mine) return
+    if (busy) {
+      setQueued((q) => [...q, mine])
+      setText('')
+      return
+    }
+    sendText(text)
+  }, [sendText, text, busy])
+
+  // Sent from an effect rather than from the end of the request: `busy` is
+  // still true inside its own `finally`, and a send that fired there would be
+  // refused by the guard above.
+  React.useEffect(() => {
+    if (busy || !queued.length) return
+    const [next, ...rest] = queued
+    setQueued(rest)
+    sendText(next)
+  }, [busy, queued, sendText])
 
   // **What this exchange is in the middle of**, if anything (`PLT-mccf`). A
   // process can start somewhere else on this screen — a dialog, a tap on the
@@ -870,8 +897,13 @@ function useConversation(onDone, updatedAt) {
     setTurns((all) => [...all, { who: 'llmeep', text: t }])
   }, [])
 
-  return { text, setText, busy, turns, send, sendText, say, doing, setDoing,
-           clear: () => { setTurns([]); setDoing(null) } }
+  const unqueue = React.useCallback((i) => {
+    setQueued((q) => q.filter((_, at) => at !== i))
+  }, [])
+
+  return { text, setText, busy, turns, queued, unqueue, send, sendText, say,
+           doing, setDoing,
+           clear: () => { setTurns([]); setQueued([]); setDoing(null) } }
 }
 
 // The exchange. Scrolls itself to the newest turn, because a reply you have to
@@ -900,7 +932,36 @@ function Doing({ what, onEnd }) {
   )
 }
 
-function Transcript({ turns, busy, onClear, empty }) {
+// What is waiting to be sent. **Shown, or queueing is just swallowing**
+// (`PLT-ggg2`): a prompt that vanished from the box and appeared nowhere reads
+// as a send that failed, and the reader types it again.
+function Queued({ items, onDrop }) {
+  if (!items?.length) return null
+  return (
+    <Box sx={{ mt: 1 }}>
+      {items.map((t, i) => (
+        <Box key={i} sx={{ display: 'flex', justifyContent: 'flex-end', mb: 0.75 }}>
+          <Box sx={{
+            maxWidth: '85%', borderRadius: 3, borderTopRightRadius: 6,
+            px: 1.75, py: 0.75, border: 1, borderColor: 'divider',
+            borderStyle: 'dashed', display: 'flex', alignItems: 'center', gap: 0.5,
+          }}>
+            <Typography variant="body2" color="text.secondary"
+                        sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+              {t}
+            </Typography>
+            <IconButton size="small" aria-label="Take it out of the queue"
+                        onClick={() => onDrop(i)} sx={{ ...GLYPH, width: 24, height: 24 }}>
+              <span aria-hidden style={{ fontSize: 13, lineHeight: 1 }}>✕</span>
+            </IconButton>
+          </Box>
+        </Box>
+      ))}
+    </Box>
+  )
+}
+
+function Transcript({ turns, busy, onClear, empty, queued, onUnqueue }) {
   const tail = React.useRef(null)
   React.useEffect(() => {
     tail.current?.scrollIntoView({ block: 'end', behavior: 'smooth' })
@@ -922,6 +983,7 @@ function Transcript({ turns, busy, onClear, empty }) {
         </Button>
       </Box>
       {turns.map((t, i) => <Turn key={i} turn={t} />)}
+      <Queued items={queued} onDrop={onUnqueue} />
       {busy && (
         <Box sx={{ textAlign: 'center', py: 1 }}>
           <CircularProgress size={16} />
@@ -944,7 +1006,6 @@ function Composer({ conversation, onFocus }) {
         fullWidth multiline maxRows={6} size="small"
         placeholder="Hi"
         value={text}
-        disabled={busy}
         onFocus={onFocus}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
@@ -953,13 +1014,13 @@ function Composer({ conversation, onFocus }) {
           if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
         }}
       />
-      {/* Disabled, not spinning. One turn at a time is a real constraint — the
-          exchange is a conversation and the next message depends on the answer —
-          but two spinners for one wait says two things are happening. The one
-          above the input is where the answer will appear, so it is the one that
-          means anything; this button only has to stop being pressable
-          (`PLT-8rn6`). */}
-      <IconButton onClick={send} disabled={busy || !text.trim()}
+      {/* **Pressable while a turn runs**, because pressing it now queues
+          rather than competing (`PLT-ggg2`). It used to be disabled: one turn
+          at a time is a real constraint, and two spinners for one wait says two
+          things are happening — the one above the input is where the answer
+          appears, so it is the one that means anything (`PLT-8rn6`). Queueing
+          keeps the constraint and drops the cost of it. */}
+      <IconButton onClick={send} disabled={!text.trim()}
                   aria-label="Send" color="primary" sx={{ ...GLYPH, mb: 0.25 }}>
         <span aria-hidden>↑</span>
       </IconButton>
@@ -1010,7 +1071,8 @@ function ConversationPane({ conversation }) {
       <Box sx={{ flexGrow: 1, overflowY: 'auto', px: 2, pt: 1 }}>
         <Doing what={conversation.doing} onEnd={() => conversation.setDoing(null)} />
         <Transcript turns={conversation.turns} busy={conversation.busy}
-                    onClear={conversation.clear}
+                    onClear={conversation.clear} queued={conversation.queued}
+                    onUnqueue={conversation.unqueue}
                     empty="Ask anything — a thought, a transcript, a question." />
       </Box>
       <Box sx={{ px: 2, py: 1.5, borderTop: 1, borderColor: 'divider' }}>
