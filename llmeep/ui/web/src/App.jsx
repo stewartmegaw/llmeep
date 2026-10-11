@@ -1575,11 +1575,29 @@ function TaskSheet({ task, docs, section, onClose, onAsk, onAct, onAgenda, agend
   const wide = useMediaQuery(useTheme().breakpoints.up(TWO_COLUMNS))
   const [labels, setLabels] = React.useState([])
   const [which, setWhich] = React.useState(null)
+  const [text, setText] = React.useState(null)
   React.useEffect(() => { setLabels(task?.labels || []) }, [task?.id])
-  if (!task) return null
 
-  const head = task.detail && docs.find((d) => d.path === task.detail)
+  const head = task?.detail && docs.find((d) => d.path === task.detail)
   const extras = head ? docs.filter((d) => d.parent === head.id) : []
+
+  // **The detail is read here, not behind a button** (`PLT-p6zz`). "Read the
+  // detail" asked for a tap to see the thing you opened the task for, and
+  // opened a second full-screen sheet over the first to show it. It is the
+  // body of this screen now; the attachments beside it still open on their
+  // own, because a spreadsheet is not something to inline.
+  React.useEffect(() => {
+    setText(null)
+    if (!head || (head.kind !== 'text' && head.kind !== 'table')) return
+    let live = true
+    fetch(`${BASE}/api/doc?id=${encodeURIComponent(head.id)}`)
+      .then((r) => r.json())
+      .then((d) => live && setText(d))
+      .catch(() => {})
+    return () => { live = false }
+  }, [head?.id])
+
+  if (!task) return null
   // Compared as sets, so reordering the chips is not a change to save.
   const was = [...(task.labels || [])].sort().join(" ")
   const now = [...labels].sort().join(" ")
@@ -1594,8 +1612,13 @@ function TaskSheet({ task, docs, section, onClose, onAsk, onAct, onAgenda, agend
   }
 
   return (
-    <Dialog open fullScreen={!wide} fullWidth maxWidth="sm" onClose={onClose}
-            scroll="paper">
+    /* **Wide enough to read a document in** (`PLT-p6zz`). It was `sm`, sized
+       for a title and four buttons; the detail is in it now, and a spec read
+       through a 600px column is a spec nobody reads here. Full width on a
+       phone, as it always was. */
+    <Dialog open fullScreen={!wide} fullWidth maxWidth={false} onClose={onClose}
+            scroll="paper"
+            PaperProps={{ sx: wide ? { width: '90%', maxWidth: 1100 } : undefined }}>
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, pl: 0.5, pb: 1 }}>
         <IconButton onClick={onClose} aria-label="Back to the board">
           <span aria-hidden>←</span>
@@ -1729,11 +1752,25 @@ function TaskSheet({ task, docs, section, onClose, onAsk, onAct, onAgenda, agend
           <Box sx={{ mt: 3 }}>
             <Divider sx={{ mb: 1.5 }} />
             <Outstanding task={task} />
-            <Button size="small" variant="outlined" startIcon={<Clip />}
-                    onClick={() => onDetail({ doc: head, task })}
-                    sx={{ textTransform: 'none' }}>
-              {extras.length ? `Attachments ${1 + extras.length}` : 'Read the detail'}
-            </Button>
+            <Doc doc={text && text.id === head.id ? text : head} base={BASE} />
+            {extras.length > 0 && (
+              <Box sx={{ mt: 3 }}>
+                <Divider sx={{ mb: 1 }} />
+                <Typography variant="overline" color="text.secondary">
+                  Also here ({extras.length})
+                </Typography>
+                <List disablePadding
+                      sx={{ border: 1, borderColor: 'divider', borderRadius: 2, mt: 0.5 }}>
+                  {extras.map((a, i) => (
+                    <ListItemButton key={a.id} divider={i < extras.length - 1}
+                                    onClick={() => onDetail({ doc: a, task })}>
+                      <ListItemText primary={a.title}
+                                    secondary={`${a.kind} · ${size(a.bytes)}`} />
+                    </ListItemButton>
+                  ))}
+                </List>
+              </Box>
+            )}
           </Box>
         )}
       </DialogContent>

@@ -197,6 +197,12 @@ The verbs used to sit behind a `⋯` on every row, which is three taps to close 
 that has to be opened before it says what is in it. A row is for scanning; the sheet is for
 acting.
 
+The detail is the body of the sheet, not a button on it. "Read the detail" asked for a tap to
+see the thing you opened the task for, and opened a second full-screen sheet over the first to
+show it; the attachments beside it still open on their own, because a spreadsheet is not
+something to inline. The sheet is wide enough to read a document in — it was sized for a title
+and four buttons, and a spec read through a 600px column is a spec nobody reads here.
+
 Labels are edited in place, as an autocomplete over the labels already in use — picking an
 existing word is the whole mitigation for a vocabulary with no registry (`DEC-062`), and typing
 is what you do when none of them fits. The change is held until **Save label changes**, because
