@@ -128,7 +128,15 @@ TOOLS = {
     "park":       lambda a: ("tm", ["park", a["id"]], None),
     "done":       lambda a: ("tm", ["done", a["id"]], None),
     "drop":       lambda a: ("tm", ["drop", a["id"]], None),
-    "detail":     lambda a: ("tm", ["detail", a["id"]], None),
+    # **With text it writes the words; without it, it makes the stub.** The
+    # app could create an empty detail and had no way to put anything in it, so
+    # a breakdown typed on a phone had to be retyped at a terminal — the one
+    # thing this surface exists to avoid (`PLT-tzz2`). Same shape as `agenda`:
+    # the text goes in on stdin, never as an argument, so no amount of it can
+    # become a flag.
+    "detail":     lambda a: ("tm", ["detail", a["id"]]
+                             + (["--set", "-"] if a.get("text") is not None else []),
+                             a.get("text")),
     # **Labels reach the app through a verb, like everything else.** The model
     # names a tool and supplies data; it never supplies a command, so a label is
     # a list of words validated by `tm` and never a string spliced into argv
@@ -291,7 +299,10 @@ TOOL_ARGS = {
     "retitle": '{"id": "...", "title": "..."}',
     "prioritise": '{"id": "...", "top": bool}',
     "park": '{"id": "..."}', "done": '{"id": "..."}',
-    "drop": '{"id": "..."}', "detail": '{"id": "..."}',
+    "drop": '{"id": "..."}',
+    "detail": '{"id": "...", "text": "..."}  with text, replaces the detail\'s '
+              'words — read it with `open` first and hand back the whole thing, '
+              'because this writes the file entire; without text, makes an empty one',
     "capture": '{"lines": ["...", "..."], "source": "..."}',
     "promote": '{"id": "NTE-...", "ledger": "...", "prioritise": bool}',
     "unnote": '{"id": "NTE-..."}',
@@ -975,6 +986,10 @@ def run_tool(name, args):
     for key in ("title", "term", "source", "name"):
         if key in args:
             args[key] = str(args[key]).strip()
+    if name == "detail" and args.get("text") is not None:
+        # A detail is a document: its blank lines are part of it, so only the
+        # trailing whitespace goes.
+        args["text"] = str(args["text"]).rstrip()
     if name == "agenda" and args.get("text") is not None:
         # Not stripped to nothing: an agenda is a shape, and its blank lines are
         # part of it. Trailing whitespace only.

@@ -3000,8 +3000,21 @@ def cmd_detail(args):
     verb that destroys work on the second run is not one you can say casually.
     """
     folder = "--folder" in args
+    # **`--set -` writes the body**, the same shape `agenda` uses (`PLT-tzz2`).
+    # `detail` could make a stub and nothing could put words in it, so the
+    # breakdown someone had just typed into a phone had to be retyped at a
+    # terminal — which is the one thing this whole surface exists to avoid.
+    #
+    # Stored, never parsed. The tool has never known what a detail says; the
+    # template is a shape to start from and the words are the author's. An
+    # interface that wants to add a section reads the text, adds it and hands
+    # back the whole thing, which is text editing rather than a model the two
+    # ends could implement differently.
+    body, args = take_flag(list(args), "--set")
     rest = [a for a in args if a != "--folder"]
     tid = rest[0] if rest else None
+    if body == "-":
+        body = sys.stdin.read()
     for ledger in LEDGERS:
         board = Board(ledger)
         if tid:
@@ -3020,6 +3033,22 @@ def cmd_detail(args):
             continue
 
         existing = detail_path(ledger, task.id)
+        if body is not None:
+            # Writes to the detail that is there, or makes one first: "put these
+            # words in its detail" is one intention whether or not a stub
+            # happens to exist yet, and asking the caller to know which is
+            # asking them to know something the tool can check.
+            if not existing:
+                existing = _write_detail(ledger, task, folder)
+                _tag_detail(task)
+                board.save()
+            doc = detail_doc(existing)
+            with open(doc, "w") as fh:
+                fh.write(body.rstrip("\n") + "\n")
+            kept = len([l for l in body.split("\n") if l.strip()])
+            print(f"\n  {task.id}  {task.title}")
+            print(f"  detail: {os.path.relpath(doc, os.getcwd())} — {kept} line(s)\n")
+            return 0
         if existing:
             doc = detail_doc(existing)
             print(f"\n  {task.id}  {task.title}")
@@ -3033,16 +3062,7 @@ def cmd_detail(args):
             print()
             return 0
 
-        d = os.path.join(ROOT, ledger, "tasks")
-        os.makedirs(d, exist_ok=True)
-        name = f"{task.id}-{slug(task.title)[:40].rstrip('-')}"
-        if folder:
-            os.makedirs(os.path.join(d, name), exist_ok=True)
-            path = os.path.join(d, name, "README.md")
-        else:
-            path = os.path.join(d, f"{name}.md")
-        with open(path, "w") as fh:
-            fh.write(_detail_body(task))
+        path = _write_detail(ledger, task, folder)
         _tag_detail(task)
         board.save()
 
@@ -3064,6 +3084,23 @@ def _tag_detail(task):
     at = next((i for i, t in enumerate(task.tags) if t.startswith("filed:")),
               len(task.tags))
     task.tags.insert(at, "detail")
+
+
+def _write_detail(ledger, task, folder=False):
+    """The stub on disk, and where it went. Lifted out of `cmd_detail` so
+    `--set` on a task with no detail yet can make one and then fill it, rather
+    than making the caller run the verb twice (`PLT-tzz2`)."""
+    d = os.path.join(ROOT, ledger, "tasks")
+    os.makedirs(d, exist_ok=True)
+    name = f"{task.id}-{slug(task.title)[:40].rstrip('-')}"
+    if folder:
+        os.makedirs(os.path.join(d, name), exist_ok=True)
+        path = os.path.join(d, name, "README.md")
+    else:
+        path = os.path.join(d, f"{name}.md")
+    with open(path, "w") as fh:
+        fh.write(_detail_body(task))
+    return path
 
 
 def _detail_body(task):
@@ -4660,6 +4697,7 @@ USAGE = """tm — taskman
   tm retitle <id> <title...>    reword a task, keeping its id and its place
   tm drop <id>                  remove a task that should not have been filed
   tm detail [id] [--folder]     attach a detail to a task and tag its board line
+  tm detail <id> --set -        replace its words with what comes in on stdin
   tm label <id> <label...>      label a task; bare, lists the labels in use
   tm unlabel <id> <label...>    take labels off it
   tm board --label <label>      only the tasks carrying it (repeatable, ANDed)
@@ -4899,7 +4937,7 @@ FLAGS = {
     "prioritize": ("-n", "--after"),
     "done": ("--force",),
     "drop": (),
-    "detail": ("--folder",),
+    "detail": ("--folder", "--set"),
     "status": (),
     "board": ("--json", "--chat", "--recent", "--label"),
     "label": (),

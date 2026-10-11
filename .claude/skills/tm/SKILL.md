@@ -24,6 +24,7 @@ tm done [id] [--force]        # complete it
 tm retitle <id> <title...>    # reword one, keeping its id and its place
 tm drop <id>                  # remove one that should not have been filed
 tm detail [id] [--folder]     # attach a detail and tag the board line
+tm detail <id> --set -        # replace its words with stdin (read it first; this writes it whole)
 tm label [<id> <label...>]    # label a task; bare, lists the labels in use
 tm unlabel <id> <label...>    # take labels off it
 tm board --label <label>      # only the tasks carrying it (repeatable, ANDed)

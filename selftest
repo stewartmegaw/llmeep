@@ -3901,6 +3901,88 @@ class TestResolvedNote(Fixture):
         self.assertNotIn("NTE-", said)
 
 
+class TestWritingADetail(Fixture):
+    """`PLT-tzz2`. `detail` made an empty stub and nothing could put words in
+    it, so a breakdown typed into a phone had to be retyped at a terminal —
+    which is the one thing this surface exists to avoid. Reported by the
+    adopter it happened to, in the app's own words: "the file exists but it's
+    blank. That part needs a terminal."."""
+
+    DRIVER = """import json, os, sys
+sys.path.insert(0, os.path.join(sys.argv[1], "llmeep", "ui", "api"))
+import server
+try:
+    print(json.dumps({"ok": server.act_directly(sys.argv[2], json.loads(sys.argv[3]))}))
+except Exception as exc:
+    print(json.dumps({"error": str(exc)}))
+"""
+
+    def a_repo(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        self.quieten(top)
+        sh("git", "add", "-A", cwd=top)
+        sh("git", "-c", "user.name=t", "-c", "user.email=t@t",
+           "commit", "-qm", "adopt", cwd=top)
+        return top
+
+    def call(self, top, tool, args):
+        script = self.path("drive_detail.py")
+        with open(script, "w") as fh:
+            fh.write(self.DRIVER)
+        env = dict(os.environ, LLMEEP_REPO=top, LLMEEP_AUTH_HANDLED="yes")
+        out = sh(sys.executable, script, self.working_copy(), tool, json.dumps(args),
+                 cwd=top, env=env)
+        self.assertTrue(out.stdout.strip(), out.stderr)
+        return json.loads(out.stdout.strip().split("\n")[-1])
+
+    def body(self, top, tid):
+        base = os.path.join(self.install_root(top), "tasks", "platform", "tasks")
+        found = [n for n in os.listdir(base) if n.startswith(tid)]
+        self.assertTrue(found, f"no detail for {tid} in {os.listdir(base)}")
+        with open(os.path.join(base, found[0])) as fh:
+            return fh.read()
+
+    WORDS = "# Three strands\n\n## Outcome\n\nThe feed, the report, the alerting.\n"
+
+    def test_the_words_reach_the_file(self):
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "Work out the strands").stdout.strip()
+        self.tm(top, "detail", tid)
+        got = self.call(top, "detail", {"id": tid, "text": self.WORDS})
+        self.assertNotIn("error", got, got)
+        self.assertIn("The feed, the report, the alerting.", self.body(top, tid))
+
+    def test_a_task_with_no_detail_gets_one_and_the_words(self):
+        """One intention whether or not a stub happens to exist, so the caller
+        is not asked to know which."""
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "Nothing attached yet").stdout.strip()
+        got = self.call(top, "detail", {"id": tid, "text": self.WORDS})
+        self.assertNotIn("error", got, got)
+        self.assertIn("The feed, the report, the alerting.", self.body(top, tid))
+        with open(os.path.join(self.install_root(top),
+                               "tasks", "platform", "board.md")) as fh:
+            self.assertIn("detail", fh.read(), "the board line was not tagged")
+        self.assertEqual(self.tm(top, "check").returncode, 0)
+
+    def test_without_text_it_still_only_makes_a_stub(self):
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "Just a stub").stdout.strip()
+        self.call(top, "detail", {"id": tid})
+        self.assertIn("## Acceptance", self.body(top, tid))
+        self.assertNotIn("The feed", self.body(top, tid))
+
+    def test_the_text_goes_in_on_stdin(self):
+        """Never as an argument: a detail is prose and will contain dashes, so
+        text on argv is text that can become a flag."""
+        top = self.a_repo()
+        tid = self.tm(top, "add", "--id", "-n", "Awkward words").stdout.strip()
+        got = self.call(top, "detail", {"id": tid, "text": "--set --folder -n\nreal words\n"})
+        self.assertNotIn("error", got, got)
+        self.assertIn("real words", self.body(top, tid))
+
+
 class TestDoneAsksAboutTheNote(Fixture):
     """`PLT-dz2x`. `tm done` names the note a task answered, but a tap on the
     board has nowhere to say so — and the one place a yes or no is cheap is the
