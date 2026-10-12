@@ -5,6 +5,7 @@
 
 ## prioritised
 
+PLT-58xz A task id in a reply opens it, and the open task is in the address  filed:2026-10-12
 PLT-6yjz A mobile-first web UI for llmeep: add by prompt, edit and delete tasks, read details, drop notes  detail  commits:9  filed:2026-09-07
 
 ## backlog
@@ -22,6 +23,7 @@ PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
 
 ## recent
 
+2026-10-12  PLT-v8qd The prompt lists every tool the app can actually run  @stewart
 2026-10-12  PLT-v2hb The task sheet can hand its detail over to the chat to write  @stewart
 2026-10-12  PLT-encp The banner stays put, and goes when the conversation moves on  @stewart
 2026-10-12  PLT-27bp Dragging a task must not also open it  @stewart
@@ -36,4 +38,3 @@ PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
 2026-10-08  PLT-vwkw The chat can see which labels are in use  @stewart
 2026-10-08  PLT-2cht A turn says what it did in words, not in verb names  @stewart
 2026-10-08  PLT-m4p2 A task opens as a sheet: its verbs are buttons and its labels are inline  @stewart
-2026-10-08  PLT-ugtz The chat reads the project to answer, and never quotes it back  @stewart

@@ -301,8 +301,9 @@ TOOL_ARGS = {
     "park": '{"id": "..."}', "done": '{"id": "..."}',
     "drop": '{"id": "..."}',
     "detail": '{"id": "...", "text": "..."}  with text, replaces the detail\'s '
-              'words — read it with `open` first and hand back the whole thing, '
-              'because this writes the file entire; without text, makes an empty one',
+              'words — **`open` it first and hand back the whole thing**, because '
+              'this writes the file entire and will wipe what is there otherwise; '
+              'without text, makes an empty one',
     "capture": '{"lines": ["...", "..."], "source": "..."}',
     "promote": '{"id": "NTE-...", "ledger": "...", "prioritise": bool}',
     "unnote": '{"id": "NTE-..."}',
@@ -333,7 +334,13 @@ def skills_text():
 
 
 def agent_prompt(doing=None):
-    tools = "\n".join(f"  {name:<11}{TOOL_ARGS.get(name, '{}')}" for name in TOOLS)
+    # **Every tool it can run, both tables** (`PLT-v8qd`). `LOCAL` holds the
+    # ones this app answers itself — `open`, `files`, `file`, `labels` — and
+    # listing only `TOOLS` meant they were callable and invisible. The model
+    # was told there was no way to read a detail while holding a verb that
+    # reads one, and said so to an adopter.
+    tools = "\n".join(f"  {name:<11}{TOOL_ARGS.get(name, '{}')}"
+                       for name in (*TOOLS, *LOCAL))
     out = WRAPPER % (tools, skills_text())
     if doing:
         # **Only the model can tell when a conversation has moved on**

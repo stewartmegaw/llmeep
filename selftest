@@ -3901,6 +3901,44 @@ class TestResolvedNote(Fixture):
         self.assertNotIn("NTE-", said)
 
 
+class TestEveryToolIsOffered(Fixture):
+    """`PLT-v8qd`. `open`, `files`, `file` and `labels` are answered by the app
+    itself and live in `LOCAL`; the prompt listed `TOOLS` only. They were
+    callable and invisible for three releases — the model was told there was no
+    way to read a detail while holding a verb that reads one, and said exactly
+    that to an adopter.
+
+    A tool nothing can be told about is a tool nobody has."""
+
+    DRIVER = """import json, os, sys
+sys.path.insert(0, os.path.join(sys.argv[1], "llmeep", "ui", "api"))
+import server
+prompt = server.agent_prompt()
+runnable = [*server.TOOLS, *server.LOCAL]
+print(json.dumps({
+    "runnable": runnable,
+    "missing": [n for n in runnable if ("\\n  " + n) not in prompt],
+    "undescribed": [n for n in runnable if n not in server.TOOL_ARGS],
+}))
+"""
+
+    def test_every_runnable_tool_is_in_the_prompt(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        script = self.path("tools.py")
+        with open(script, "w") as fh:
+            fh.write(self.DRIVER)
+        env = dict(os.environ, LLMEEP_REPO=top, LLMEEP_AUTH_HANDLED="yes")
+        out = sh(sys.executable, script, self.working_copy(), cwd=top, env=env)
+        self.assertTrue(out.stdout.strip(), out.stderr)
+        got = json.loads(out.stdout.strip().split("\n")[-1])
+        self.assertIn("open", got["runnable"], "the local tools are not being read")
+        self.assertEqual(got["missing"], [],
+                         "these can be run and the model is never told they exist")
+        self.assertEqual(got["undescribed"], [],
+                         "these are listed with no argument shape, which is a name and no verb")
+
+
 class TestTheBannerClears(Fixture):
     """`PLT-encp`. The app knows what it started — filing a task, clearing a
     note — and cannot know that the next thing typed is about something else.
