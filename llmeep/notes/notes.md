@@ -1,5 +1,9 @@
 # notes
 
+## 2026-10-12
+
+NTE-yww9 llmeep is a task board with the repo as its database. The UI is becoming the main surface for managing tasks; starting one stays at the CLI
+
 ## 2026-08-18
 
 NTE-6u9q Two people distilling the same call transcript produces duplicate notes under different ids, and nothing notices  src:board-review

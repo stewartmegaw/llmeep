@@ -413,11 +413,11 @@ export default function App() {
   const refineDetail = React.useCallback((task, has) => {
     setOpened(null)
     setTab('chat')
-    conversation.setDoing(has ? 'Refining detail' : 'Adding detail')
+    conversation.setDoing(has ? 'Refine task detail' : 'Add task detail')
     conversation.sendText(
       has
-        ? `Refine the detail on ${task.id} (${task.title}). Read it first, then ask me what `
-          + 'needs changing before you write anything.'
+        ? `Refine the detail on ${task.id} (${task.title}). Open it with the open tool first, `
+          + 'then ask me what needs changing before you write anything back.'
         : `${task.id} (${task.title}) has no detail. Ask me what it needs — the outcome and `
           + 'what done looks like — then write it.')
   }, [conversation])
