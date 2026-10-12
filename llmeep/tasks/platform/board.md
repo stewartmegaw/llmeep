@@ -19,10 +19,10 @@ PLT-hrpu An agenda holds nothing the repo keeps — decide whether it should exi
 PLT-xa9p Five paths in agenda, detail and drop print relpath against the cwd; use typeable() so they stay typeable  filed:2026-09-12
 PLT-uqet The agenda tab lists past agendas and hands a new one to the agent  detail  filed:2026-09-23
 PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
-PLT-v2hb The task sheet can hand its detail over to the chat to write  filed:2026-10-12
 
 ## recent
 
+2026-10-12  PLT-v2hb The task sheet can hand its detail over to the chat to write  @stewart
 2026-10-12  PLT-encp The banner stays put, and goes when the conversation moves on  @stewart
 2026-10-12  PLT-27bp Dragging a task must not also open it  @stewart
 2026-10-11  PLT-ggg2 A prompt typed during a turn queues instead of being lost  @stewart
@@ -37,4 +37,3 @@ PLT-v2hb The task sheet can hand its detail over to the chat to write  filed:202
 2026-10-08  PLT-2cht A turn says what it did in words, not in verb names  @stewart
 2026-10-08  PLT-m4p2 A task opens as a sheet: its verbs are buttons and its labels are inline  @stewart
 2026-10-08  PLT-ugtz The chat reads the project to answer, and never quotes it back  @stewart
-2026-10-08  PLT-3say The chat can open a task's detail and what its folder holds  @stewart

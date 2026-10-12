@@ -236,6 +236,13 @@ show it; the attachments beside it still open on their own, because a spreadshee
 something to inline. The sheet is wide enough to read a document in — it was sized for a title
 and four buttons, and a spec read through a 600px column is a spec nobody reads here.
 
+**Writing the detail is handed to the conversation**, not to a textarea. `Add detail` where
+there is none, `Refine the detail` where there is: the sheet closes, the banner says which, and
+the agent is told the task and asked to find out what it needs before writing. Writing a detail
+is the one thing on this sheet that needs judgement — what the strands are, what done looks
+like — and a form beside the box that can think would be a second editor for the worse half of
+the job.
+
 Labels are edited in place, as an autocomplete over the labels already in use — picking an
 existing word is the whole mitigation for a vocabulary with no registry (`DEC-062`), and typing
 is what you do when none of them fits. The change is held until **Save label changes**, because

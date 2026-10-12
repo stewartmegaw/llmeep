@@ -407,6 +407,21 @@ export default function App() {
   // The open task as the board has it now, not as it was when it was tapped.
   const live = opened && (fresh(board, opened.id) || opened)
 
+  // **Handed over with the task named and the banner set.** The agent can read
+  // a detail (`open`) and write one (`detail` with text), so this only has to
+  // say which task and get out of the way (`PLT-v2hb`).
+  const refineDetail = React.useCallback((task, has) => {
+    setOpened(null)
+    setTab('chat')
+    conversation.setDoing(has ? 'Refining detail' : 'Adding detail')
+    conversation.sendText(
+      has
+        ? `Refine the detail on ${task.id} (${task.title}). Read it first, then ask me what `
+          + 'needs changing before you write anything.'
+        : `${task.id} (${task.title}) has no detail. Ask me what it needs — the outcome and `
+          + 'what done looks like — then write it.')
+  }, [conversation])
+
   const fileTask = React.useCallback((title) => {
     const said = title.trim()
     if (!said) return
@@ -678,6 +693,7 @@ export default function App() {
       <DetailSheet head={detail?.doc} task={detail?.task} docs={docs}
                    onClose={() => setDetail(null)} />
       <TaskSheet task={live} section={live?.section} docs={docs} busy={acting}
+                 onRefine={refineDetail}
                  onClose={() => setOpened(null)} onAsk={setAsking} onAct={runTool}
                  onAgenda={ontoAgenda} agendas={agendas} onDetail={setDetail}
                  inUse={labelsInUse.map(([name]) => name)} onPickLabel={pickLabel} />
@@ -894,11 +910,16 @@ function useConversation(onDone, updatedAt) {
   // of those you are answering is how a reply ends up meaning nothing. It is
   // a headline, not a status: it says what is being done, and it clears when
   // the doing stops.
-  const [doing, setDoing] = React.useState(null)
-  // Read inside `sendText`, which must not re-make itself every time the
-  // banner changes — a new `sendText` re-runs the queue effect.
+  const [doing, setDoingState] = React.useState(null)
+  // The ref is what `sendText` reads: it must not re-make itself every time
+  // the banner changes, or the queue effect re-runs. Written here rather than
+  // from an effect, because a handler that sets the banner and sends in the
+  // same tick would otherwise send the one from the render before.
   const doingRef = React.useRef(null)
-  React.useEffect(() => { doingRef.current = doing }, [doing])
+  const setDoing = React.useCallback((v) => {
+    doingRef.current = v
+    setDoingState(v)
+  }, [])
 
   // Put a turn in the transcript that did not come from a round trip. The
   // server has already put the same words in the session log, so the model
@@ -1706,7 +1727,7 @@ function Turn({ turn }) {
 // same `TWO_COLUMNS` the conversation pane uses, so the app has one answer to
 // "is this screen wide" rather than two.
 function TaskSheet({ task, docs, section, onClose, onAsk, onAct, onAgenda, agendas,
-                     onDetail, busy, inUse, onPickLabel }) {
+                     onDetail, busy, inUse, onPickLabel, onRefine }) {
   const wide = useMediaQuery(useTheme().breakpoints.up(TWO_COLUMNS))
   const [labels, setLabels] = React.useState([])
   const [which, setWhich] = React.useState(null)
@@ -1799,6 +1820,19 @@ function TaskSheet({ task, docs, section, onClose, onAsk, onAct, onAgenda, agend
                       title: task.title, body: 'Archived, not deleted.',
                     }))}>
               Archive it
+            </Button>
+          )}
+          {/* **The detail is written in the conversation, not in a form**
+              (`PLT-v2hb`). Writing it is the one thing on this sheet that needs
+              judgement — what the strands are, what done looks like — so it is
+              handed to the agent with the task named, and the banner says which
+              task you are in the middle of. A textarea here would be a second
+              editor beside the one that can think. */}
+          {onRefine && (
+            <Button size="small" variant="outlined" disabled={busy}
+                    sx={{ textTransform: 'none' }}
+                    onClick={() => onRefine(task, Boolean(head))}>
+              {head ? 'Refine the detail' : 'Add detail'}
             </Button>
           )}
           {onAgenda && agendas?.length === 1 && (

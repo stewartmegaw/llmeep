@@ -182,3 +182,4 @@
 2026-10-11	PLT-ggg2	platform	A prompt typed during a turn queues instead of being lost	stewart
 2026-10-12	PLT-27bp	platform	Dragging a task must not also open it	stewart
 2026-10-12	PLT-encp	platform	The banner stays put, and goes when the conversation moves on	stewart
+2026-10-12	PLT-v2hb	platform	The task sheet can hand its detail over to the chat to write	stewart
