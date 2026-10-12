@@ -81,6 +81,15 @@ function fresh(board, id) {
   return null
 }
 
+// The task id in the address, or nothing. Upper-cased on the way in because a
+// link somebody typed or a browser lower-cased is still the same task.
+const ADDRESSABLE = /^(PLT|BUS)-[A-Za-z0-9]{1,12}$/
+
+function taskInAddress() {
+  const raw = decodeURIComponent((window.location.hash || '').replace(/^#/, '')).trim()
+  return ADDRESSABLE.test(raw) ? raw.toUpperCase() : null
+}
+
 const GLYPH = { width: 34, height: 34 }
 
 export default function App() {
@@ -133,7 +142,28 @@ export default function App() {
   // means the same thing on both and `tool_for` picks the subsystem by id.
   // The task whose sheet is open. Re-read from the board on every render so
   // a label saved inside it is reflected without closing and reopening.
-  const [opened, setOpened] = React.useState(null)
+  // **Which task is open lives in the address** (`PLT-58xz`). Not in state: a
+  // sheet that is only in memory cannot be linked to, cannot be reopened after
+  // a refresh, and swallows the back gesture — on a phone, back is how anyone
+  // leaves a full-screen thing, and it was leaving the app instead.
+  //
+  // The hash rather than a path, because this app is mounted wherever the
+  // adopter put it and the server serves one page; a path would need a route
+  // table on both sides to say the same thing.
+  const [openId, setOpenId] = React.useState(taskInAddress)
+  React.useEffect(() => {
+    const look = () => setOpenId(taskInAddress())
+    window.addEventListener('hashchange', look)
+    return () => window.removeEventListener('hashchange', look)
+  }, [])
+  const openTask = React.useCallback((id) => {
+    window.location.hash = String(id || '').toUpperCase()
+  }, [])
+  const closeTask = React.useCallback(() => {
+    // Back where the sheet was opened from, so the gesture and the arrow do
+    // the same thing and neither leaves a dead entry behind.
+    if (taskInAddress()) window.history.back()
+  }, [])
   // A question a tap raised, waiting to be put in the conversation.
   const [asked, setAsked] = React.useState(null)
   // Notes keep the small editor: a note has no sheet, and its row already
@@ -404,14 +434,15 @@ export default function App() {
     setAsked(null)
   }, [asked, conversation, wide, canWrite])
 
-  // The open task as the board has it now, not as it was when it was tapped.
-  const live = opened && (fresh(board, opened.id) || opened)
+  // Derived from the address and the board, so there is one answer to "which
+  // task is open" and it survives a reload.
+  const live = openId ? fresh(board, openId) : null
 
   // **Handed over with the task named and the banner set.** The agent can read
   // a detail (`open`) and write one (`detail` with text), so this only has to
   // say which task and get out of the way (`PLT-v2hb`).
   const refineDetail = React.useCallback((task, has) => {
-    setOpened(null)
+    closeTask()
     setTab('chat')
     conversation.setDoing(has ? 'Refine task detail' : 'Add task detail')
     conversation.sendText(
@@ -420,7 +451,7 @@ export default function App() {
           + 'then ask me what needs changing before you write anything back.'
         : `${task.id} (${task.title}) has no detail. Ask me what it needs — the outcome and `
           + 'what done looks like — then write it.')
-  }, [conversation])
+  }, [conversation, closeTask])
 
   const fileTask = React.useCallback((title) => {
     const said = title.trim()
@@ -673,7 +704,7 @@ export default function App() {
         )}
         {tab === 'board' && shown && Object.entries(shown).map(([ledger, sections]) => (
           <Ledger key={ledger} name={ledger} sections={sections} off={off}
-                  onPickLabel={pickLabel} onOpen={setOpened}
+                  onPickLabel={pickLabel} onOpen={(t) => openTask(t.id)}
                   busy={acting} drag={drag} onDrag={setDrag} onDrop={dropped} />
         ))}
       </Container>
@@ -694,7 +725,7 @@ export default function App() {
                    onClose={() => setDetail(null)} />
       <TaskSheet task={live} section={live?.section} docs={docs} busy={acting}
                  onRefine={refineDetail}
-                 onClose={() => setOpened(null)} onAsk={setAsking} onAct={runTool}
+                 onClose={closeTask} onAsk={setAsking} onAct={runTool}
                  onAgenda={ontoAgenda} agendas={agendas} onDetail={setDetail}
                  inUse={labelsInUse.map(([name]) => name)} onPickLabel={pickLabel} />
       <LabelEditor open={Boolean(labelling)} record={labelling} busy={acting}

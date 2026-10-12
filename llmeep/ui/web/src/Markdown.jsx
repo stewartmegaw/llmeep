@@ -6,6 +6,39 @@ import { Box, Divider, Link, Table, TableBody, TableCell, TableContainer,
 
 // The records are written machine-first (principle 1), which is affordable only
 // because a person reads them somewhere else. This is that somewhere else.
+
+// **A task id in a reply is the way to the task** (`PLT-58xz`). The agent names
+// ids constantly — it just filed one, it found three — and every one of them
+// was a dead string you had to go and look for on the board. They are links
+// now, and because the open task lives in the address a link is just its id.
+//
+// Backticked and bare are both handled: the agent writes `PLT-9puy` in code
+// ticks about half the time, and which half is not something a reader should
+// have to care about.
+const TASK_ID = /\b((?:PLT|BUS)-[A-Za-z0-9]{1,12})\b/g
+
+function linkify(children) {
+  return React.Children.map(children, (child) => {
+    if (typeof child !== 'string') return child
+    const bits = child.split(TASK_ID)
+    if (bits.length === 1) return child
+    return bits.map((bit, i) => (i % 2
+      ? <TaskLink key={i} id={bit} />
+      : bit))
+  })
+}
+
+function TaskLink({ id }) {
+  return (
+    <Box component="a" href={`#${id.toUpperCase()}`}
+         sx={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.85em',
+               px: 0.5, py: 0.2, borderRadius: 1, bgcolor: 'action.hover',
+               color: 'primary.main', textDecoration: 'none', cursor: 'pointer',
+               '&:hover': { textDecoration: 'underline' } }}>
+      {id}
+    </Box>
+  )
+}
 const H = (variant, mt) => function Heading({ children }) {
   return <Typography variant={variant} sx={{ mt, mb: 1, fontWeight: 600 }}>{children}</Typography>
 }
@@ -14,10 +47,10 @@ const components = {
   h1: H('h6', 0), h2: H('subtitle1', 3), h3: H('subtitle2', 2.5),
   h4: H('subtitle2', 2), h5: H('subtitle2', 2), h6: H('subtitle2', 2),
   p: ({ children }) => (
-    <Typography paragraph sx={{ lineHeight: 1.6 }}>{children}</Typography>
+    <Typography paragraph sx={{ lineHeight: 1.6 }}>{linkify(children)}</Typography>
   ),
   li: ({ children }) => (
-    <Typography component="li" sx={{ lineHeight: 1.6, mb: 0.5 }}>{children}</Typography>
+    <Typography component="li" sx={{ lineHeight: 1.6, mb: 0.5 }}>{linkify(children)}</Typography>
   ),
   hr: () => <Divider sx={{ my: 2 }} />,
   a: ({ href, children }) => {
@@ -33,11 +66,13 @@ const components = {
   // inline and `pre` resets its children. A fenced block is always <pre><code>,
   // which makes the nesting the signal rather than a prop that no longer exists.
   code: ({ children }) => (
-    <Box component="code"
+    typeof children === 'string' && /^(PLT|BUS)-[A-Za-z0-9]{1,12}$/.test(children.trim())
+      ? <TaskLink id={children.trim()} />
+      : <Box component="code"
          sx={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.85em',
                px: 0.5, py: 0.2, borderRadius: 1, bgcolor: 'action.hover' }}>
       {children}
-    </Box>
+        </Box>
   ),
   // Wide code scrolls inside its own box; the page never scrolls sideways.
   pre: ({ children }) => (

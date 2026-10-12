@@ -220,6 +220,21 @@ Nothing is removed by the asking, and nothing is removed by `done`. The task car
 either way and git keeps the note regardless — `DEC-023` is about one idea not sitting in two
 ledgers, not about losing it.
 
+## The open task is in the address
+
+Tapping a task puts its id in the hash, and the hash is what decides which sheet is open. So
+the back gesture closes it — on a phone that is how anyone leaves a full-screen thing, and it
+used to leave the app instead — a reload reopens what you were reading, and a link to a task is
+just its id.
+
+The hash rather than a path: this app is mounted wherever the adopter put it and the server
+serves one page, so a path would need a route table on both sides to say the same thing.
+
+**Task ids in a reply are that link.** The agent names them constantly — it just filed one, it
+found three — and every one was a dead string you had to go and find on the board. Backticked
+and bare are both handled, because which one the agent chose is not something a reader should
+have to care about.
+
 ## A task opens as a sheet
 
 Tapping a row opens it — full screen where there is no room beside it, a panel where there is,
