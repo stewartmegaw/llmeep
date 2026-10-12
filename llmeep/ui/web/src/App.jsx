@@ -1462,6 +1462,19 @@ function Task({ task, section, busy, drag, onDrag, onDrop, divider, onPickLabel,
   // **Pointer events, not HTML5 drag.** `dragstart` never fires on touch, and
   // this screen is a phone first. Dragging begins on the handle only, so a drag
   // never competes with scrolling the board with a thumb (`PLT-4spu`).
+  // **A drag is not a tap on the row it started in** (`PLT-27bp`). The handle
+  // sits inside the row, and the row opens the task — so a pointer that went
+  // down on the handle, moved, and came up still ended with a `click` on their
+  // common ancestor, and every reorder opened the sheet on top of the board it
+  // had just rearranged. Stopping the handle's own click covers the tap; this
+  // flag covers the drag, because the click arrives after `let_go` has already
+  // cleared `drag` and nothing else is left to tell them apart.
+  // Set when the pointer actually moves, cleared when a new one goes down
+  // anywhere on the row — including on the handle, because that bubbles here
+  // first. Setting it in `grab` instead looked right and was not: a drag often
+  // ends without a click at all, so the flag survived and ate the next genuine
+  // tap. Caught by driving a real drag and then a real tap.
+  const dragged = React.useRef(false)
   const grab = (e) => {
     if (busy || !onDrag) return
     e.currentTarget.setPointerCapture(e.pointerId)
@@ -1469,6 +1482,7 @@ function Task({ task, section, busy, drag, onDrag, onDrop, divider, onPickLabel,
   }
   const move = (e) => {
     if (!drag || drag.id !== task.id) return
+    dragged.current = true
     const over = whereIsThePointer(e.clientX, e.clientY)
     onDrag({ ...drag, over })
   }
@@ -1507,7 +1521,11 @@ function Task({ task, section, busy, drag, onDrag, onDrop, divider, onPickLabel,
 
   return (
     <ListItem divider={divider} alignItems="flex-start" data-task-id={task.id}
-      onClick={onOpen ? () => onOpen(task) : undefined}
+      onPointerDown={() => { dragged.current = false }}
+      onClick={onOpen ? () => {
+        if (dragged.current) return
+        onOpen(task)
+      } : undefined}
       sx={{ py: 1, opacity: held ? 0.4 : 1,
             ...(onOpen && { cursor: 'pointer',
                             '&:hover': { bgcolor: 'action.hover' } }),
@@ -1522,6 +1540,7 @@ function Task({ task, section, busy, drag, onDrag, onDrop, divider, onPickLabel,
         <Box component="span" aria-label={`Move ${task.id}`} role="button"
              onPointerDown={grab} onPointerMove={move}
              onPointerUp={let_go} onPointerCancel={let_go}
+             onClick={(e) => e.stopPropagation()}
              sx={{ ...GLYPH, cursor: 'grab', color: 'text.disabled',
                    display: 'inline-flex', alignItems: 'center',
                    justifyContent: 'center', touchAction: 'none',

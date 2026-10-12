@@ -22,6 +22,7 @@ PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
 
 ## recent
 
+2026-10-12  PLT-27bp Dragging a task must not also open it  @stewart
 2026-10-11  PLT-ggg2 A prompt typed during a turn queues instead of being lost  @stewart
 2026-10-11  PLT-mccf A process that moves to the chat says what it is, at the top of it  @stewart
 2026-10-11  PLT-p6zz The sheet shows the detail itself, at a size you can read it  @stewart
@@ -36,4 +37,3 @@ PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
 2026-10-08  PLT-ugtz The chat reads the project to answer, and never quotes it back  @stewart
 2026-10-08  PLT-3say The chat can open a task's detail and what its folder holds  @stewart
 2026-10-07  PLT-tdub Labels can be added and taken off from the app  @stewart
-2026-10-07  PLT-ccjj A detail closes with a back arrow where you expect one  @stewart
