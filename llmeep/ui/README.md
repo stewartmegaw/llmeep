@@ -185,6 +185,27 @@ these are never sent in parallel — queueing keeps the rule and drops the cost 
 rather than swallowed, because a prompt that left the box and appeared nowhere reads as a send
 that failed, and the reader types it again.
 
+## What the exchange is in the middle of
+
+A process can start somewhere else on this screen — the New task dialog, New agenda, a tap that
+answered a note — and finish in the conversation. Arriving in a transcript with no idea which
+of those you are answering is how a reply ends up meaning nothing, so the exchange carries a
+headline: *Creating task*, *Starting an agenda*, *Clearing a note*. There is a **Done** beside
+it for a process that stops without finishing.
+
+It took the place of `saved for the team`, which sat under every turn that wrote something and
+told the reader the ordinary thing had happened ordinarily. The warning that a change did not
+reach anybody stays, because that is the half anyone can act on.
+
+**It stays put.** Sticky under the header: it says what the exchange is about, and an exchange
+is the thing you scroll — a headline that leaves the screen as soon as the conversation is long
+enough to need one is a headline for nobody.
+
+**It knows when to go.** The app knows what it started and cannot know that the next thing
+typed is about something else, so each turn carries what the screen is claiming and the model
+answers `"doing": null` when that has stopped being true. It never sets one: naming the process
+is the app's job, and a model inventing headlines would be a second vocabulary nobody asked for.
+
 ## A tap can start a conversation
 
 Marking a task done can answer the note it came from, and a tap has nowhere to say so. So the

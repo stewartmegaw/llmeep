@@ -332,9 +332,20 @@ def skills_text():
     return "\n\n".join(out)
 
 
-def agent_prompt():
+def agent_prompt(doing=None):
     tools = "\n".join(f"  {name:<11}{TOOL_ARGS.get(name, '{}')}" for name in TOOLS)
-    return WRAPPER % (tools, skills_text())
+    out = WRAPPER % (tools, skills_text())
+    if doing:
+        # **Only the model can tell when a conversation has moved on**
+        # (`PLT-encp`). The app knows what it started; it cannot know that the
+        # next thing typed is about something else. So it says what the banner
+        # claims and asks for one word back when that stops being true.
+        out += (f"\n\nThe screen says you are in the middle of: {doing}.\n"
+                'If this turn is still part of that, say nothing about it. If it '
+                'has moved on to something else, add "doing": null alongside your '
+                '"say", and the screen will stop claiming it. You never set it to '
+                'anything — naming the process is the app\'s job, not yours.')
+    return out
 
 
 def records_folder():
@@ -886,7 +897,7 @@ def history_for(session):
     return log
 
 
-def act(text, session="default"):
+def act(text, session="default", doing=None):
     """One message in, and however many steps it takes.
 
     This is a wrapper around the agent a terminal already gives you, and the
@@ -903,7 +914,7 @@ def act(text, session="default"):
 
     for _ in range(MAX_STEPS):
         try:
-            step = ask_model(log)
+            step = ask_model(log, doing)
         except ModelReply as exc:
             # Handed back, exactly as a failed tool is. A model that broke its
             # own output contract should be told and try again; raising here
@@ -926,8 +937,13 @@ def act(text, session="default"):
             log.append({"role": "assistant", "content": json.dumps(step)})
             sha = commit_used(used) if changed else None
             pushed, note = push_after_commit() if sha else (False, None)
-            return {"answer": answer, "used": used, "commit": sha, "changed": changed,
-                    "pushed": pushed, "note": note}
+            out = {"answer": answer, "used": used, "commit": sha, "changed": changed,
+                   "pushed": pushed, "note": note}
+            # Present and null means "drop the banner". Absent means "leave it
+            # alone", which is the common case and the quiet one.
+            if "doing" in step:
+                out["doing"] = step.get("doing")
+            return out
 
         name = str(step.get("tool", "")).strip()
         args = step.get("args") or {}
@@ -1315,7 +1331,7 @@ def without_code(text):
     return ("\n".join(out).strip(), dropped)
 
 
-def ask_model(log):
+def ask_model(log, doing=None):
     """One call, in the OpenAI chat shape — the same shape `tm review` uses, so
     `CHROME_BASE` reaches OpenAI, Anthropic's compatible endpoint, Groq,
     OpenRouter or something on the adopter's own machine. No vendor is
@@ -1326,7 +1342,7 @@ def ask_model(log):
                            "CHROME_BASE in the repo's .env, beside REVIEW_*")
     body = json.dumps({
         "model": llm_model(),
-        "messages": [{"role": "system", "content": agent_prompt()}, *log],
+        "messages": [{"role": "system", "content": agent_prompt(doing)}, *log],
     }).encode()
     req = urllib.request.Request(
         f"{llm_base()}/chat/completions", data=body,
@@ -1593,11 +1609,12 @@ class Handler(BaseHTTPRequestHandler):
             sent = json.loads(self.rfile.read(length) or b"{}")
             text = str(sent.get("text", "")).strip()
             session = str(sent.get("session", "default"))[:64] or "default"
+            doing = str(sent.get("doing") or "")[:80] or None
         except Exception:                              # noqa: BLE001
             return self.send_json(400, {"error": "send {\"text\": \"...\"}"})
         if not text:
             return self.send_json(400, {"error": "nothing to act on"})
-        self.send_turn(text, session)
+        self.send_turn(text, session, doing)
 
     def query(self, key):
         if "?" not in self.path:
@@ -1635,7 +1652,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(500, {"error": str(exc)})
         self.send_json(200, body)
 
-    def send_turn(self, text, session):
+    def send_turn(self, text, session, doing=None):
         """**A turn keeps its connection alive while it thinks.**
 
         One HTTP request was held open for the whole turn with nothing written
@@ -1672,7 +1689,7 @@ class Handler(BaseHTTPRequestHandler):
 
         def work():
             try:
-                done["body"] = act(text, session)
+                done["body"] = act(text, session, doing)
             except Exception as exc:                   # noqa: BLE001 — reported, not raised
                 done["body"] = {"error": str(exc)}
 

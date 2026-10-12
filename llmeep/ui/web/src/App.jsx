@@ -574,7 +574,7 @@ export default function App() {
       <Container maxWidth="sm" sx={{ px: 2 }}>
         {tab === 'chat' && (
           <Box sx={{ mt: 2 }}>
-            <Doing what={conversation.doing}
+            <Doing what={conversation.doing} top={HEADER}
                    onEnd={() => conversation.setDoing(null)} />
             <Transcript turns={conversation.turns} busy={conversation.busy}
                         onClear={conversation.clear} queued={conversation.queued}
@@ -811,7 +811,10 @@ function useConversation(onDone, updatedAt) {
     fetch(`${BASE}/api/intent`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: mine, session: SESSION }),
+      // The banner goes with the turn: only the model can tell that what was
+      // just typed is no longer about the thing the screen is claiming
+      // (`PLT-encp`).
+      body: JSON.stringify({ text: mine, session: SESSION, doing: doingRef.current }),
     })
       .then((r) => {
         // **Checked before parsing.** Without this, a proxy's HTML error page
@@ -836,6 +839,9 @@ function useConversation(onDone, updatedAt) {
               // Whether it is live for anyone else. A change that committed and
               // did not push is not a failure and not a success (`PLT-xxcu`).
               note: d.note }])
+        // Present and null means the conversation moved on; absent means leave
+        // the banner alone, which is the common case.
+        if (Object.prototype.hasOwnProperty.call(d, 'doing')) setDoing(d.doing)
         if (d.changed) onDone()
       })
       .catch(async (e) => {
@@ -889,6 +895,10 @@ function useConversation(onDone, updatedAt) {
   // a headline, not a status: it says what is being done, and it clears when
   // the doing stops.
   const [doing, setDoing] = React.useState(null)
+  // Read inside `sendText`, which must not re-make itself every time the
+  // banner changes — a new `sendText` re-runs the queue effect.
+  const doingRef = React.useRef(null)
+  React.useEffect(() => { doingRef.current = doing }, [doing])
 
   // Put a turn in the transcript that did not come from a round trip. The
   // server has already put the same words in the session log, so the model
@@ -915,12 +925,18 @@ function useConversation(onDone, updatedAt) {
 // so a reader arriving in the transcript knows which question they are
 // answering. It sits where `saved for the team` used to be the only clue, and
 // that line said what had happened to a record rather than what was going on.
-function Doing({ what, onEnd }) {
+function Doing({ what, onEnd, top = 0 }) {
   if (!what) return null
   return (
     <Box sx={{
+      // **Stays put.** It says what this exchange is about, and an exchange is
+      // the thing you scroll — a headline that leaves the screen as soon as
+      // the conversation is long enough to need one is a headline for nobody
+      // (`PLT-encp`). Opaque rather than translucent, because the turns run
+      // underneath it.
+      position: 'sticky', top, zIndex: 2,
       display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, px: 1.5, py: 0.75,
-      borderRadius: 2, bgcolor: 'action.hover',
+      borderRadius: 2, bgcolor: 'grey.100', border: 1, borderColor: 'divider',
     }}>
       <Typography variant="subtitle2" sx={{ fontWeight: 600, flexGrow: 1 }}>
         {what}

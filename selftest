@@ -2752,7 +2752,7 @@ replies = iter([
     server.ModelReply("Extra data: line 4 column 1 (char 54)"),
     {"say": "the board is empty"},
 ])
-def stub(log):
+def stub(log, doing=None):
     nxt = next(replies)
     if isinstance(nxt, Exception):
         raise nxt
@@ -2950,7 +2950,7 @@ CRLF = bytes([13, 10])
 NL = bytes([10])
 
 server.HEARTBEAT = 0.2
-def slow(text, session="default"):
+def slow(text, session="default", doing=None):
     time.sleep(0.9)
     return {"answer": "took a while", "used": [], "commit": None, "changed": False}
 server.act = slow
@@ -3023,7 +3023,7 @@ sys.path.insert(0, os.path.join(sys.argv[1], "llmeep", "ui", "api"))
 import server
 script = json.loads(sys.argv[2])
 seen = []
-def fake(log):
+def fake(log, doing=None):
     seen.append(len(log))
     return script.pop(0)
 server.ask_model = fake
@@ -3899,6 +3899,36 @@ class TestResolvedNote(Fixture):
         said = self.tm(top, "done", tid).stdout
         self.assertNotIn("nm prune", said)
         self.assertNotIn("NTE-", said)
+
+
+class TestTheBannerClears(Fixture):
+    """`PLT-encp`. The app knows what it started — filing a task, clearing a
+    note — and cannot know that the next thing typed is about something else.
+    Only the model can, so it is told what the screen is claiming and asked for
+    one word back when that stops being true."""
+
+    DRIVER = """import os, sys
+sys.path.insert(0, os.path.join(sys.argv[1], "llmeep", "ui", "api"))
+import server
+told = server.agent_prompt("Creating task")
+quiet = server.agent_prompt()
+print("named", "Creating task" in told)
+print("asked", '"doing": null' in told)
+print("quiet", "doing" not in quiet)
+"""
+
+    def test_the_prompt_carries_what_the_screen_claims(self):
+        top = self.a_project()
+        self.adopt(self.working_copy(), top)
+        script = self.path("prompt.py")
+        with open(script, "w") as fh:
+            fh.write(self.DRIVER)
+        env = dict(os.environ, LLMEEP_REPO=top, LLMEEP_AUTH_HANDLED="yes")
+        out = sh(sys.executable, script, self.working_copy(), cwd=top, env=env)
+        self.assertIn("named True", out.stdout, out.stdout + out.stderr)
+        self.assertIn("asked True", out.stdout, out.stdout)
+        self.assertIn("quiet True", out.stdout,
+                      "a turn with no banner should say nothing about one")
 
 
 class TestWritingADetail(Fixture):
