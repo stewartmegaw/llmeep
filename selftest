@@ -482,7 +482,11 @@ class TestFreshInstall(Fixture):
         self.adopt(self.working_copy(), top, "--into", "ops")
         with open(os.path.join(top, "ops", "ui", "README.md")) as fh:
             body = fh.read()
-        self.assertIn("docker build -t llmeep-chrome ops/ui/", body)
+        # The path is what matters, not the shape of the line around it — the
+        # command grew a `--build-arg` and wrapped, and asserting the one-line
+        # form failed on the formatting rather than on the thing it guards.
+        self.assertIn("docker build -t llmeep-chrome", body)
+        self.assertIn("ops/ui/", body)
         self.assertNotIn("llmeep/ui/", body)
 
     def test_the_shipped_server_runs_against_the_install_it_shipped_into(self):

@@ -428,6 +428,20 @@ def explain(args, out):
     return text.strip().split("\n")[0] or "tm failed"
 
 
+def install_version():
+    """What `adopt` recorded in the mounted repo's manifest, or nothing.
+
+    Read by pattern rather than by running the install, the same way
+    `install_folder` reads it: inspecting an install and trusting it should not
+    be one act."""
+    try:
+        with open(os.path.join(REPO, ".llmeep")) as fh:
+            found = re.search(r'#\s*"version":\s*"([^"]*)"', fh.read())
+    except OSError:
+        return "unknown"
+    return found.group(1) if found else "unknown"
+
+
 def install_folder():
     """What `adopt` recorded in `.llmeep`. Read by pattern rather than by running
     the script — inspecting an install and trusting it should not be one act."""
@@ -1535,7 +1549,17 @@ class Handler(BaseHTTPRequestHandler):
         if not AUTH_HANDLED:
             return self.send_text(503, refusal())
         if path == "/api/config":
-            return self.send_json(200, {"can_write": can_write()})
+            # **Both versions, reported and not compared.** `DEC-060` rejected
+            # warning on a version mismatch, on the argument that asking the
+            # install what it can do beats comparing numbers — and that still
+            # holds for detection. This is not detection: it is answering "what
+            # am I running", which nothing could answer, so every skew report
+            # began with a guess (`PLT-sune`).
+            return self.send_json(200, {
+                "can_write": can_write(),
+                "image": os.environ.get("LLMEEP_VERSION", "") or "unknown",
+                "install": install_version(),
+            })
         if path == "/api/docs":
             return self.send_json_from(
                 lambda: {"docs": catalogue(), "unbrowsed": UNBROWSED})

@@ -22,6 +22,7 @@ PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
 
 ## recent
 
+2026-10-24  PLT-sune The app says which llmeep it is, so a skew can be seen rather than guessed  @stewart
 2026-10-12  PLT-58xz A task id in a reply opens it, and the open task is in the address  @stewart
 2026-10-12  PLT-2gvd The refine banner says Refine task   @stewart
 2026-10-12  PLT-v8qd The prompt lists every tool the app can actually run  @stewart
@@ -36,4 +37,3 @@ PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
 2026-10-08  PLT-s7kh Completing a task says which note it resolved  @stewart
 2026-10-08  PLT-sna3 nm promote refused the flags it forwards to tm add  @stewart
 2026-10-08  PLT-rfvs A note shows its id, the way a task does  @stewart
-2026-10-08  PLT-vwkw The chat can see which labels are in use  @stewart

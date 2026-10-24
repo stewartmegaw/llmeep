@@ -99,6 +99,9 @@ export default function App() {
   const [error, setError] = React.useState(null)
   const [loading, setLoading] = React.useState(true)
   const [canWrite, setCanWrite] = React.useState(false)
+  // Which llmeep this is, both halves. Reported, never compared — see the
+  // endpoint for why (`PLT-sune`).
+  const [build, setBuild] = React.useState(null)
   // The title being typed for a new agenda, or null when nobody is typing one.
   const [naming, setNaming] = React.useState(null)
   // `null` closed, a string open. Same shape as `naming` — the two dialogs ask
@@ -241,7 +244,7 @@ export default function App() {
 
   React.useEffect(() => {
     fetch(`${BASE}/api/config`).then((r) => r.json())
-      .then((c) => setCanWrite(c.can_write)).catch(() => {})
+      .then((c) => { setCanWrite(c.can_write); setBuild(c) }).catch(() => {})
   }, [])
 
   const load = React.useCallback(() => {
@@ -683,6 +686,16 @@ export default function App() {
           <Agenda base={BASE} busy={acting} reload={notesAt} query={query}
                   onSet={(name, text) => runTool('agenda', { name, text })}
                   onCreate={startAgenda} />
+        )}
+        {/* **Where you look when something you shipped is not there.** The
+            image and the install move on separate schedules, and until this
+            existed "which version am I running" had no answer at all, so every
+            skew began with a guess (`PLT-sune`). */}
+        {tab === 'other' && build && (
+          <Typography variant="caption" color="text.disabled"
+                      sx={{ display: 'block', mt: 3, textAlign: 'center' }}>
+            app {build.image} · records {build.install}
+          </Typography>
         )}
         {tab === 'other' && sub !== 'agenda' && (
           <Read base={BASE} docs={browsable} query={query}

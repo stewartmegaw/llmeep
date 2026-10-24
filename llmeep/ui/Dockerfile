@@ -11,6 +11,13 @@ COPY web/ ./
 RUN npm run build
 
 FROM python:3.12-alpine
+# **The image says which llmeep it is** (`PLT-sune`). Nothing else in here
+# identifies the build, so "is this image current" was a question nobody could
+# answer — and the answer is what every version-skew report turns on. Passed in
+# because the build context is `llmeep/ui/` and has no git to ask; `unknown` is
+# honest when nobody passed it.
+ARG LLMEEP_VERSION=unknown
+ENV LLMEEP_VERSION=$LLMEEP_VERSION
 # git, because writing will mean committing to the mounted repo.
 RUN apk add --no-cache git
 WORKDIR /app

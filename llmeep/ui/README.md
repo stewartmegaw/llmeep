@@ -16,7 +16,8 @@ is lost but the door.
 The image serves the front end and the API from one port, under a base path, so a k8s service
 routing `/llmeep` at it needs no rewriting.
 
-    docker build -t llmeep-chrome llmeep/ui/
+    docker build -t llmeep-chrome \
+      --build-arg LLMEEP_VERSION="$(git describe --tags --always)" llmeep/ui/
     docker run --rm -p 8080:8080 \
       -v "$PWD:/repo" \
       -e LLMEEP_REPO=/repo \
@@ -27,6 +28,21 @@ routing `/llmeep` at it needs no rewriting.
 **You build it.** Nothing is published: the image is this Dockerfile and your repo, built where
 you are going to run it. One less thing to trust, and one less registry to keep in step with a
 release.
+
+## Which llmeep is this
+
+The `Other` tab ends with `app <version> · records <version>`: the first is what the image was
+built from, the second is what `adopt` recorded in the repo it is serving. `/api/config` carries
+both, so it is one `curl` away as well.
+
+They move on separate schedules and that is fine — what was not fine is that until this existed
+nothing could say which was which, so every report of "the feature you shipped is not here"
+began with a guess. Pass `--build-arg LLMEEP_VERSION=...` when you build, or it says `unknown`,
+which is at least honest.
+
+**Reported, never compared.** `DEC-060` rejected warning on a mismatch, on the argument that
+asking the install what it can do beats comparing numbers — and that still holds for detecting
+skew. This is not detection; it is answering a question somebody is already asking.
 
 ## It has no authentication, and refuses to start until you say so
 
