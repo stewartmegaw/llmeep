@@ -271,9 +271,9 @@ to it, so a sheet would open on a task nothing can be done to. Empty columns sho
 row an empty column is the shape of the board — but a ledger with nothing anywhere in it stays
 absent, since four empty columns is a board nobody is using, drawn in full.
 
-**Dragging is unchanged: it orders the queue and does not move between columns.** Every move
-between sections has a verb, and the kanban gesture would make a drag mean `prioritise`, `park`
-or `done` — a different decision from this one, and one worth taking on its own.
+**A completed task opens, to read what it was.** `done` has never deleted a detail — that is
+`drop`, and only `drop` — so the file is still there and still catalogued; the completed window
+simply never carried the path. It opens with no verbs on it and the detail in place.
 
 ## A task opens as a sheet
 

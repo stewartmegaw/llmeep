@@ -82,7 +82,10 @@ const TWO_COLUMNS = 'md'
 function fresh(board, id) {
   for (const sections of Object.values(board || {})) {
     for (const [key] of SECTIONS) {
-      const found = (sections[key] || []).find((t) => t.id === id)
+      // Without case, so a link typed or lower-cased by something on the way
+      // still finds its task.
+      const found = (sections[key] || []).find(
+        (t) => t.id.toLowerCase() === String(id).toLowerCase())
       if (found) return { ...found, section: key }
     }
   }
@@ -95,7 +98,12 @@ const ADDRESSABLE = /^(PLT|BUS)-[A-Za-z0-9]{1,12}$/
 
 function taskInAddress() {
   const raw = decodeURIComponent((window.location.hash || '').replace(/^#/, '')).trim()
-  return ADDRESSABLE.test(raw) ? raw.toUpperCase() : null
+  // **Kept as typed, matched without case.** It used to upper-case, on the
+  // reasoning that a link somebody typed is the same task — but real ids are
+  // lower-cased after the prefix, so every id written here stopped matching the
+  // board and no task opened at all. The routing test used `PLT-TEST1`, which
+  // is upper-case, and passed (`PLT-etpn`).
+  return ADDRESSABLE.test(raw) ? raw : null
 }
 
 const GLYPH = { width: 34, height: 34 }
@@ -168,7 +176,7 @@ export default function App() {
     return () => window.removeEventListener('hashchange', look)
   }, [])
   const openTask = React.useCallback((id) => {
-    window.location.hash = String(id || '').toUpperCase()
+    window.location.hash = String(id || '')
   }, [])
   const closeTask = React.useCallback(() => {
     // Back where the sheet was opened from, so the gesture and the arrow do
@@ -341,11 +349,11 @@ export default function App() {
   // takes (`DEC-056`) — so the app never has to know what `board.md` looks like.
   const dropped = React.useCallback((move) => {
     setDrag(null)
+    if (!move || move.section !== 'prioritised') return
     // **Only the queue can be dropped into**, because it is the only section
     // with an order: the pool has none by definition (`DEC-027`) and moving
-    // between sections is what the arrows are for. Dragging what cannot be
-    // ordered is a gesture that has to be explained afterwards.
-    if (!move || move.section !== 'prioritised') return
+    // between sections is what the arrows are for.
+    if (move.section !== 'prioritised') return
     if (move.after === null) return runTool('prioritise', { id: move.id, top: true })
     if (move.after === move.id) return
     runTool('prioritise', { id: move.id, after: move.after })
@@ -1526,12 +1534,7 @@ function Ledger({ name, sections, off, busy, drag, onDrag, onDrop, onPickLabel,
               {(sections[key] || []).map((task, i) => (
                 <Task key={task.id} task={task} section={key} busy={busy}
                       onPickLabel={onPickLabel}
-                      // **Done is read-only.** A completed row carries no
-                      // detail path and none of the verbs apply to it, so a
-                      // sheet would open on a task nothing can be done to.
-                      onOpen={key === 'recent'
-                        ? undefined
-                        : onOpen && ((t) => onOpen({ ...t, section: key }))}
+                      onOpen={onOpen && ((t) => onOpen({ ...t, section: key }))}
                       drag={drag} onDrag={onDrag} onDrop={onDrop}
                       divider={i < sections[key].length - 1} />
               ))}
@@ -1827,6 +1830,7 @@ function TaskSheet({ task, docs, section, onClose, onAsk, onAct, onAgenda, agend
   const [text, setText] = React.useState(null)
   React.useEffect(() => { setLabels(task?.labels || []) }, [task?.id])
 
+  const done = section === 'recent'
   const head = task?.detail && docs.find((d) => d.path === task.detail)
   const extras = head ? docs.filter((d) => d.parent === head.id) : []
 
@@ -1878,22 +1882,33 @@ function TaskSheet({ task, docs, section, onClose, onAsk, onAct, onAgenda, agend
         </Box>
       </DialogTitle>
       <DialogContent dividers>
-        {/* Above the title, because they are why you opened it. */}
-        <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mb: 2 }}>
-          {section === 'backlog' && (
+        {/* Above the title, because they are why you opened it — unless it is
+            finished, in which case none of them is (`PLT-etpn`). A completed
+            task opens to be read: `done` has never deleted a detail, so what
+            the work turned out to be is still there, and that is most of why
+            anyone looks one up. */}
+        {done && (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Finished {task.done_on}. Nothing to do to it from here.
+          </Typography>
+        )}
+        <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap"
+               sx={{ mb: done ? 0 : 2 }}>
+          {!done && section === 'backlog' && (
             <Button size="small" variant="outlined" disabled={busy}
                     sx={{ textTransform: 'none' }}
                     onClick={act(() => onAct('prioritise', { id: task.id }))}>
               Move to the queue
             </Button>
           )}
-          {section === 'prioritised' && (
+          {!done && section === 'prioritised' && (
             <Button size="small" variant="outlined" disabled={busy}
                     sx={{ textTransform: 'none' }}
                     onClick={act(() => onAct('park', { id: task.id }))}>
               Back to the pool
             </Button>
           )}
+          {!done && (
           <Button size="small" variant="outlined" disabled={busy}
                   sx={{ textTransform: 'none' }}
                   onClick={act(() => onAsk({
@@ -1902,10 +1917,11 @@ function TaskSheet({ task, docs, section, onClose, onAsk, onAct, onAgenda, agend
                   }))}>
             Mark it done
           </Button>
+          )}
           {/* **Not on work in progress.** `drop` writes no history, so dropping
               something started erases the only record anyone touched it,
               commit count included (`DEC-047`). */}
-          {section !== 'in_progress' && (
+          {!done && section !== 'in_progress' && (
             <Button size="small" variant="outlined" color="inherit" disabled={busy}
                     sx={{ textTransform: 'none' }}
                     onClick={act(() => onAsk({
@@ -1921,14 +1937,14 @@ function TaskSheet({ task, docs, section, onClose, onAsk, onAct, onAgenda, agend
               handed to the agent with the task named, and the banner says which
               task you are in the middle of. A textarea here would be a second
               editor beside the one that can think. */}
-          {onRefine && (
+          {!done && onRefine && (
             <Button size="small" variant="outlined" disabled={busy}
                     sx={{ textTransform: 'none' }}
                     onClick={() => onRefine(task, Boolean(head))}>
               {head ? 'Refine the detail' : 'Add detail'}
             </Button>
           )}
-          {onAgenda && agendas?.length === 1 && (
+          {!done && onAgenda && agendas?.length === 1 && (
             <Button size="small" variant="outlined" disabled={busy}
                     sx={{ textTransform: 'none' }}
                     onClick={act(() => onAgenda(agendas[0].name,
@@ -1936,7 +1952,7 @@ function TaskSheet({ task, docs, section, onClose, onAsk, onAct, onAgenda, agend
               Add to the agenda
             </Button>
           )}
-          {onAgenda && agendas?.length > 1 && (
+          {!done && onAgenda && agendas?.length > 1 && (
             <Button size="small" variant="outlined" disabled={busy}
                     sx={{ textTransform: 'none' }}
                     onClick={(e) => setWhich(e.currentTarget)}>

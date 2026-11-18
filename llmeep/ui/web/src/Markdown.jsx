@@ -30,7 +30,7 @@ function linkify(children) {
 
 function TaskLink({ id }) {
   return (
-    <Box component="a" href={`#${id.toUpperCase()}`}
+    <Box component="a" href={`#${id}`}
          sx={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.85em',
                px: 0.5, py: 0.2, borderRadius: 1, bgcolor: 'action.hover',
                color: 'primary.main', textDecoration: 'none', cursor: 'pointer',

@@ -2557,8 +2557,14 @@ def cmd_board(args):
                             for t in board.prioritised if keep(t)],
             "backlog": [task_json(board, ledger, t)
                         for t in board.backlog if keep(t)],
+            # **A completed task keeps its detail** (`PLT-etpn`). `done` has
+            # never deleted one — that is `drop`, and only `drop` — so the file
+            # is still there and still catalogued, and omitting the path here
+            # was the only thing making a finished task unreadable. What a task
+            # turned out to be is most of why anyone looks it up.
             "recent": [{"id": t.id, "title": t.title, "done_on": t.done_on,
-                        "assignee": t.assignee, "labels": t.labels}
+                        "assignee": t.assignee, "labels": t.labels,
+                        "detail": detail_rel(ledger, t.id)}
                        for t in board.recent if keep(t)],
         }
     if as_json:
@@ -2576,17 +2582,24 @@ def cmd_board(args):
     print()
 
 
+def detail_rel(ledger, tid):
+    """A task's detail as a repo-relative path, or nothing. Shared by the open
+    sections and the completed window, which had grown two answers to the same
+    question (`PLT-etpn`)."""
+    doc = detail_doc(detail_path(ledger, tid))
+    return os.path.relpath(doc, REPO) if doc else None
+
+
 def task_json(board, ledger, task):
     """One task, named the way the board names it. `detail` is a repo-relative
     path so a reader can fetch it without knowing the layout."""
-    detail = detail_doc(detail_path(ledger, task.id))
     return {
         "id": task.id,
         "title": task.title,
         "ledger": ledger,
         "assignee": task.assignee,
         "blocked_by": board.is_blocked(task),
-        "detail": os.path.relpath(detail, REPO) if detail else None,
+        "detail": detail_rel(ledger, task.id),
         "commits": task.commits,
         "filed": task.filed,
         "labels": task.labels,
