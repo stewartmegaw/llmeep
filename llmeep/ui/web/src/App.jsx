@@ -14,8 +14,6 @@ import Pills from './Pills.jsx'
 // Where this is mounted. The server injects it; a dev server has none.
 const BASE = (window.LLMEEP_BASE || '').replace(/\/$/, '')
 
-// The order work moves through, and the order it is read in. `recent` is
-// deliberately absent: it is history, and this screen is about what is live.
 // A tab label, with its share of the matches once something is being searched
 // for. Not a MUI Badge: a badge floats off the corner of a label and two of
 // them collide on a narrow tab row, where this just makes the word longer.
@@ -45,10 +43,20 @@ function found(query, label, n) {
   return idle(query) ? label : `${label} ${n}`
 }
 
+// The order work moves through, and the order it is read in — left to right
+// once there is room to put them side by side (`PLT-mfbx`).
+//
+// **`recent` is here now.** It was left out on the argument that it is history
+// and this screen is about what is live, which is right about history and wrong
+// about a board: the column a thing lands in is part of the shape, and a flow
+// with no end reads as work that never finishes. It is the window `done` keeps
+// — fifteen — not the ledger, so the screen is still about what is live plus
+// the tail of it. Switch it off with its pill if it is noise.
 const SECTIONS = [
   ['in_progress', 'In progress'],
   ['prioritised', 'Prioritised'],
   ['backlog', 'Backlog'],
+  ['recent', 'Done'],
 ]
 
 const LEDGERS = ['platform', 'business']
@@ -257,6 +265,11 @@ export default function App() {
   }, [])
 
   const wide = useMediaQuery(useTheme().breakpoints.up(TWO_COLUMNS))
+  // **Side by side where there is room, stacked where there is not.** A phone
+  // cannot show four columns and the app is a phone first, so the narrow
+  // layout is the one it already had — the sections simply gain a fourth
+  // (`PLT-mfbx`).
+  const columns = wide && tab === 'board'
   // **Named verbs go straight to the tool.** No model between a tap and
   // `tm done`: it would cost a call, a wait and a chance of guessing, and the
   // table this reaches is the same one a turn reaches (`PLT-7kk3`).
@@ -620,7 +633,11 @@ export default function App() {
 
       <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
       <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-      <Container maxWidth="sm" sx={{ px: 2 }}>
+      {/* **The board needs the room; everything else needs the column.** Every
+          tab was capped at `sm`, which is the right measure for reading a
+          decision and far too narrow to stand four lists beside each other
+          (`PLT-mfbx`). Only the board is let out. */}
+      <Container maxWidth={columns ? 'xl' : 'sm'} sx={{ px: 2 }}>
         {tab === 'chat' && (
           <Box sx={{ mt: 2 }}>
             <Doing what={conversation.doing} top={HEADER}
@@ -717,6 +734,7 @@ export default function App() {
         )}
         {tab === 'board' && shown && Object.entries(shown).map(([ledger, sections]) => (
           <Ledger key={ledger} name={ledger} sections={sections} off={off}
+                  columns={columns}
                   onPickLabel={pickLabel} onOpen={(t) => openTask(t.id)}
                   busy={acting} drag={drag} onDrag={setDrag} onDrop={dropped} />
         ))}
@@ -1473,30 +1491,54 @@ function Confirm({ asking, busy, onClose, onYes }) {
 
 // `off` holds the pills that have been switched off — a ledger name or a
 // section key. Empty means show everything, which is where it starts.
-function Ledger({ name, sections, off, busy, drag, onDrag, onDrop, onPickLabel, onOpen }) {
+function Ledger({ name, sections, off, busy, drag, onDrag, onDrop, onPickLabel,
+                 onOpen, columns }) {
   if (off.has(name)) return null
-  const live = SECTIONS.filter(([key]) => !off.has(key) && sections[key]?.length)
-  if (!live.length) return null
+  // **Every column shows, empty or not, once they are side by side.** Stacked,
+  // an empty heading was a line of nothing worth scrolling past; in a row it is
+  // the shape of the board, and a flow with a column missing reads as a flow
+  // with a step missing (`PLT-mfbx`).
+  const live = SECTIONS.filter(([key]) => !off.has(key)
+    && (columns || sections[key]?.length))
+  // A ledger with nothing anywhere in it stays absent. Four empty columns under
+  // a heading is not the shape of the board — it is a board nobody is using,
+  // drawn in full.
+  const anything = SECTIONS.some(([key]) => sections[key]?.length)
+  if (!live.length || !anything) return null
   return (
     <Box sx={{ mt: 3 }}>
       <Typography variant="overline" color="text.secondary">{name}</Typography>
-      {live.map(([key, label]) => (
-        <Box key={key} sx={{ mt: 1 }}>
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-            {label} ({sections[key].length})
-          </Typography>
-          <List data-section={key} data-ledger={name} disablePadding
-                sx={{ border: 1, borderColor: 'divider', borderRadius: 2 }}>
-            {sections[key].map((task, i) => (
-              <Task key={task.id} task={task} section={key} busy={busy}
-                    onPickLabel={onPickLabel}
-                    onOpen={onOpen && ((t) => onOpen({ ...t, section: key }))}
-                    drag={drag} onDrag={onDrag} onDrop={onDrop}
-                    divider={i < sections[key].length - 1} />
-            ))}
-          </List>
-        </Box>
-      ))}
+      <Box sx={columns
+        ? { display: 'grid', gap: 1.5, alignItems: 'start', mt: 1,
+            gridTemplateColumns: `repeat(${live.length}, minmax(0, 1fr))` }
+        : undefined}>
+        {live.map(([key, label]) => (
+          <Box key={key} sx={{ mt: columns ? 0 : 1, minWidth: 0 }}>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
+              {label} ({sections[key]?.length || 0})
+            </Typography>
+            <List data-section={key} data-ledger={name} disablePadding
+                  sx={{ border: 1, borderColor: 'divider', borderRadius: 2,
+                        // A column with nothing in it is still a column, so it
+                        // keeps a floor — otherwise the row collapses into a
+                        // line of headings with one tall list beside them.
+                        ...(columns && { minHeight: 72, bgcolor: 'grey.50' }) }}>
+              {(sections[key] || []).map((task, i) => (
+                <Task key={task.id} task={task} section={key} busy={busy}
+                      onPickLabel={onPickLabel}
+                      // **Done is read-only.** A completed row carries no
+                      // detail path and none of the verbs apply to it, so a
+                      // sheet would open on a task nothing can be done to.
+                      onOpen={key === 'recent'
+                        ? undefined
+                        : onOpen && ((t) => onOpen({ ...t, section: key }))}
+                      drag={drag} onDrag={onDrag} onDrop={onDrop}
+                      divider={i < sections[key].length - 1} />
+              ))}
+            </List>
+          </Box>
+        ))}
+      </Box>
     </Box>
   )
 }
@@ -1654,6 +1696,13 @@ function Task({ task, section, busy, drag, onDrag, onDrop, divider, onPickLabel,
               )}
               {task.blocked_by && (
                 <Chip size="small" color="warning" variant="outlined" label="blocked" />
+              )}
+              {/* Only a completed row has one, and on that row it is the thing
+                  worth knowing — the column already says it is done. */}
+              {task.done_on && (
+                <Box component="span" sx={{ fontSize: 12, color: 'text.disabled' }}>
+                  {task.done_on}
+                </Box>
               )}
               <LabelChips labels={task.labels} onPick={onPickLabel} />
             </Stack>

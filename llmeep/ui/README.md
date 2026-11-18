@@ -251,6 +251,30 @@ found three — and every one was a dead string you had to go and find on the bo
 and bare are both handled, because which one the agent chose is not something a reader should
 have to care about.
 
+## The board is columns, where there is room for columns
+
+Wide enough and the sections stand side by side — **In progress · Prioritised · Backlog ·
+Done** — one row of columns per ledger. On a phone they stay stacked, because four columns do
+not fit in 390px and this is a phone-first screen; the narrow layout is the one it always had,
+with a fourth section on the end.
+
+Only the board is let out of the `sm` column the rest of the app reads in. That measure is right
+for a decision and far too narrow to stand four lists beside each other.
+
+**Done is the completed window, not the ledger** — the fifteen `done` keeps. It was left out on
+the argument that it is history and this screen is about what is live, which is right about
+history and wrong about a board: the column a thing lands in is part of the shape, and a flow
+with no end reads as work that never finishes. Its pill switches it off.
+
+Completed cards do not open. A finished row carries no detail path and none of the verbs apply
+to it, so a sheet would open on a task nothing can be done to. Empty columns show, because in a
+row an empty column is the shape of the board — but a ledger with nothing anywhere in it stays
+absent, since four empty columns is a board nobody is using, drawn in full.
+
+**Dragging is unchanged: it orders the queue and does not move between columns.** Every move
+between sections has a verb, and the kanban gesture would make a drag mean `prioritise`, `park`
+or `done` — a different decision from this one, and one worth taking on its own.
+
 ## A task opens as a sheet
 
 Tapping a row opens it — full screen where there is no room beside it, a panel where there is,

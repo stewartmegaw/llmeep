@@ -131,7 +131,15 @@ class Fixture(unittest.TestCase):
         dest = self.path("src-working")
         if not os.path.isdir(dest):
             shutil.copytree(REPO, dest,
-                            ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"))
+                            # `node_modules` and `dist` are build output, and
+                            # `adopt` skips both — so copying them in only to
+                            # have them ignored is pure cost. It is 79MB and
+                            # ten thousand files, copied once per fixture, and
+                            # it turned a seventeen-minute suite into one that
+                            # looked hung.
+                            ignore=shutil.ignore_patterns(
+                                ".git", "__pycache__", "*.pyc",
+                                "node_modules", "dist"))
         return dest
 
     def adopt(self, src, top, *args, expect_ok=True):
