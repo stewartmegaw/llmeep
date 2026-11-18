@@ -349,10 +349,35 @@ export default function App() {
   // takes (`DEC-056`) — so the app never has to know what `board.md` looks like.
   const dropped = React.useCallback((move) => {
     setDrag(null)
-    if (!move || move.section !== 'prioritised') return
-    // **Only the queue can be dropped into**, because it is the only section
-    // with an order: the pool has none by definition (`DEC-027`) and moving
-    // between sections is what the arrows are for.
+    if (!move) return
+    // **A drag between columns is the verb for that move.** Only the queue
+    // could be dropped into, on the argument that it is the only section with
+    // an order and moving between sections is what the buttons are for. Once
+    // the sections are columns that argument inverts: a column you can see is
+    // a column you reach for, and a board where the gesture works in one of
+    // four is a board that looks broken in three.
+    //
+    // It is still a verb underneath — `prioritise`, `park`, `done` — so the
+    // records record a move and not a drag.
+    if (move.section !== move.from) {
+      if (move.section === 'prioritised') {
+        return runTool('prioritise', move.after
+          ? { id: move.id, after: move.after }
+          : { id: move.id, top: true })
+      }
+      if (move.section === 'backlog') return runTool('park', { id: move.id })
+      // **`done` asks, where the others do not.** It appends history and tells
+      // a team, and a tap that reaches a channel is not one to make by
+      // accident — the same reason the button asks.
+      if (move.section === 'recent') {
+        return setAsking({ tool: 'done', args: { id: move.id }, verb: 'Mark done',
+                           title: move.title, body: 'Done, and the team is told.' })
+      }
+      // `in progress` has no verb here: starting is a claim to be working on
+      // something, and it happens at a terminal (`DEC-057`).
+      return
+    }
+    // Within the queue, a drag is still only an order.
     if (move.section !== 'prioritised') return
     if (move.after === null) return runTool('prioritise', { id: move.id, top: true })
     if (move.after === move.id) return
@@ -1630,15 +1655,19 @@ function Task({ task, section, busy, drag, onDrag, onDrop, divider, onPickLabel,
         const at = ids.indexOf(over.task)
         after = at > 0 ? ids[at - 1] : null
       }
-    } else if (over.section === 'prioritised') {
-      // Dropped on the empty part of a section: the end of it.
-      const list = document.querySelector('[data-section="prioritised"]')
-      const ids = [...list.querySelectorAll('[data-task-id]')]
-        .map((n) => n.dataset.taskId).filter((id) => id !== task.id)
+    } else if (over.section) {
+      // Dropped on the empty part of a column: the end of it. Only the queue
+      // has an end that means anything; for the others `after` is ignored.
+      const list = document.querySelector(`[data-section="${over.section}"]`)
+      const ids = list
+        ? [...list.querySelectorAll('[data-task-id]')]
+          .map((n) => n.dataset.taskId).filter((id) => id !== task.id)
+        : []
       after = ids.length ? ids[ids.length - 1] : null
     }
     if (after === task.id) after = null
-    onDrop({ id: task.id, from: section, section: over.section, after })
+    onDrop({ id: task.id, title: task.title, from: section,
+             section: over.section, after })
   }
 
   const held = drag?.id === task.id
@@ -1657,7 +1686,7 @@ function Task({ task, section, busy, drag, onDrag, onDrop, divider, onPickLabel,
                             '&:hover': { bgcolor: 'action.hover' } }),
             ...(line && { [`border${line === 'top' ? 'Top' : 'Bottom'}`]: 2,
                           borderColor: 'primary.main' }) }}
-      secondaryAction={onDrag && section === 'prioritised' && (
+      secondaryAction={onDrag && section !== 'recent' && (
         /* **The only icon left on a row** (`PLT-m4p2`). Dragging is for
            arranging an order and the queue is the only section that has one
            (`DEC-027`); every other verb moved into the sheet, because a row is
@@ -1898,14 +1927,14 @@ function TaskSheet({ task, docs, section, onClose, onAsk, onAct, onAgenda, agend
             <Button size="small" variant="outlined" disabled={busy}
                     sx={{ textTransform: 'none' }}
                     onClick={act(() => onAct('prioritise', { id: task.id }))}>
-              Move to the queue
+              Move to Prioritised
             </Button>
           )}
           {!done && section === 'prioritised' && (
             <Button size="small" variant="outlined" disabled={busy}
                     sx={{ textTransform: 'none' }}
                     onClick={act(() => onAct('park', { id: task.id }))}>
-              Back to the pool
+              Move to Backlog
             </Button>
           )}
           {!done && (

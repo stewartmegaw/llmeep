@@ -271,6 +271,21 @@ to it, so a sheet would open on a task nothing can be done to. Empty columns sho
 row an empty column is the shape of the board — but a ledger with nothing anywhere in it stays
 absent, since four empty columns is a board nobody is using, drawn in full.
 
+**Dragging moves between columns, and it is still a verb underneath.** Only the queue could be
+dropped into, on the argument that it is the only section with an order and moving between
+sections is what the buttons are for. Once the sections are columns that argument inverts: a
+column you can see is a column you reach for, and a board where the gesture works in one of four
+is a board that looks broken in three. A drop runs `prioritise`, `park` or `done`, so the
+records record a move and not a drag.
+
+**`done` asks; the others do not.** It appends history and tells a team, and a drag that reaches
+a channel is not one to make by accident — the same reason its button asks. **`In progress` is
+not a drop target**: starting is a claim to be working on something, and that happens at a
+terminal (`DEC-057`).
+
+Within the queue a drag is still only an order. And while a drop is being written the handles
+are inert, because the board is reloading underneath them.
+
 **A completed task opens, to read what it was.** `done` has never deleted a detail — that is
 `drop`, and only `drop` — so the file is still there and still catalogued; the completed window
 simply never carried the path. It opens with no verbs on it and the detail in place.

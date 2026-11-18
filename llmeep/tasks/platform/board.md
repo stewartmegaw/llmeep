@@ -22,6 +22,7 @@ PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
 
 ## recent
 
+2026-11-18  PLT-9n6e A drag between columns is the verb for that move  @stewart
 2026-11-18  PLT-etpn A completed task opens, to read what it was  @stewart
 2026-11-18  PLT-mfbx The board is columns side by side, with Done, on a screen with room for them  @stewart
 2026-10-24  PLT-sune The app says which llmeep it is, so a skew can be seen rather than guessed  @stewart
@@ -36,4 +37,3 @@ PLT-ksxq The app must not commit the tooling that runs it  filed:2026-09-23
 2026-10-11  PLT-p6zz The sheet shows the detail itself, at a size you can read it  @stewart
 2026-10-11  PLT-tzz2 A detail's words can be written, not just its stub  @stewart
 2026-10-08  PLT-dz2x Marking a task done asks in the chat whether to clear its note  @stewart
-2026-10-08  PLT-s7kh Completing a task says which note it resolved  @stewart
